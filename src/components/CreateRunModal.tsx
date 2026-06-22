@@ -19,16 +19,20 @@ export function CreateRunModal({ open, activeRepoPath, onClose, onCreated, onErr
   const [runName, setRunName] = useState("");
   const [agent, setAgent] = useState<AgentKind>("codex");
   const [busy, setBusy] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   if (!open) return null;
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!repoPath.trim() || !baseRef.trim() || !tag.trim() || !runName.trim()) {
-      onError("Repo, base, tag, and run name are required.");
+      const message = "Repo, base, tag, and run name are required.";
+      setSubmitError(message);
+      onError(message);
       return;
     }
     setBusy(true);
+    setSubmitError(null);
     try {
       const result = await createRun({
         repoPath: repoPath.trim(),
@@ -39,7 +43,9 @@ export function CreateRunModal({ open, activeRepoPath, onClose, onCreated, onErr
       });
       if (result.run) onCreated(result.run);
     } catch (err) {
-      onError(errorMessage(err));
+      const message = errorMessage(err);
+      setSubmitError(message);
+      onError(message);
     } finally {
       setBusy(false);
     }
@@ -103,6 +109,17 @@ export function CreateRunModal({ open, activeRepoPath, onClose, onCreated, onErr
             </select>
           </div>
         </label>
+        {submitError && (
+          <label>
+            Error details
+            <textarea
+              className="error-details-box"
+              aria-label="Create run error details"
+              readOnly
+              value={submitError}
+            />
+          </label>
+        )}
         <div className="modal-actions">
           <button type="button" className="button secondary" onClick={onClose}>
             Cancel

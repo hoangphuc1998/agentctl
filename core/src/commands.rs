@@ -226,6 +226,17 @@ impl TmuxCommandBuilder {
         ]
     }
 
+    pub fn list_windows(&self) -> Vec<String> {
+        vec![
+            "tmux".to_string(),
+            "list-windows".to_string(),
+            "-t".to_string(),
+            self.session.clone(),
+            "-F".to_string(),
+            "#{window_name}".to_string(),
+        ]
+    }
+
     pub fn new_dashboard_session(&self, command: &str) -> Vec<String> {
         vec![
             "tmux".to_string(),

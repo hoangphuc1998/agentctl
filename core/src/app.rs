@@ -14,6 +14,7 @@ use crate::{
     },
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
     registry::{RegistryResult, SqliteRegistry},
+    tmux::window_list_contains,
     worktree::{default_branch_name, default_sibling_worktree_path, sanitize_slug},
 };
 
@@ -191,6 +192,7 @@ where
         let new_window =
             tmux.new_window(&window, path_str(&run.worktree_path), &shell_join(&command));
         self.runner.run(&new_window)?;
+        ensure_tmux_window(&mut self.runner, &tmux, &window)?;
 
         let now = now_ts();
         run.lifecycle = Lifecycle::Active;
@@ -358,6 +360,19 @@ where
         );
         return Err(err.into());
     }
+    if let Err(err) = ensure_tmux_window(runner, &tmux, &tmux_window) {
+        rollback_created_resources(
+            runner,
+            &tmux,
+            &git,
+            &request.repo_path,
+            &worktree_path,
+            &branch,
+            &tmux_window,
+            true,
+        );
+        return Err(err.into());
+    }
 
     let run = RunRecord {
         id,
@@ -395,6 +410,21 @@ where
     }
     registry.set_active_repo_path(&run.repo_path)?;
     Ok(run)
+}
+
+fn ensure_tmux_window<R>(runner: &mut R, tmux: &TmuxCommandBuilder, window: &str) -> io::Result<()>
+where
+    R: CommandRunner,
+{
+    let windows = runner.output(&tmux.list_windows())?;
+    if window_list_contains(&windows, window) {
+        Ok(())
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            format!("tmux window was not created or exited immediately: {window}"),
+        ))
+    }
 }
 
 fn ensure_tmux_session<R>(
@@ -570,4 +600,122 @@ fn command_error(command: &[String], output: &Output) -> io::Error {
         message.push_str(&stdout);
     }
     io::Error::other(message)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io;
+
+    use crate::{agent::AgentKind, registry::SqliteRegistry};
+
+    use super::{create_run_with_registry, AppConfig, CommandRunner, NewRunRequest};
+
+    #[derive(Default)]
+    struct RecordingRunner {
+        commands: Vec<Vec<String>>,
+        include_created_window_in_list: bool,
+        created_window: Option<String>,
+    }
+
+    impl CommandRunner for RecordingRunner {
+        fn run(&mut self, command: &[String]) -> io::Result<()> {
+            if command_contains(command, "new-window") {
+                self.created_window = window_name_arg(command);
+            }
+            self.commands.push(command.to_vec());
+            Ok(())
+        }
+
+        fn succeeds(&mut self, command: &[String]) -> io::Result<bool> {
+            self.commands.push(command.to_vec());
+            Ok(false)
+        }
+
+        fn output(&mut self, command: &[String]) -> io::Result<String> {
+            self.commands.push(command.to_vec());
+            if command_contains(command, "list-windows") && self.include_created_window_in_list {
+                if let Some(window) = &self.created_window {
+                    return Ok(format!("dashboard\n{window}\n"));
+                }
+            }
+            Ok("dashboard\n".to_string())
+        }
+    }
+
+    #[test]
+    fn create_run_rolls_back_when_tmux_window_is_missing_after_launch() {
+        let registry = SqliteRegistry::in_memory().expect("registry");
+        let mut runner = RecordingRunner::default();
+        let repo_root = tempfile::tempdir().expect("repo root");
+        let repo_path = repo_root.path().join("repo");
+
+        let result = create_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            NewRunRequest {
+                repo_path,
+                base_ref: "HEAD".to_string(),
+                tag: "default".to_string(),
+                run_name: "quick-exit".to_string(),
+                agent: AgentKind::Codex,
+            },
+        );
+
+        assert!(result.is_err());
+        assert_eq!(registry.list_active_runs().expect("active runs"), vec![]);
+        assert!(runner
+            .commands
+            .iter()
+            .any(|command| command_contains(command, "kill-window")));
+        assert!(runner
+            .commands
+            .iter()
+            .any(|command| command_contains(command, "remove")));
+        assert!(runner
+            .commands
+            .iter()
+            .any(|command| command_contains(command, "branch") && command_contains(command, "-D")));
+    }
+
+    #[test]
+    fn create_run_persists_when_tmux_window_exists_after_launch() {
+        let registry = SqliteRegistry::in_memory().expect("registry");
+        let mut runner = RecordingRunner {
+            include_created_window_in_list: true,
+            ..RecordingRunner::default()
+        };
+        let repo_root = tempfile::tempdir().expect("repo root");
+        let repo_path = repo_root.path().join("repo");
+
+        let run = create_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            NewRunRequest {
+                repo_path,
+                base_ref: "HEAD".to_string(),
+                tag: "default".to_string(),
+                run_name: "active-run".to_string(),
+                agent: AgentKind::Codex,
+            },
+        )
+        .expect("created run");
+
+        assert_eq!(registry.list_active_runs().expect("active runs"), vec![run]);
+        assert!(runner
+            .commands
+            .iter()
+            .any(|command| command_contains(command, "list-windows")));
+    }
+
+    fn command_contains(command: &[String], needle: &str) -> bool {
+        command.iter().any(|part| part == needle)
+    }
+
+    fn window_name_arg(command: &[String]) -> Option<String> {
+        command
+            .windows(2)
+            .find_map(|parts| (parts[0] == "-n").then(|| parts[1].clone()))
+    }
 }

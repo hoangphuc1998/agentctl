@@ -63,14 +63,14 @@ p {
 
 h1 {
   color: var(--text);
-  font-size: 25px;
+  font-size: 23px;
   line-height: 1.1;
   letter-spacing: 0;
 }
 
 h2 {
   color: var(--text);
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.25;
   letter-spacing: 0;
 }
@@ -81,8 +81,8 @@ h2 {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  gap: 10px;
-  padding: 12px 14px;
+  gap: 8px;
+  padding: 10px 12px;
 }
 
 .top-bar,
@@ -100,12 +100,12 @@ h2 {
 }
 
 .top-bar {
-  min-height: 76px;
+  min-height: 68px;
   display: grid;
-  grid-template-columns: minmax(220px, 1fr) minmax(320px, auto) auto;
+  grid-template-columns: minmax(200px, 1fr) minmax(280px, auto) auto;
   align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 10px;
+  padding: 10px 14px;
   background:
     linear-gradient(90deg, rgba(18, 31, 44, 0.9), rgba(16, 22, 30, 0.98)),
     var(--surface-1);
@@ -116,7 +116,7 @@ h2 {
 }
 
 .eyebrow {
-  margin: 0 0 5px;
+  margin: 0 0 4px;
   color: #9cc8f5;
   font-size: 11px;
   font-weight: 700;
@@ -132,7 +132,7 @@ h2 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 7px;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -145,7 +145,7 @@ h2 {
 .modal-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
 }
 
 .button,
@@ -162,18 +162,18 @@ h2 {
 }
 
 .button {
-  height: 36px;
+  height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0 12px;
+  gap: 7px;
+  padding: 0 11px;
   white-space: nowrap;
 }
 
 .icon-button {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   display: inline-grid;
   place-items: center;
   flex: 0 0 auto;
@@ -218,16 +218,16 @@ h2 {
 
 .chip {
   max-width: 100%;
-  min-height: 24px;
+  min-height: 22px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 8px;
+  gap: 5px;
+  padding: 3px 7px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: rgba(27, 38, 51, 0.72);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 650;
   line-height: 1;
   white-space: nowrap;
@@ -273,16 +273,16 @@ h2 {
 }
 
 .status-badge {
-  min-height: 24px;
+  min-height: 22px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 7px;
+  gap: 5px;
+  padding: 3px 7px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: rgba(27, 38, 51, 0.72);
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
@@ -310,8 +310,8 @@ h2 {
 .notice {
   display: flex;
   align-items: center;
-  min-height: 38px;
-  padding: 9px 12px;
+  min-height: 32px;
+  padding: 7px 10px;
   color: #b8f7cf;
   background: rgba(16, 41, 31, 0.84);
   border-color: rgba(94, 225, 140, 0.28);
@@ -327,13 +327,13 @@ h2 {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: 362px minmax(0, 1fr);
+  grid-template-columns: 320px minmax(0, 1fr);
   overflow: hidden;
 }
 
 .left-panel {
   min-width: 0;
-  padding: 12px;
+  padding: 10px;
   border-right: 1px solid var(--line);
   background: rgba(11, 16, 22, 0.56);
 }
@@ -343,8 +343,8 @@ h2 {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  min-height: 32px;
-  margin-bottom: 12px;
+  min-height: 28px;
+  margin-bottom: 9px;
 }
 
 .panel-title-label,
@@ -354,17 +354,17 @@ h2 {
   gap: 8px;
   min-width: 0;
   color: var(--muted);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
 }
 
 .repo-run-tree {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .repo-row {
-  height: 30px;
+  height: 28px;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
@@ -389,24 +389,24 @@ h2 {
 
 .run-children {
   display: grid;
-  gap: 8px;
-  margin-left: 14px;
+  gap: 7px;
+  margin-left: 12px;
 }
 
 .run-row {
   width: 100%;
-  min-height: 74px;
+  min-height: 62px;
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 9px;
+  gap: 7px;
   border: 1px solid #202b39;
   border-left: 3px solid #3b4a5d;
   background: rgba(21, 29, 40, 0.74);
   color: var(--text);
   text-align: left;
   border-radius: 7px;
-  padding: 9px;
+  padding: 7px;
 }
 
 .run-row:hover {
@@ -429,14 +429,14 @@ h2 {
 .run-row-main {
   min-width: 0;
   display: grid;
-  gap: 7px;
+  gap: 6px;
 }
 
 .run-row-main strong {
   min-width: 0;
   overflow: hidden;
   color: #f2f7fc;
-  font-size: 14px;
+  font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -446,11 +446,11 @@ h2 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 5px;
 }
 
 .run-row-meta .chip {
-  max-width: 230px;
+  max-width: 190px;
 }
 
 .run-surface {
@@ -458,17 +458,17 @@ h2 {
   min-height: 0;
   display: grid;
   grid-template-rows: auto 1fr;
-  gap: 12px;
-  padding: 12px;
+  gap: 9px;
+  padding: 10px;
 }
 
 .run-header {
-  min-height: 92px;
+  min-height: 72px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 14px;
-  padding: 14px;
+  gap: 10px;
+  padding: 10px 12px;
   background:
     linear-gradient(90deg, rgba(21, 29, 40, 0.94), rgba(16, 22, 30, 0.94)),
     var(--surface-1);
@@ -477,7 +477,7 @@ h2 {
 .run-title-block {
   min-width: 0;
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .run-title-line {
@@ -485,7 +485,7 @@ h2 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 9px;
+  gap: 8px;
 }
 
 .run-title-line h2 {
@@ -500,7 +500,7 @@ h2 {
 }
 
 .run-chip-row .chip {
-  max-width: 420px;
+  max-width: 360px;
 }
 
 .terminal-shell {
@@ -512,15 +512,15 @@ h2 {
 }
 
 .terminal-toolbar {
-  min-height: 42px;
+  min-height: 34px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
+  gap: 9px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  padding: 7px 10px 7px 12px;
-  font-size: 12px;
+  padding: 5px 8px 5px 10px;
+  font-size: 11px;
 }
 
 .terminal-title {
@@ -532,14 +532,14 @@ h2 {
 }
 
 .terminal-status .chip {
-  max-width: 360px;
+  max-width: 300px;
 }
 
 .terminal-host {
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  padding: 8px;
+  padding: 6px;
 }
 
 .terminal-host .xterm {
@@ -559,14 +559,14 @@ h2 {
 .modal,
 .palette,
 .confirm-dialog {
-  width: min(720px, calc(100vw - 48px));
-  padding: 16px;
+  width: min(680px, calc(100vw - 48px));
+  padding: 14px;
   box-shadow: var(--shadow);
 }
 
 .modal {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .modal-header {
@@ -577,15 +577,40 @@ h2 {
 }
 
 .modal-header-chips {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
-label {
+label,
+fieldset {
   display: grid;
   gap: 6px;
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
+}
+
+fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  padding: 0;
+  margin: 0 0 6px;
+}
+
+.field-full {
+  min-width: 0;
+}
+
+.modal-field-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(176px, 0.82fr);
+  gap: 10px;
+  align-items: end;
 }
 
 input,
@@ -601,14 +626,14 @@ textarea {
 
 input,
 select {
-  height: 38px;
+  height: 36px;
   padding: 0 10px;
 }
 
 textarea {
-  min-height: 78px;
-  max-height: 150px;
-  padding: 9px 10px;
+  min-height: 72px;
+  max-height: 136px;
+  padding: 8px 10px;
   resize: vertical;
 }
 
@@ -624,7 +649,7 @@ textarea:focus,
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   background: #080c11;
@@ -637,6 +662,48 @@ textarea:focus,
   border: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.agent-segment-field {
+  align-self: stretch;
+}
+
+.agent-segmented-control {
+  min-height: 36px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: #080c11;
+  padding: 3px;
+}
+
+.agent-segment {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 750;
+  cursor: pointer;
+}
+
+.agent-segment:hover {
+  color: var(--text);
+  background: rgba(27, 38, 51, 0.82);
+}
+
+.agent-segment.active {
+  border-color: rgba(115, 183, 255, 0.44);
+  background: var(--info-bg);
+  color: #d9ecff;
 }
 
 .error-details-box {

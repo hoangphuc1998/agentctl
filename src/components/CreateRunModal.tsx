@@ -1,5 +1,5 @@
 import { Bot, Folder, GitBranch, Play, Tag, Type, X } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createRun } from "../api";
 import { Chip } from "./Chip";
 import type { AgentKind, RunView } from "../types";
@@ -20,6 +20,11 @@ export function CreateRunModal({ open, activeRepoPath, onClose, onCreated, onErr
   const [agent, setAgent] = useState<AgentKind>("codex");
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open || !activeRepoPath) return;
+    setRepoPath((current) => (current.trim() ? current : activeRepoPath));
+  }, [activeRepoPath, open]);
 
   if (!open) return null;
 
@@ -71,46 +76,56 @@ export function CreateRunModal({ open, activeRepoPath, onClose, onCreated, onErr
           </button>
         </div>
 
-        <label>
+        <label className="field-full">
           Repo path
           <div className="input-with-icon">
             <Folder size={16} />
             <input value={repoPath} onChange={(event) => setRepoPath(event.target.value)} />
           </div>
         </label>
-        <label>
-          Base ref
-          <div className="input-with-icon">
-            <GitBranch size={16} />
-            <input value={baseRef} onChange={(event) => setBaseRef(event.target.value)} />
-          </div>
-        </label>
-        <label>
-          Tag
-          <div className="input-with-icon">
-            <Tag size={16} />
-            <input value={tag} onChange={(event) => setTag(event.target.value)} />
-          </div>
-        </label>
-        <label>
+        <label className="field-full">
           Run name
           <div className="input-with-icon">
             <Type size={16} />
             <input value={runName} onChange={(event) => setRunName(event.target.value)} autoFocus />
           </div>
         </label>
-        <label>
-          Agent
-          <div className="input-with-icon">
-            <Bot size={16} />
-            <select value={agent} onChange={(event) => setAgent(event.target.value as AgentKind)}>
-              <option value="codex">codex</option>
-              <option value="claude">claude</option>
-            </select>
-          </div>
-        </label>
-        {submitError && (
+
+        <div className="modal-field-grid">
           <label>
+            Base ref
+            <div className="input-with-icon">
+              <GitBranch size={16} />
+              <input value={baseRef} onChange={(event) => setBaseRef(event.target.value)} />
+            </div>
+          </label>
+          <label>
+            Tag
+            <div className="input-with-icon">
+              <Tag size={16} />
+              <input value={tag} onChange={(event) => setTag(event.target.value)} />
+            </div>
+          </label>
+          <fieldset className="agent-segment-field">
+            <legend>Agent</legend>
+            <div className="agent-segmented-control" role="group" aria-label="Agent">
+              {agentOptions.map((option) => (
+                <button
+                  type="button"
+                  className={agent === option ? "agent-segment active" : "agent-segment"}
+                  aria-pressed={agent === option}
+                  onClick={() => setAgent(option)}
+                  key={option}
+                >
+                  <Bot size={15} />
+                  <span>{option}</span>
+                </button>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+        {submitError && (
+          <label className="field-full">
             Error details
             <textarea
               className="error-details-box"
@@ -133,6 +148,8 @@ export function CreateRunModal({ open, activeRepoPath, onClose, onCreated, onErr
     </div>
   );
 }
+
+const agentOptions: AgentKind[] = ["codex", "claude"];
 
 function errorMessage(err: unknown): string {
   if (typeof err === "string") return err;

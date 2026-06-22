@@ -43,11 +43,11 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
     const terminal = new Terminal({
       cursorBlink: true,
       fontFamily:
-        '"JetBrains Mono", "Cascadia Code", "Fira Code", "Noto Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+        '"Ubuntu Mono", "MesloLGS NF", "Noto Sans Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
       fontSize: 15,
       lineHeight: 1.22,
       letterSpacing: 0,
-      fontWeight: 500,
+      fontWeight: 400,
       fontWeightBold: 700,
       minimumContrastRatio: 4.5,
       theme: {

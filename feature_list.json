@@ -63,6 +63,14 @@
       "dependencies": ["feat-007"],
       "status": "completed",
       "evidence": "2026-06-22 21:00 +07: Added xterm readability options and terminal font-smoothing CSS with regression coverage. Red targeted tests failed before implementation; npm test, npm run build, and ./init.sh exited 0 after the fix."
+    },
+    {
+      "id": "feat-009",
+      "name": "Native Embedded Terminal Font Parity",
+      "description": "Make the embedded tmux terminal use the same native Linux terminal font stack as the original desktop terminal.",
+      "dependencies": ["feat-008"],
+      "status": "completed",
+      "evidence": "2026-06-22 21:28 +07: Confirmed the desktop terminal uses the system monospace stack while the embedded xterm preferred Noto/forced medium weight. Added a red regression test for the native terminal font stack, then changed xterm to prefer Ubuntu Mono with MesloLGS NF glyph fallback and regular weight. npm test, npm run build, and ./init.sh exited 0."
     }
   ]
 }

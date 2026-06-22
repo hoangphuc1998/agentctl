@@ -2,51 +2,55 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-22 21:12 +07
-**Session ID:** merge-master-into-fix-pixelated-terminal
-**Active Feature:** feat-008 - Readable Embedded Terminal Text
+**Last Updated:** 2026-06-22 21:28 +07
+**Session ID:** fix-terminal-font-parity
+**Active Feature:** feat-009 - Native Embedded Terminal Font Parity
 
 ## Status
 
 ### What's Done
 
-- [x] Merged local `master` into `fix-pixelated-terminal`.
-- [x] Preserved `master` dashboard UI polish changes: compact chrome, errors-only notices, compact New Run modal, and segmented agent controls.
-- [x] Preserved terminal readability changes: clearer xterm text profile, terminal-scoped font smoothing, and canvas image-rendering safeguard.
-- [x] Resolved feature tracker collision by keeping dashboard polish as `feat-007` and renumbering terminal readability to `feat-008`.
-- [x] Kept both CSS regression tests in `src/styles.test.ts`.
+- [x] Reproduced the font regression with a red `TerminalPane` test.
+- [x] Confirmed the embedded xterm options preferred a non-native stack: JetBrains/Cascadia/Fira/Noto before Ubuntu Mono, plus forced medium weight.
+- [x] Confirmed local terminal settings use the system monospace profile (`Ubuntu Mono`) and the machine has `MesloLGS NF` installed for prompt glyph fallback.
+- [x] Changed the embedded terminal font stack to prefer `Ubuntu Mono`, include `MesloLGS NF`, and use regular weight.
+- [x] Updated `feature_list.json` with completed `feat-009` evidence.
 
 ### What's In Progress
 
-- [x] No active implementation work remains for this merge.
+- [x] No active implementation work remains.
 
 ### What's Next
 
-1. Commit the verified merge.
+1. Launch the rebuilt app and visually compare the embedded terminal against the desktop terminal.
 2. Next session can run `./init.sh` immediately from this worktree.
 
 ## Blockers / Risks
 
-- [x] No blockers remain.
-- [ ] Visual inspection was limited to code/CSS review and automated verification in this session; the full Tauri shell was not launched.
+- [x] No code or verification blockers remain.
+- [ ] Visual inspection in the full Tauri shell was not launched from this session; verification covered the xterm options and full automated startup path.
 
 ## Decisions Made
 
-- **Feature ordering:** `master` already used `feat-007` for compact dashboard UI polish, so the terminal readability feature is now `feat-008` and depends on `feat-007`.
-- **CSS coverage:** `src/styles.test.ts` keeps both the terminal smoothing regression and the compact dashboard/segmented-control regression.
-- **Merge scope:** Source changes from `master` were accepted where they did not conflict with the terminal readability work; no unrelated refactors were added.
+- **Font family:** Prefer `Ubuntu Mono` to match the local desktop terminal's system monospace setting.
+- **Prompt glyph fallback:** Keep `MesloLGS NF` immediately after `Ubuntu Mono` so Powerlevel10k/Nerd Font symbols can render without making every normal character use Meslo.
+- **Weight:** Use regular `400` for normal terminal text instead of forced `500`, which made the embedded pane look heavier than the original terminal.
 
 ## Files Modified This Session
 
-- `feature_list.json` - Resolves the feature ID collision and records both completed features.
-- `progress.md` - Records the merged handoff state.
-- `src/styles.test.ts` - Keeps both branches' CSS assertions.
+- `feature_list.json` - Adds completed `feat-009` with verification evidence.
+- `progress.md` - Records the font parity fix, decisions, verification, and visual-inspection note.
+- `src/components/TerminalPane.tsx` - Updates xterm font family and normal font weight.
+- `src/components/TerminalPane.test.tsx` - Adds regression coverage for the native terminal font stack.
 
 ## Evidence of Completion
 
-- [x] Conflict-sensitive tests: `npm test -- src/App.test.tsx src/components/CreateRunModal.test.tsx src/components/TerminalPane.test.tsx src/styles.test.ts` passed with 4 files and 18 tests.
-- [x] Standard verification: `./init.sh` exited 0 with npm test passing 7 files and 23 tests, npm build passing, cargo tests passing, and doc tests passing.
+- [x] Red test: `npm test -- src/components/TerminalPane.test.tsx` failed before implementation because the xterm options still used the old JetBrains/Cascadia/Fira/Noto stack and `fontWeight: 500`.
+- [x] Targeted test after implementation: `npm test -- src/components/TerminalPane.test.tsx` passed with 1 file and 7 tests.
+- [x] Frontend tests: `npm test` passed with 7 files and 23 tests.
+- [x] Frontend build: `npm run build` exited 0.
+- [x] Standard verification: `./init.sh` exited 0 with npm test, npm build, cargo tests, and doc tests passing.
 
 ## Notes for Next Session
 
-After verification, the branch should include both the compact dashboard polish from `master` and the improved embedded tmux terminal readability from this branch.
+The embedded terminal now uses the same local terminal font priority instead of skipping to Noto Sans Mono. If the visual comparison still differs, the next likely adjustment is font size/cell metrics rather than font family.

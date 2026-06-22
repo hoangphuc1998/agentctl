@@ -43,6 +43,10 @@ pub fn detect_observed_state(snapshot: &PaneSnapshot) -> ObservedState {
         return ObservedState::Running;
     }
 
+    if is_agent_runtime_command(&snapshot.current_command) {
+        return ObservedState::Running;
+    }
+
     if contains_any(
         &text,
         &[
@@ -57,11 +61,7 @@ pub fn detect_observed_state(snapshot: &PaneSnapshot) -> ObservedState {
         return ObservedState::CompletedUnchecked;
     }
 
-    if is_agent_runtime_command(&snapshot.current_command) {
-        ObservedState::Running
-    } else {
-        ObservedState::Unknown
-    }
+    ObservedState::Unknown
 }
 
 pub fn detection_source_for(snapshot: &PaneSnapshot) -> DetectionSource {
@@ -109,6 +109,23 @@ fn is_agent_runtime_command(command: &str) -> bool {
         command.trim(),
         "codex" | "claude" | "node" | "nodejs" | "deno" | "bun"
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn live_agent_runtime_stays_running_when_recent_text_mentions_completion() {
+        let snapshot = PaneSnapshot {
+            pane_active: true,
+            current_command: "codex".to_string(),
+            visible_text: "Implemented the requested fix.\nAll tasks completed.\n".to_string(),
+        };
+
+        assert_eq!(detect_observed_state(&snapshot), ObservedState::Running);
+        assert_eq!(detection_source_for(&snapshot), DetectionSource::Tmux);
+    }
 }
 
 pub struct Tmux {

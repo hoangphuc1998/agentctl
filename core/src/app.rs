@@ -10,8 +10,8 @@ use uuid::Uuid;
 use crate::{
     agent::{AgentKind, LaunchPlan},
     commands::{
-        shell_join, AgentCommandBuilder, EditorCommandBuilder, GitCommandBuilder,
-        TerminalColorEnvironment, TmuxCommandBuilder,
+        shell_command_with_failure_diagnostics, shell_join, AgentCommandBuilder,
+        EditorCommandBuilder, GitCommandBuilder, TerminalColorEnvironment, TmuxCommandBuilder,
     },
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
     registry::{RegistryResult, SqliteRegistry},
@@ -193,8 +193,11 @@ where
                 run.id,
             )
         });
-        let new_window =
-            tmux.new_window(&window, path_str(&run.worktree_path), &shell_join(&command));
+        let new_window = tmux.new_window(
+            &window,
+            path_str(&run.worktree_path),
+            &shell_command_with_failure_diagnostics(&command),
+        );
         self.runner.run(&new_window)?;
         ensure_tmux_window(&mut self.runner, &tmux, &window)?;
 
@@ -349,7 +352,7 @@ where
     let new_window = tmux.new_window(
         &tmux_window,
         path_str(&worktree_path),
-        &shell_join(&agent_command),
+        &shell_command_with_failure_diagnostics(&agent_command),
     );
     if let Err(err) = runner.run(&new_window) {
         rollback_created_resources(
@@ -757,6 +760,43 @@ mod tests {
             .commands
             .iter()
             .any(|command| command_contains(command, "list-windows")));
+    }
+
+    #[test]
+    fn create_run_wraps_agent_launch_so_failures_keep_the_pane_open() {
+        let registry = SqliteRegistry::in_memory().expect("registry");
+        let mut runner = RecordingRunner {
+            created_window_visible_after_list_calls: Some(1),
+            ..RecordingRunner::default()
+        };
+        let repo_root = tempfile::tempdir().expect("repo root");
+        let repo_path = repo_root.path().join("repo");
+
+        create_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            NewRunRequest {
+                repo_path,
+                base_ref: "HEAD".to_string(),
+                tag: "default".to_string(),
+                run_name: "diagnostic-pane".to_string(),
+                agent: AgentKind::Codex,
+            },
+        )
+        .expect("created run");
+
+        let new_window = runner
+            .commands
+            .iter()
+            .find(|command| command_contains(command, "new-window"))
+            .expect("tmux new-window command");
+        let shell_command = new_window.last().expect("tmux shell command");
+
+        assert!(shell_command.starts_with("codex; agent_status=$?;"));
+        assert!(shell_command.contains("Agent command exited with status %s."));
+        assert!(shell_command.contains("\"$agent_status\""));
+        assert!(shell_command.contains("exec \"${SHELL:-/bin/sh}\""));
     }
 
     fn command_contains(command: &[String], needle: &str) -> bool {

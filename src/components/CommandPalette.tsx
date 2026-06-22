@@ -1,5 +1,7 @@
-import { Search, X } from "lucide-react";
+import { AlertTriangle, Bot, Plus, RefreshCw, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
+import { Chip } from "./Chip";
+import { StatusBadge } from "./StatusBadge";
 import type { DashboardState } from "../types";
 
 interface CommandPaletteProps {
@@ -63,9 +65,22 @@ export function CommandPalette({
         </div>
         <div className="palette-results">
           {items.map((item) => (
-            <button key={item.key} onClick={() => activate(item.key)}>
-              <strong>{item.title}</strong>
-              <span>{item.subtitle}</span>
+            <button className="palette-item" key={item.key} onClick={() => activate(item.key)}>
+              <span className="palette-item-icon">{item.run ? <StatusBadge state={item.run.observedState} compact /> : actionIcon(item.key)}</span>
+              <span className="palette-item-copy">
+                <strong>{item.title}</strong>
+                <span>{item.subtitle}</span>
+              </span>
+              {item.run ? (
+                <span className="palette-item-chips">
+                  <Chip tone="info">#{item.run.tag}</Chip>
+                  <Chip tone="neutral" icon={<Bot size={13} />}>
+                    {item.run.agent}
+                  </Chip>
+                </span>
+              ) : (
+                <Chip tone="neutral">action</Chip>
+              )}
             </button>
           ))}
         </div>
@@ -74,3 +89,8 @@ export function CommandPalette({
   );
 }
 
+function actionIcon(key: string) {
+  if (key === "new") return <Plus size={16} />;
+  if (key === "refresh") return <RefreshCw size={16} />;
+  return <AlertTriangle size={16} />;
+}

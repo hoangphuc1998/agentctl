@@ -1,3 +1,6 @@
+import { AlertTriangle } from "lucide-react";
+import { Chip } from "./Chip";
+
 interface ConfirmDialogProps {
   title: string;
   body: string;
@@ -11,7 +14,11 @@ export function ConfirmDialog({ title, body, confirmLabel, destructive, onCancel
   return (
     <div className="modal-backdrop">
       <div className="confirm-dialog" role="alertdialog" aria-labelledby="confirm-title">
-        <h2 id="confirm-title">{title}</h2>
+        <div className="confirm-title-row">
+          <AlertTriangle size={18} />
+          <h2 id="confirm-title">{title}</h2>
+          <Chip tone={destructive ? "danger" : "info"}>{destructive ? "destructive" : "confirm"}</Chip>
+        </div>
         <p>{body}</p>
         <div className="modal-actions">
           <button className="button secondary" onClick={onCancel}>
@@ -25,4 +32,3 @@ export function ConfirmDialog({ title, body, confirmLabel, destructive, onCancel
     </div>
   );
 }
-

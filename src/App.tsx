@@ -1,7 +1,11 @@
 import {
+  Activity,
   AlertTriangle,
-  CheckCircle2,
+  Bot,
+  Code2,
   Command,
+  FolderGit2,
+  GitBranch,
   GitMerge,
   Monitor,
   Play,
@@ -9,9 +13,12 @@ import {
   RefreshCw,
   Search,
   Square,
-  Trash2
+  Tag,
+  Terminal,
+  Trash2,
+  Wrench
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   cleanupStaleRuns,
   dashboardState,
@@ -20,13 +27,14 @@ import {
   openInVsCode,
   stopRun
 } from "./api";
+import { Chip, type ChipTone } from "./components/Chip";
 import { CommandPalette } from "./components/CommandPalette";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { CreateRunModal } from "./components/CreateRunModal";
 import { RepoRunTree } from "./components/RepoRunTree";
 import { StatusBadge } from "./components/StatusBadge";
 import { TerminalPane } from "./components/TerminalPane";
-import type { DashboardState, RunView } from "./types";
+import type { DashboardState, HostToolStatus, RunView } from "./types";
 
 type PendingAction =
   | { kind: "stop"; run: RunView }
@@ -52,6 +60,7 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const selectedRunIdRef = useRef<string | null>(null);
 
   const selectedRun = useMemo(
     () =>
@@ -61,13 +70,20 @@ export function App() {
     [dashboard.repos, selectedRunId]
   );
 
+  const selectRun = useCallback((runId: string | null) => {
+    selectedRunIdRef.current = runId;
+    setSelectedRunId(runId);
+  }, []);
+
   const loadDashboard = useCallback(
-    async (nextSelectedRunId = selectedRunId) => {
+    async (nextSelectedRunId?: string | null) => {
       setRefreshing(true);
       try {
-        const next = await dashboardState(nextSelectedRunId);
+        const requestedRunId =
+          nextSelectedRunId === undefined ? selectedRunIdRef.current : nextSelectedRunId;
+        const next = await dashboardState(requestedRunId);
         setDashboard(next);
-        setSelectedRunId(next.selectedRunId);
+        selectRun(next.selectedRunId);
         setError(null);
       } catch (err) {
         setError(errorMessage(err));
@@ -75,14 +91,14 @@ export function App() {
         setRefreshing(false);
       }
     },
-    [selectedRunId]
+    [selectRun]
   );
 
   useEffect(() => {
     void loadDashboard(null);
-    const interval = window.setInterval(() => void loadDashboard(selectedRunId), 3000);
+    const interval = window.setInterval(() => void loadDashboard(), 3000);
     return () => window.clearInterval(interval);
-  }, [loadDashboard, selectedRunId]);
+  }, [loadDashboard]);
 
   async function runAction(action: PendingAction) {
     try {
@@ -100,7 +116,7 @@ export function App() {
         setNotice(result.message);
       }
       setPendingAction(null);
-      await loadDashboard(selectedRunId);
+      await loadDashboard();
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -139,12 +155,27 @@ export function App() {
   return (
     <main className="app-shell">
       <header className="top-bar">
-        <div>
+        <div className="brand-block">
           <p className="eyebrow">Agent Manager</p>
           <h1>Run control</h1>
         </div>
+
+        <div className="top-meta" aria-label="System status">
+          <Chip tone="success" icon={<Activity size={14} />}>
+            {dashboard.activeCount} active
+          </Chip>
+          <Chip tone={dashboard.staleCount > 0 ? "warning" : "neutral"} icon={<AlertTriangle size={14} />}>
+            {dashboard.staleCount} stale
+          </Chip>
+          {dashboard.hostTools.map((tool) => (
+            <Chip tone={hostToolTone(tool)} icon={hostToolIcon(tool.name)} title={tool.detail || tool.name} key={tool.name}>
+              {tool.name}
+            </Chip>
+          ))}
+        </div>
+
         <div className="top-actions">
-          <button className="icon-button" onClick={() => void loadDashboard(selectedRunId)} title="Refresh">
+          <button className="icon-button" onClick={() => void loadDashboard()} title="Refresh">
             <RefreshCw size={18} className={refreshing ? "spin" : ""} />
           </button>
           <button className="button secondary" onClick={() => setPaletteOpen(true)}>
@@ -158,22 +189,6 @@ export function App() {
         </div>
       </header>
 
-      <section className="status-strip" aria-label="System status">
-        <div className="metric">
-          <CheckCircle2 size={18} />
-          <span>{dashboard.activeCount} active</span>
-        </div>
-        <div className="metric">
-          <AlertTriangle size={18} />
-          <span>{dashboard.staleCount} stale</span>
-        </div>
-        {dashboard.hostTools.map((tool) => (
-          <span className={tool.available ? "tool available" : "tool missing"} key={tool.name}>
-            {tool.name}
-          </span>
-        ))}
-      </section>
-
       {(notice || error) && (
         <section className={error ? "notice error" : "notice"}>{error ?? notice}</section>
       )}
@@ -181,22 +196,38 @@ export function App() {
       <section className="workspace">
         <aside className="left-panel">
           <div className="panel-title">
-            <Search size={16} />
-            <span>Workspaces</span>
+            <span className="panel-title-label">
+              <Search size={16} />
+              <span>Workspaces</span>
+            </span>
+            <Chip tone="neutral">{dashboard.repos.length} repos</Chip>
           </div>
-          <RepoRunTree repos={dashboard.repos} selectedRunId={selectedRunId} onSelectRun={setSelectedRunId} />
+          <RepoRunTree repos={dashboard.repos} selectedRunId={selectedRunId} onSelectRun={selectRun} />
         </aside>
 
         <section className="run-surface">
           <div className="run-header">
             {selectedRun ? (
               <>
-                <div>
-                  <StatusBadge state={selectedRun.observedState} />
-                  <h2>{selectedRun.runName}</h2>
-                  <p>
-                    {selectedRun.repoName} / #{selectedRun.tag} / {selectedRun.agent}
-                  </p>
+                <div className="run-title-block">
+                  <div className="run-title-line">
+                    <StatusBadge state={selectedRun.observedState} />
+                    <h2>{selectedRun.runName}</h2>
+                  </div>
+                  <div className="run-chip-row" aria-label="Selected run metadata">
+                    <Chip tone="neutral" icon={<FolderGit2 size={14} />} title={selectedRun.repoPath}>
+                      {selectedRun.repoName}
+                    </Chip>
+                    <Chip tone="info" icon={<Tag size={14} />}>
+                      #{selectedRun.tag}
+                    </Chip>
+                    <Chip tone="neutral" icon={agentIcon(selectedRun.agent)}>
+                      {selectedRun.agent}
+                    </Chip>
+                    <Chip tone="neutral" icon={<GitBranch size={14} />} title={selectedRun.worktreePath}>
+                      {selectedRun.baseRef} -&gt; {selectedRun.branch}
+                    </Chip>
+                  </div>
                 </div>
                 <div className="run-actions">
                   <button className="icon-button" onClick={openCode} title="Open in VS Code">
@@ -226,10 +257,19 @@ export function App() {
                 </div>
               </>
             ) : (
-              <div>
-                <StatusBadge state="unknown" />
-                <h2>No run selected</h2>
-                <p>Create or select a run from the left panel.</p>
+              <div className="run-title-block">
+                <div className="run-title-line">
+                  <StatusBadge state="unknown" />
+                  <h2>No run selected</h2>
+                </div>
+                <div className="run-chip-row">
+                  <Chip tone="neutral" icon={<Terminal size={14} />}>
+                    terminal idle
+                  </Chip>
+                  <Chip tone="info" icon={<Plus size={14} />}>
+                    create or select a run
+                  </Chip>
+                </div>
               </div>
             )}
           </div>
@@ -244,7 +284,7 @@ export function App() {
         onClose={() => setCreateOpen(false)}
         onCreated={(run) => {
           setCreateOpen(false);
-          setSelectedRunId(run.id);
+          selectRun(run.id);
           setNotice(`Created ${run.runName}.`);
           void loadDashboard(run.id);
         }}
@@ -261,11 +301,11 @@ export function App() {
         }}
         onSelectRun={(id) => {
           setPaletteOpen(false);
-          setSelectedRunId(id);
+          selectRun(id);
         }}
         onRefresh={() => {
           setPaletteOpen(false);
-          void loadDashboard(selectedRunId);
+          void loadDashboard();
         }}
         onCleanupStale={() => {
           setPaletteOpen(false);
@@ -302,3 +342,20 @@ function errorMessage(err: unknown): string {
   return "Unexpected error.";
 }
 
+function hostToolTone(tool: HostToolStatus): ChipTone {
+  return tool.available ? "success" : "danger";
+}
+
+function hostToolIcon(toolName: string) {
+  const normalized = toolName.toLowerCase();
+  if (normalized.includes("git")) return <GitBranch size={14} />;
+  if (normalized.includes("tmux")) return <Terminal size={14} />;
+  if (normalized.includes("code")) return <Code2 size={14} />;
+  if (normalized.includes("codex") || normalized.includes("claude")) return <Bot size={14} />;
+  return <Wrench size={14} />;
+}
+
+function agentIcon(agent: string) {
+  if (agent === "codex" || agent === "claude") return <Bot size={14} />;
+  return <Terminal size={14} />;
+}

@@ -1,5 +1,6 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
+import { Terminal as TerminalIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
   closeTerminal,
@@ -9,6 +10,7 @@ import {
   startTerminal,
   terminalInput
 } from "../api";
+import { Chip } from "./Chip";
 import type { RunView } from "../types";
 
 interface TerminalPaneProps {
@@ -125,8 +127,16 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
   return (
     <section className="terminal-shell">
       <div className="terminal-toolbar">
-        <span>Embedded tmux terminal</span>
-        <span>{status}</span>
+        <span className="terminal-title">
+          <TerminalIcon size={15} />
+          <span>Embedded tmux terminal</span>
+        </span>
+        <span className="terminal-status">
+          <Chip tone={selectedRunId ? "success" : "neutral"}>{selectedRunId ? "tmux attached" : "idle"}</Chip>
+          <Chip tone="info" title={status}>
+            {status}
+          </Chip>
+        </span>
       </div>
       <div className="terminal-host" ref={hostRef} />
     </section>

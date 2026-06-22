@@ -1,6 +1,7 @@
-import { Folder, Play, X } from "lucide-react";
+import { Bot, Folder, GitBranch, Play, Tag, Type, X } from "lucide-react";
 import { useState } from "react";
 import { createRun } from "../api";
+import { Chip } from "./Chip";
 import type { AgentKind, RunView } from "../types";
 
 interface CreateRunModalProps {
@@ -51,6 +52,13 @@ export function CreateRunModal({ open, activeRepoPath, onClose, onCreated, onErr
           <div>
             <p className="eyebrow">New Run</p>
             <h2>Create worktree and launch agent</h2>
+            {activeRepoPath && (
+              <div className="modal-header-chips">
+                <Chip tone="neutral" icon={<Folder size={14} />} title={activeRepoPath}>
+                  active repo
+                </Chip>
+              </div>
+            )}
           </div>
           <button type="button" className="icon-button" onClick={onClose} title="Close">
             <X size={18} />
@@ -66,22 +74,34 @@ export function CreateRunModal({ open, activeRepoPath, onClose, onCreated, onErr
         </label>
         <label>
           Base ref
-          <input value={baseRef} onChange={(event) => setBaseRef(event.target.value)} />
+          <div className="input-with-icon">
+            <GitBranch size={16} />
+            <input value={baseRef} onChange={(event) => setBaseRef(event.target.value)} />
+          </div>
         </label>
         <label>
           Tag
-          <input value={tag} onChange={(event) => setTag(event.target.value)} />
+          <div className="input-with-icon">
+            <Tag size={16} />
+            <input value={tag} onChange={(event) => setTag(event.target.value)} />
+          </div>
         </label>
         <label>
           Run name
-          <input value={runName} onChange={(event) => setRunName(event.target.value)} autoFocus />
+          <div className="input-with-icon">
+            <Type size={16} />
+            <input value={runName} onChange={(event) => setRunName(event.target.value)} autoFocus />
+          </div>
         </label>
         <label>
           Agent
-          <select value={agent} onChange={(event) => setAgent(event.target.value as AgentKind)}>
-            <option value="codex">codex</option>
-            <option value="claude">claude</option>
-          </select>
+          <div className="input-with-icon">
+            <Bot size={16} />
+            <select value={agent} onChange={(event) => setAgent(event.target.value as AgentKind)}>
+              <option value="codex">codex</option>
+              <option value="claude">claude</option>
+            </select>
+          </div>
         </label>
         <div className="modal-actions">
           <button type="button" className="button secondary" onClick={onClose}>
@@ -104,4 +124,3 @@ function errorMessage(err: unknown): string {
   }
   return "Create run failed.";
 }
-

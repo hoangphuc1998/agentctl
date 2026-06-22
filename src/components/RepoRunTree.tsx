@@ -1,5 +1,6 @@
-import { ChevronDown } from "lucide-react";
+import { Bot, ChevronDown, GitBranch, Tag } from "lucide-react";
 import type { RepoNode } from "../types";
+import { Chip } from "./Chip";
 import { StatusBadge } from "./StatusBadge";
 
 interface RepoRunTreeProps {
@@ -32,15 +33,23 @@ export function RepoRunTree({ repos, selectedRunId, onSelectRun }: RepoRunTreePr
                 aria-label={`${run.runName} ${run.agent} ${run.observedState}`}
                 onClick={() => onSelectRun(run.id)}
               >
-                <StatusBadge state={run.observedState} compact />
+                <span className="run-row-status">
+                  <StatusBadge state={run.observedState} compact />
+                </span>
                 <span className="run-row-main">
                   <strong>{run.runName}</strong>
-                  <span>
-                    <span className="tag">#{run.tag}</span>
-                    <span>{run.baseRef} -&gt; {run.branch}</span>
+                  <span className="run-row-meta">
+                    <Chip tone="info" icon={<Tag size={13} />}>
+                      #{run.tag}
+                    </Chip>
+                    <Chip tone="neutral" icon={<GitBranch size={13} />}>
+                      {run.baseRef} -&gt; {run.branch}
+                    </Chip>
                   </span>
                 </span>
-                <span className="agent-pill">{run.agent}</span>
+                <Chip tone="neutral" icon={<Bot size={13} />}>
+                  {run.agent}
+                </Chip>
               </button>
             ))}
           </div>
@@ -49,4 +58,3 @@ export function RepoRunTree({ repos, selectedRunId, onSelectRun }: RepoRunTreePr
     </div>
   );
 }
-

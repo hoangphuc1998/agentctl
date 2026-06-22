@@ -1,3 +1,4 @@
+import { Activity, AlertTriangle, CheckCircle2, CircleHelp, Eye } from "lucide-react";
 import type { ObservedState } from "../types";
 
 interface StatusBadgeProps {
@@ -13,20 +14,21 @@ const labels: Record<ObservedState, string> = {
   unknown: "Unknown"
 };
 
-const marks: Record<ObservedState, string> = {
-  running: "●",
-  "needs-user": "◐",
-  "completed-unchecked": "✓",
-  "completed-seen": "✓",
-  unknown: "?"
+const icons: Record<ObservedState, typeof Activity> = {
+  running: Activity,
+  "needs-user": AlertTriangle,
+  "completed-unchecked": CheckCircle2,
+  "completed-seen": Eye,
+  unknown: CircleHelp
 };
 
 export function StatusBadge({ state, compact }: StatusBadgeProps) {
+  const Icon = icons[state];
+
   return (
-    <span className={`status-badge ${state}`} title={labels[state]}>
-      <span aria-hidden="true">{marks[state]}</span>
+    <span className={`status-badge ${state}`} aria-label={labels[state]} title={labels[state]}>
+      <Icon size={14} strokeWidth={2.3} aria-hidden="true" />
       {!compact && <span>{labels[state]}</span>}
     </span>
   );
 }
-

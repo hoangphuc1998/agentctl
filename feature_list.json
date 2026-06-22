@@ -95,6 +95,14 @@
       "dependencies": ["feat-011"],
       "status": "completed",
       "evidence": "2026-06-22 22:47 +07: Used Image Gen to explore a minimalist terminal/worktree icon concept, replaced scripts/generate-icons.mjs with a deterministic renderer, generated src-tauri/icons PNGs at 32, 128, 256, and 512px, visually checked 32px and 128px outputs, and ran node --check, npm run icons:generate, and ./init.sh. ./init.sh exited 0 with cargo tests passing and npm checks skipped because node_modules is absent."
+    },
+    {
+      "id": "feat-013",
+      "name": "Completed Run Status Detection",
+      "description": "Restore completed-unchecked classification and completed attention events for live Codex/Claude panes whose recent output is final completion text.",
+      "dependencies": ["feat-010", "feat-009"],
+      "status": "completed",
+      "evidence": "2026-06-22 23:00 +07: Added a red core regression test showing a live codex pane with final completion text was classified as running, then restored classifier priority so active work markers stay running while final completion text becomes completed-unchecked. cargo fmt --check, cargo test -p agentctl-core tmux::tests::, cargo test -p agent-manager-desktop dashboard_, npm install, and ./init.sh exited 0; ./init.sh ran npm test, npm run build, and cargo test."
     }
   ]
 }

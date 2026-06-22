@@ -2,60 +2,55 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-22 22:47 +07
-**Session ID:** app-icon-replacement
-**Active Feature:** feat-012 - Minimal Tauri App Icon
+**Last Updated:** 2026-06-22 23:00 +07
+**Session ID:** completed-run-status-detection
+**Active Feature:** feat-013 - Completed Run Status Detection
 
 ## Status
 
 ### What's Done
 
-- [x] Reviewed the app purpose from `README.md`, current UI code, Tauri config, and feature tracker.
-- [x] Used Image Gen to explore a minimalist Agent Manager icon direction: dark terminal surface, git/worktree branch cue, and one green prompt/status accent.
-- [x] Replaced the placeholder PNG generator with a deterministic icon renderer in `scripts/generate-icons.mjs`.
-- [x] Generated Tauri icon assets in `src-tauri/icons`: `32x32.png`, `128x128.png`, `128x128@2x.png`, and `icon.png`.
-- [x] Stopped ignoring `src-tauri/icons` so the replacement icon assets can be committed with the app.
-- [x] Visually checked `src-tauri/icons/icon.png`, `src-tauri/icons/128x128.png`, and `src-tauri/icons/32x32.png`.
+- [x] Completed the startup workflow: confirmed the worktree path, read `AGENTS.md`, `README.md`, the attention-notification design/plan docs, `feature_list.json`, `progress.md`, and recent commits.
+- [x] Reproduced the status regression with a red core test: a live `codex` pane with final completion text was classified as `running` instead of `completed-unchecked`.
+- [x] Identified the root cause in `core/src/tmux.rs`: the runtime-command fallback ran before completion phrase detection, making completed final output unreachable for long-lived Codex/Claude panes.
+- [x] Restored classifier priority so explicit active-work markers still produce `running`, while final completion text produces `completed-unchecked` and heuristic detection.
+- [x] Confirmed the backend dashboard attention tests still pass, preserving completed notification event behavior once the status transition is emitted.
 
 ### What's In Progress
 
-- [x] App icon replacement is complete and verified.
+- [x] Completed run status detection is fixed and verified.
 
 ### What's Next
 
-1. Commit the icon replacement.
+1. Commit the completed run status detection fix.
 2. Next session can run `./init.sh` immediately from this worktree.
 
 ## Blockers / Risks
 
-- [x] No app icon replacement blockers remain.
-- [ ] `./init.sh` exited 0, but skipped npm checks because `node_modules` is absent in this worktree.
-- [ ] The full Tauri shell has not been manually launched with the new icon.
+- [x] No completed status detection blockers remain.
+- [ ] `npm install` exited 0 but reported 5 audit vulnerabilities already present in the dependency tree.
+- [ ] The full Tauri shell was not manually launched against a live completed agent pane; regression coverage exercises the tmux classifier and dashboard attention event path.
 
 ## Decisions Made
 
-- **Icon concept:** Use a minimal terminal plus git/worktree branch cue to reflect agent run control, tmux terminals, and worktree management.
-- **Asset persistence:** Track generated `src-tauri/icons` PNGs instead of leaving them ignored, because `tauri.conf.json` references those files directly.
-- **Reproducibility:** Keep `scripts/generate-icons.mjs` as the source generator so the icon set can be regenerated without external raster tooling.
+- **Classifier priority:** Keep `needs-user` and active work markers ahead of completion phrases, then check final completion phrases before falling back to `pane_current_command` runtime detection.
+- **Regression scope:** Cover the direct root cause in `agentctl-core` and rely on existing desktop dashboard tests to verify attention event construction for `completed-unchecked` transitions.
 
 ## Files Modified This Session
 
-- `.gitignore` - Allows `src-tauri/icons` to be tracked.
-- `feature_list.json` - Adds completed `feat-012` with verification evidence.
-- `progress.md` - Records this icon replacement handoff state.
-- `scripts/generate-icons.mjs` - Generates the minimalist Agent Manager icon at Tauri-required sizes.
-- `src-tauri/icons/32x32.png` - 32px Tauri icon.
-- `src-tauri/icons/128x128.png` - 128px Tauri icon.
-- `src-tauri/icons/128x128@2x.png` - 256px Tauri icon.
-- `src-tauri/icons/icon.png` - 512px Tauri icon.
+- `core/src/tmux.rs` - Restores completion phrase detection before the runtime-command fallback and adds classifier regression tests.
+- `feature_list.json` - Adds completed `feat-013` with verification evidence.
+- `progress.md` - Records this completed-status bugfix handoff state.
 
 ## Evidence of Completion
 
-- [x] `node --check scripts/generate-icons.mjs` exited 0.
-- [x] `npm run icons:generate` exited 0.
-- [x] `file src-tauri/icons/32x32.png src-tauri/icons/128x128.png src-tauri/icons/128x128@2x.png src-tauri/icons/icon.png` confirmed RGBA PNGs at 32, 128, 256, and 512px.
-- [x] `./init.sh` exited 0 with cargo tests passing; npm checks were skipped because `node_modules` is not installed.
+- [x] RED: `cargo test -p agentctl-core live_agent_runtime_reports_completed_when_recent_text_is_final` failed with `left: Running`, `right: CompletedUnchecked`.
+- [x] GREEN: `cargo test -p agentctl-core tmux::tests::` exited 0 with 2 tests passing.
+- [x] `cargo test -p agent-manager-desktop dashboard_` exited 0 with 4 dashboard tests passing.
+- [x] `cargo fmt --check` exited 0.
+- [x] `npm install` exited 0 after sandbox escalation for the esbuild install validation binary.
+- [x] `./init.sh` exited 0, running npm test, npm run build, and cargo test. npm test reported 7 files and 25 tests passing; cargo test reported all Rust tests passing including 12 `agentctl-core` unit tests.
 
 ## Notes for Next Session
 
-Run `npm install` before `./init.sh` if full npm test/build verification is required in this worktree.
+`node_modules` is installed in this worktree, so `./init.sh` should run npm and cargo checks immediately.

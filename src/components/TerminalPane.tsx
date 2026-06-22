@@ -42,11 +42,17 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
   useEffect(() => {
     const terminal = new Terminal({
       cursorBlink: true,
-      fontFamily: "JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, monospace",
-      fontSize: 13,
+      fontFamily:
+        '"JetBrains Mono", "Cascadia Code", "Fira Code", "Noto Sans Mono", "Ubuntu Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+      fontSize: 15,
+      lineHeight: 1.22,
+      letterSpacing: 0,
+      fontWeight: 500,
+      fontWeightBold: 700,
+      minimumContrastRatio: 4.5,
       theme: {
         background: "#030609",
-        foreground: "#d6e2ef",
+        foreground: "#e6edf6",
         cursor: "#50d890",
         selectionBackground: "#24384f"
       }

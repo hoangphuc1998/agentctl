@@ -15,6 +15,13 @@ describe("app shell layout CSS", () => {
     expect(css).toContain(".terminal-host {\n  min-width: 0;\n  min-height: 0;\n  overflow: hidden;");
   });
 
+  it("applies terminal-specific font smoothing for readable tmux output", () => {
+    expect(css).toContain(".terminal-host .xterm,");
+    expect(css).toContain(".terminal-host .xterm-rows {");
+    expect(css).toContain("-webkit-font-smoothing: antialiased;");
+    expect(css).toContain("text-rendering: optimizeLegibility;");
+  });
+
   it("uses compact dashboard chrome and dark segmented modal controls", () => {
     expect(css).toContain("grid-template-columns: 320px minmax(0, 1fr);");
     expect(css).toContain("min-height: 68px;");

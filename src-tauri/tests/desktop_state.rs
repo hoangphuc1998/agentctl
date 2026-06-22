@@ -1,7 +1,8 @@
 use agent_manager_desktop::{
-    models::RunView,
+    models::{AgentAttentionEvent, RunView},
     services::{
-        build_dashboard_state, is_restorable_run, is_stale_run, suggestions_from_candidates,
+        agent_attention_event_for_transition, build_dashboard_state, is_restorable_run,
+        is_stale_run, suggestions_from_candidates,
     },
 };
 use agentctl_core::{
@@ -67,6 +68,84 @@ fn dashboard_state_counts_active_runs_and_restorable_unknown_runs() {
     assert_eq!(
         state.selected_run_id,
         state.repos[0].runs.first().map(|run| run.id.clone())
+    );
+}
+
+#[test]
+fn dashboard_state_counts_attention_runs() {
+    let active = vec![
+        run("login-flow", ObservedState::Running, DetectionSource::Tmux),
+        run(
+            "copy-review",
+            ObservedState::NeedsUser,
+            DetectionSource::Heuristic,
+        ),
+        run(
+            "api-cleanup",
+            ObservedState::CompletedUnchecked,
+            DetectionSource::Heuristic,
+        ),
+        run(
+            "done-already",
+            ObservedState::CompletedSeen,
+            DetectionSource::Heuristic,
+        ),
+    ];
+
+    let state = build_dashboard_state(active, None, vec![], None);
+
+    assert_eq!(state.attention_count, 2);
+}
+
+#[test]
+fn dashboard_attention_events_only_fire_on_new_attention_states() {
+    let needs_user = run(
+        "copy-review",
+        ObservedState::NeedsUser,
+        DetectionSource::Heuristic,
+    );
+    let completed = run(
+        "api-cleanup",
+        ObservedState::CompletedUnchecked,
+        DetectionSource::Heuristic,
+    );
+    let running = run("login-flow", ObservedState::Running, DetectionSource::Tmux);
+
+    assert_eq!(
+        agent_attention_event_for_transition(ObservedState::Running, &needs_user),
+        Some(AgentAttentionEvent {
+            run_id: needs_user.id.to_string(),
+            run_name: "copy-review".to_string(),
+            repo_name: "agent-manager".to_string(),
+            agent: "codex".to_string(),
+            observed_state: "needs-user".to_string(),
+            title: "Agent needs input".to_string(),
+            body: "copy-review in agent-manager is waiting for you.".to_string(),
+        })
+    );
+    assert_eq!(
+        agent_attention_event_for_transition(ObservedState::Running, &completed),
+        Some(AgentAttentionEvent {
+            run_id: completed.id.to_string(),
+            run_name: "api-cleanup".to_string(),
+            repo_name: "agent-manager".to_string(),
+            agent: "codex".to_string(),
+            observed_state: "completed-unchecked".to_string(),
+            title: "Agent completed".to_string(),
+            body: "api-cleanup in agent-manager is ready for review.".to_string(),
+        })
+    );
+    assert_eq!(
+        agent_attention_event_for_transition(ObservedState::NeedsUser, &needs_user),
+        None
+    );
+    assert_eq!(
+        agent_attention_event_for_transition(ObservedState::CompletedUnchecked, &completed),
+        None
+    );
+    assert_eq!(
+        agent_attention_event_for_transition(ObservedState::Unknown, &running),
+        None
     );
 }
 

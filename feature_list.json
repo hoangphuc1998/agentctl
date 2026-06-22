@@ -71,6 +71,14 @@
       "dependencies": ["feat-008"],
       "status": "completed",
       "evidence": "2026-06-22 21:22 +07: Added a red core regression test for live codex panes with completion text, then changed tmux status classification so runtime agent commands stay running unless user input is needed. cargo fmt --check, cargo test -p agentctl-core, and ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
+    },
+    {
+      "id": "feat-010",
+      "name": "Agent Attention Notifications",
+      "description": "Emit backend attention events, show native notifications, and display an in-app badge count when agent runs newly need user input or complete.",
+      "dependencies": ["feat-009"],
+      "status": "completed",
+      "evidence": "2026-06-22 21:33 +07: Added backend agent:attention event payloads on new needs-user/completed-unchecked transitions, DashboardState attentionCount, frontend native Notification handling, and top-bar attention badge. RED tests failed before implementation; npm test, npm run build, cargo test, cargo fmt --check, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh exited 0."
     }
   ]
 }

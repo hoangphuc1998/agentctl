@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { createRun, dashboardState, mergeRun, restoreRun } from "./api";
+import { createRun, dashboardState, listenAgentAttention, mergeRun, restoreRun } from "./api";
 import type { DashboardState, RunView } from "./types";
 
 vi.mock("./api", () => ({
@@ -10,6 +10,7 @@ vi.mock("./api", () => ({
   createRun: vi.fn(),
   dashboardState: vi.fn(),
   endRun: vi.fn(),
+  listenAgentAttention: vi.fn(),
   mergeRun: vi.fn(),
   openInVsCode: vi.fn(),
   restoreRun: vi.fn(),
@@ -25,6 +26,7 @@ vi.mock("./components/TerminalPane", () => ({
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(listenAgentAttention).mockResolvedValue(vi.fn());
   });
 
   it("keeps the run chosen by the user instead of returning to the first run", async () => {
@@ -109,6 +111,58 @@ describe("App", () => {
     await waitFor(() => expect(createRun).toHaveBeenCalledOnce());
     expect(screen.queryByText("Created fix-ui.")).not.toBeInTheDocument();
   });
+
+  it("shows the backend attention badge count in the top bar", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(
+      dashboard("run-1", [run("run-1", "login-flow"), run("run-2", "api-cleanup")])
+    );
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+
+    expect(screen.getByText("1 attention")).toBeInTheDocument();
+  });
+
+  it("shows a native notification when the backend emits an attention event", async () => {
+    const attentionListener: { current: Parameters<typeof listenAgentAttention>[0] | null } = {
+      current: null
+    };
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+    vi.mocked(listenAgentAttention).mockImplementation(async (callback) => {
+      attentionListener.current = callback;
+      return vi.fn();
+    });
+    const notificationSpy = installNotificationMock("granted");
+
+    render(<App />);
+
+    await waitFor(() => expect(listenAgentAttention).toHaveBeenCalledOnce());
+    expect(attentionListener.current).not.toBeNull();
+    attentionListener.current?.({
+      event: "agent:attention",
+      id: 1,
+      payload: {
+        runId: "run-2",
+        runName: "api-cleanup",
+        repoName: "agent-manager",
+        agent: "codex",
+        observedState: "completed-unchecked",
+        title: "Agent completed",
+        body: "api-cleanup in agent-manager is ready for review."
+      }
+    });
+
+    await waitFor(() =>
+      expect(notificationSpy).toHaveBeenCalledWith(
+        "Agent completed",
+        expect.objectContaining({
+          body: "api-cleanup in agent-manager is ready for review.",
+          tag: "agent-attention-run-2"
+        })
+      )
+    );
+  });
 });
 
 function dashboard(selectedRunId: string, runs: RunView[] = [run("run-1", "login-flow"), run("run-2", "api-cleanup")]): DashboardState {
@@ -122,6 +176,7 @@ function dashboard(selectedRunId: string, runs: RunView[] = [run("run-1", "login
     ],
     selectedRunId,
     activeCount: runs.length,
+    attentionCount: runs.filter((run) => run.observedState === "needs-user" || run.observedState === "completed-unchecked").length,
     staleCount: 0,
     restorableCount: runs.filter((run) => run.restorable).length,
     activeRepoPath: "/repo/agent-manager",
@@ -130,6 +185,26 @@ function dashboard(selectedRunId: string, runs: RunView[] = [run("run-1", "login
       { name: "tmux", available: true, detail: "available" }
     ]
   };
+}
+
+function installNotificationMock(permission: NotificationPermission) {
+  const notificationSpy = vi.fn();
+
+  class MockNotification {
+    static permission = permission;
+    static requestPermission = vi.fn().mockResolvedValue(permission);
+
+    constructor(title: string, options?: NotificationOptions) {
+      notificationSpy(title, options);
+    }
+  }
+
+  Object.defineProperty(window, "Notification", {
+    configurable: true,
+    value: MockNotification
+  });
+
+  return notificationSpy;
 }
 
 function run(id: string, runName: string): RunView {

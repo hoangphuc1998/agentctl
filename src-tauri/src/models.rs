@@ -77,10 +77,23 @@ pub struct DashboardState {
     pub repos: Vec<RepoNode>,
     pub selected_run_id: Option<String>,
     pub active_count: usize,
+    pub attention_count: usize,
     pub stale_count: usize,
     pub restorable_count: usize,
     pub active_repo_path: Option<String>,
     pub host_tools: Vec<HostToolStatus>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AgentAttentionEvent {
+    pub run_id: String,
+    pub run_name: String,
+    pub repo_name: String,
+    pub agent: String,
+    pub observed_state: String,
+    pub title: String,
+    pub body: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]

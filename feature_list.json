@@ -63,6 +63,14 @@
       "dependencies": ["feat-007"],
       "status": "completed",
       "evidence": "2026-06-22 21:00 +07: Added xterm readability options and terminal font-smoothing CSS with regression coverage. Red targeted tests failed before implementation; npm test, npm run build, and ./init.sh exited 0 after the fix."
+    },
+    {
+      "id": "feat-009",
+      "name": "Stable Running Agent Status",
+      "description": "Keep active agent panes marked running when live agent processes have recent visible text that mentions completion.",
+      "dependencies": ["feat-008"],
+      "status": "completed",
+      "evidence": "2026-06-22 21:22 +07: Added a red core regression test for live codex panes with completion text, then changed tmux status classification so runtime agent commands stay running unless user input is needed. cargo fmt --check, cargo test -p agentctl-core, and ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
     }
   ]
 }

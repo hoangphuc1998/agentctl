@@ -35,7 +35,9 @@
     ],
     "linux": {
       "deb": {
-        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "tmux", "git"]
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "tmux", "git"],
+        "postInstallScript": "../scripts/deb-postinst.sh",
+        "postRemoveScript": "../scripts/deb-postrm.sh"
       }
     }
   }

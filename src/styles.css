@@ -547,6 +547,16 @@ h2 {
   height: 100%;
 }
 
+.terminal-host .xterm,
+.terminal-host .xterm-rows {
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.terminal-host .xterm-screen canvas {
+  image-rendering: auto;
+}
+
 .modal-backdrop {
   position: fixed;
   inset: 0;

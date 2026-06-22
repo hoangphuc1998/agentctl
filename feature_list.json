@@ -47,6 +47,14 @@
       "dependencies": ["feat-005"],
       "status": "completed",
       "evidence": "2026-06-22 19:06 +07: Added a shell failure wrapper for create/restore agent launches and a core regression test. cargo fmt --check, cargo test -p agentctl-core, a tmux smoke test, and ./init.sh exited 0; ./init.sh skipped npm checks because node_modules is absent."
+    },
+    {
+      "id": "feat-007",
+      "name": "Readable Embedded Terminal Text",
+      "description": "Improve embedded tmux terminal text clarity so dense agent output is less pixelated and easier to read.",
+      "dependencies": ["feat-006"],
+      "status": "completed",
+      "evidence": "2026-06-22 21:00 +07: Added xterm readability options and terminal font-smoothing CSS with regression coverage. Red targeted tests failed before implementation; npm test, npm run build, and ./init.sh exited 0 after the fix."
     }
   ]
 }

@@ -4,6 +4,7 @@ import { TerminalPane, shouldForwardTerminalInput } from "./TerminalPane";
 import type { RunView } from "../types";
 
 const mocks = vi.hoisted(() => ({
+  terminalOptions: [] as Array<Record<string, unknown>>,
   terminals: [] as Array<{
     emitData: (data: string) => void;
     write: ReturnType<typeof vi.fn>;
@@ -33,7 +34,8 @@ vi.mock("@xterm/xterm", () => {
     public focus = vi.fn();
     public dispose = vi.fn();
 
-    constructor() {
+    constructor(options: Record<string, unknown>) {
+      mocks.terminalOptions.push(options);
       mocks.terminals.push({
         emitData: (data: string) => this.dataHandler?.(data),
         write: this.write,
@@ -74,6 +76,7 @@ vi.mock("../api", () => ({
 
 describe("TerminalPane", () => {
   beforeEach(() => {
+    mocks.terminalOptions.length = 0;
     mocks.terminals.length = 0;
     mocks.resizeObservers.length = 0;
     mocks.startTerminal.mockReset().mockResolvedValue({ terminalId: "term-1", runId: "run-1" });
@@ -136,6 +139,21 @@ describe("TerminalPane", () => {
     await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
 
     expect(mocks.terminals[0].focus).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses a readable text profile for dense tmux output", async () => {
+    render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
+
+    await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
+
+    expect(mocks.terminalOptions[0]).toMatchObject({
+      fontSize: 15,
+      lineHeight: 1.22,
+      letterSpacing: 0,
+      fontWeight: 500,
+      fontWeightBold: 700,
+      minimumContrastRatio: 4.5
+    });
   });
 
   it("does not attach to missing tmux targets for restorable runs", async () => {

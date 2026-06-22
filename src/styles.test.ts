@@ -14,4 +14,11 @@ describe("app shell layout CSS", () => {
     expect(css).toContain("height: 100vh;");
     expect(css).toContain(".terminal-host {\n  min-width: 0;\n  min-height: 0;\n  overflow: hidden;");
   });
+
+  it("applies terminal-specific font smoothing for readable tmux output", () => {
+    expect(css).toContain(".terminal-host .xterm,");
+    expect(css).toContain(".terminal-host .xterm-rows {");
+    expect(css).toContain("-webkit-font-smoothing: antialiased;");
+    expect(css).toContain("text-rendering: optimizeLegibility;");
+  });
 });

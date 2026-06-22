@@ -2,19 +2,20 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-22 19:06 +07
-**Session ID:** fix-create-run-agent-exit-recovery
-**Active Feature:** feat-006 - Create Run Agent Exit Recovery
+**Last Updated:** 2026-06-22 21:00 +07
+**Session ID:** fix-pixelated-terminal
+**Active Feature:** feat-007 - Readable Embedded Terminal Text
 
 ## Status
 
 ### What's Done
 
-- [x] Traced the create-run failure to the tmux launch check treating an immediately exited agent command as a missing tmux window.
-- [x] Added a shell failure wrapper for agent create/restore launches so non-zero exits keep the pane open with diagnostics and a recovery shell.
-- [x] Added a core regression test covering the wrapped create-run launch command.
-- [x] Verified the wrapper manually in a temporary tmux session with a failing command.
-- [x] Ran targeted and standard verification.
+- [x] Traced the hard-to-read embedded terminal to the frontend xterm rendering profile rather than tmux output or backend terminal plumbing.
+- [x] Added regression coverage for the terminal readability options passed to xterm.
+- [x] Added regression coverage for terminal-scoped font smoothing CSS.
+- [x] Increased the xterm text profile to 15px, 1.22 line height, medium normal weight, bold 700 weight, and a 4.5 contrast floor.
+- [x] Added terminal-specific font smoothing and canvas image-rendering safeguards.
+- [x] Ran targeted, full frontend, build, and standard verification.
 
 ### What's In Progress
 
@@ -28,31 +29,31 @@
 ## Blockers / Risks
 
 - [x] No blockers remain.
-- [ ] Dependency note: `./init.sh` skipped npm checks because `node_modules` is absent in this worktree. This session changed Rust core code only; Rust verification passed.
+- [x] `node_modules` is now installed in this worktree; `./init.sh` ran the full npm and Rust verification path.
 
 ## Decisions Made
 
-- **Keep failed agent panes inspectable:** A create/restore launch now runs the agent command through a small shell wrapper. If the agent exits with a non-zero status, the pane prints the exit status and execs the user's shell so the tmux window remains available.
-  - Context: The previous flow rolled back the run when the agent command exited before the window verification check could observe it.
-  - Detail: The wrapper uses `agent_status` instead of `status` because `status` is a read-only special parameter in `zsh`, which tmux uses on this machine.
+- **Fix readability at the xterm frontend layer:** xterm 5.5 uses its bundled DOM renderer by default in this project, so the fix changes the terminal text profile and scoped CSS rather than tmux commands or backend PTY handling.
+  - Context: The screenshot showed dense embedded terminal text that looked pixelated and fatiguing while the terminal attachment itself was functioning.
+  - Detail: Fractional `letterSpacing` was avoided because xterm rounds it when calculating DOM renderer cell dimensions.
 
 ## Files Modified This Session
 
-- `core/src/commands.rs` - Adds the shell failure wrapper used for agent launch commands.
-- `core/src/app.rs` - Uses the wrapper for create and restore tmux launches and adds a regression test.
+- `src/components/TerminalPane.tsx` - Uses a clearer xterm font stack, larger font size, line height, font weights, brighter foreground, and minimum contrast ratio.
+- `src/components/TerminalPane.test.tsx` - Captures xterm constructor options and verifies the readable text profile.
+- `src/styles.css` - Adds terminal-scoped font smoothing and canvas image-rendering safeguards.
+- `src/styles.test.ts` - Verifies terminal font smoothing CSS remains present.
 - `feature_list.json` - Records completed feature state and verification evidence.
 - `progress.md` - Records this session handoff.
 
 ## Evidence of Completion
 
-- [x] Regression red: `cargo test -p agentctl-core create_run_wraps_agent_launch_so_failures_keep_the_pane_open` failed before implementation because create-run passed bare `codex`.
-- [x] Wrapper portability red: the same test failed after tightening it to require `agent_status`, avoiding zsh's read-only `status` parameter.
-- [x] Targeted test: `cargo test -p agentctl-core create_run_wraps_agent_launch_so_failures_keep_the_pane_open` passed.
-- [x] Core tests: `cargo test -p agentctl-core` passed with 10 tests.
-- [x] Formatting: `cargo fmt --check` exited 0.
-- [x] Manual smoke: temporary tmux window running `false` stayed open, displayed `Agent command exited with status 1...`, and execed `zsh`.
-- [x] Standard verification: `./init.sh` exited 0; npm checks were skipped because `node_modules` is absent, and all Rust tests passed.
+- [x] Regression red: `npm test -- src/components/TerminalPane.test.tsx src/styles.test.ts` failed before implementation because xterm still used `fontSize: 13` and the smoothing CSS was absent.
+- [x] Targeted test: `npm test -- src/components/TerminalPane.test.tsx src/styles.test.ts` passed with 10 tests.
+- [x] Frontend tests: `npm test` passed with 7 files and 18 tests.
+- [x] Frontend build: `npm run build` exited 0.
+- [x] Standard verification: `./init.sh` exited 0 with npm test, npm build, cargo tests, and doc tests all passing.
 
 ## Notes for Next Session
 
-The create-run failure shown as `tmux window was not created or exited immediately: ...` should now be avoided for non-zero agent startup exits: the run can be recorded, and the tmux pane remains open with the agent exit status and a shell for inspection.
+The embedded terminal should now render dense tmux output with larger, smoother, higher-contrast text. If users still report eye strain, the next narrow adjustment should be a user-facing terminal font-size setting rather than another hard-coded default change.

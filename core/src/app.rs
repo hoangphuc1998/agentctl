@@ -2,6 +2,7 @@ use std::{
     io,
     path::{Path, PathBuf},
     process::{Command, Output},
+    time::Duration,
 };
 
 use uuid::Uuid;
@@ -17,6 +18,9 @@ use crate::{
     tmux::window_list_contains,
     worktree::{default_branch_name, default_sibling_worktree_path, sanitize_slug},
 };
+
+const TMUX_WINDOW_VERIFY_ATTEMPTS: usize = 5;
+const TMUX_WINDOW_VERIFY_DELAY_MS: u64 = 100;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AppConfig {
@@ -416,15 +420,19 @@ fn ensure_tmux_window<R>(runner: &mut R, tmux: &TmuxCommandBuilder, window: &str
 where
     R: CommandRunner,
 {
-    let windows = runner.output(&tmux.list_windows())?;
-    if window_list_contains(&windows, window) {
-        Ok(())
-    } else {
-        Err(io::Error::new(
-            io::ErrorKind::NotFound,
-            format!("tmux window was not created or exited immediately: {window}"),
-        ))
+    for attempt in 0..TMUX_WINDOW_VERIFY_ATTEMPTS {
+        let windows = runner.output(&tmux.list_windows())?;
+        if window_list_contains(&windows, window) {
+            return Ok(());
+        }
+        if attempt + 1 < TMUX_WINDOW_VERIFY_ATTEMPTS {
+            std::thread::sleep(Duration::from_millis(TMUX_WINDOW_VERIFY_DELAY_MS));
+        }
     }
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        format!("tmux window was not created or exited immediately: {window}"),
+    ))
 }
 
 fn ensure_tmux_session<R>(
@@ -613,8 +621,9 @@ mod tests {
     #[derive(Default)]
     struct RecordingRunner {
         commands: Vec<Vec<String>>,
-        include_created_window_in_list: bool,
+        created_window_visible_after_list_calls: Option<usize>,
         created_window: Option<String>,
+        list_windows_calls: usize,
     }
 
     impl CommandRunner for RecordingRunner {
@@ -633,13 +642,54 @@ mod tests {
 
         fn output(&mut self, command: &[String]) -> io::Result<String> {
             self.commands.push(command.to_vec());
-            if command_contains(command, "list-windows") && self.include_created_window_in_list {
-                if let Some(window) = &self.created_window {
-                    return Ok(format!("dashboard\n{window}\n"));
+            if command_contains(command, "list-windows") {
+                self.list_windows_calls += 1;
+                if let (Some(window), Some(visible_after)) = (
+                    &self.created_window,
+                    self.created_window_visible_after_list_calls,
+                ) {
+                    if self.list_windows_calls >= visible_after {
+                        return Ok(format!("dashboard\n{window}\n"));
+                    }
                 }
             }
             Ok("dashboard\n".to_string())
         }
+    }
+
+    #[test]
+    fn create_run_persists_when_tmux_window_appears_after_retry() {
+        let registry = SqliteRegistry::in_memory().expect("registry");
+        let mut runner = RecordingRunner {
+            created_window_visible_after_list_calls: Some(2),
+            ..RecordingRunner::default()
+        };
+        let repo_root = tempfile::tempdir().expect("repo root");
+        let repo_path = repo_root.path().join("repo");
+
+        let run = create_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            NewRunRequest {
+                repo_path,
+                base_ref: "HEAD".to_string(),
+                tag: "default".to_string(),
+                run_name: "eventually-visible".to_string(),
+                agent: AgentKind::Codex,
+            },
+        )
+        .expect("created run");
+
+        assert_eq!(registry.list_active_runs().expect("active runs"), vec![run]);
+        assert_eq!(
+            runner
+                .commands
+                .iter()
+                .filter(|command| command_contains(command, "list-windows"))
+                .count(),
+            2
+        );
     }
 
     #[test]
@@ -682,7 +732,7 @@ mod tests {
     fn create_run_persists_when_tmux_window_exists_after_launch() {
         let registry = SqliteRegistry::in_memory().expect("registry");
         let mut runner = RecordingRunner {
-            include_created_window_in_list: true,
+            created_window_visible_after_list_calls: Some(1),
             ..RecordingRunner::default()
         };
         let repo_root = tempfile::tempdir().expect("repo root");

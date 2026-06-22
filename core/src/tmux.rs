@@ -43,10 +43,6 @@ pub fn detect_observed_state(snapshot: &PaneSnapshot) -> ObservedState {
         return ObservedState::Running;
     }
 
-    if is_agent_runtime_command(&snapshot.current_command) {
-        return ObservedState::Running;
-    }
-
     if contains_any(
         &text,
         &[
@@ -61,7 +57,11 @@ pub fn detect_observed_state(snapshot: &PaneSnapshot) -> ObservedState {
         return ObservedState::CompletedUnchecked;
     }
 
-    ObservedState::Unknown
+    if is_agent_runtime_command(&snapshot.current_command) {
+        ObservedState::Running
+    } else {
+        ObservedState::Unknown
+    }
 }
 
 pub fn detection_source_for(snapshot: &PaneSnapshot) -> DetectionSource {
@@ -116,15 +116,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn live_agent_runtime_stays_running_when_recent_text_mentions_completion() {
+    fn active_work_marker_stays_running_when_recent_text_mentions_completion() {
         let snapshot = PaneSnapshot {
             pane_active: true,
             current_command: "codex".to_string(),
-            visible_text: "Implemented the requested fix.\nAll tasks completed.\n".to_string(),
+            visible_text: "• running tests\nImplemented the requested fix.\nAll tasks completed.\n"
+                .to_string(),
         };
 
         assert_eq!(detect_observed_state(&snapshot), ObservedState::Running);
         assert_eq!(detection_source_for(&snapshot), DetectionSource::Tmux);
+    }
+
+    #[test]
+    fn live_agent_runtime_reports_completed_when_recent_text_is_final() {
+        let snapshot = PaneSnapshot {
+            pane_active: true,
+            current_command: "codex".to_string(),
+            visible_text: "Implementation complete.\nReady for review.\n".to_string(),
+        };
+
+        assert_eq!(
+            detect_observed_state(&snapshot),
+            ObservedState::CompletedUnchecked
+        );
+        assert_eq!(detection_source_for(&snapshot), DetectionSource::Heuristic);
     }
 }
 

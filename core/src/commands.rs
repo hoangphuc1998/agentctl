@@ -516,6 +516,13 @@ pub fn shell_join(args: &[String]) -> String {
         .join(" ")
 }
 
+pub fn shell_command_with_failure_diagnostics(args: &[String]) -> String {
+    format!(
+        "{}; agent_status=$?; if [ \"$agent_status\" -ne 0 ]; then printf '\\nAgent command exited with status %s. Starting a shell so this pane stays open.\\n' \"$agent_status\"; exec \"${{SHELL:-/bin/sh}}\"; fi",
+        shell_join(args)
+    )
+}
+
 fn shell_quote(value: &str) -> String {
     if value
         .chars()

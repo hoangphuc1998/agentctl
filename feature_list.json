@@ -39,6 +39,14 @@
       "dependencies": ["feat-004"],
       "status": "completed",
       "evidence": "2026-06-22 18:14 +07: ./init.sh exited 0 after npm dependencies were installed; intended files are ready for commit."
+    },
+    {
+      "id": "feat-006",
+      "name": "Create Run Agent Exit Recovery",
+      "description": "Keep create-run tmux panes visible when the agent command exits non-zero so the run can be recorded and diagnostics remain inspectable.",
+      "dependencies": ["feat-005"],
+      "status": "completed",
+      "evidence": "2026-06-22 19:06 +07: Added a shell failure wrapper for create/restore agent launches and a core regression test. cargo fmt --check, cargo test -p agentctl-core, a tmux smoke test, and ./init.sh exited 0; ./init.sh skipped npm checks because node_modules is absent."
     }
   ]
 }

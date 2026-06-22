@@ -1,11 +1,13 @@
 use std::path::PathBuf;
 
-use agentctl_core::{
-    completion::CompletionCandidate,
-    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
+use agentctl_core::{completion::CompletionCandidate, domain::RunRecord};
+
+use crate::{
+    models::{repo_tree_from_runs, DashboardState, HostToolStatus, Suggestion},
+    run_classification,
 };
 
-use crate::models::{repo_tree_from_runs, DashboardState, HostToolStatus, Suggestion};
+pub use run_classification::{is_restorable_run, is_stale_run};
 
 pub fn build_dashboard_state(
     active_runs: Vec<RunRecord>,
@@ -18,12 +20,17 @@ pub fn build_dashboard_state(
         .or_else(|| active_runs.first().map(|run| run.id.to_string()));
     let active_count = active_runs.len();
     let stale_count = active_runs.iter().filter(|run| is_stale_run(run)).count();
+    let restorable_count = active_runs
+        .iter()
+        .filter(|run| is_restorable_run(run))
+        .count();
 
     DashboardState {
         repos: repo_tree_from_runs(&active_runs),
         selected_run_id,
         active_count,
         stale_count,
+        restorable_count,
         active_repo_path: active_repo_path.map(|path| path.to_string_lossy().to_string()),
         host_tools,
     }
@@ -37,10 +44,4 @@ pub fn suggestions_from_candidates(candidates: Vec<CompletionCandidate>) -> Vec<
             detail: candidate.detail,
         })
         .collect()
-}
-
-pub fn is_stale_run(run: &RunRecord) -> bool {
-    run.lifecycle == Lifecycle::Active
-        && run.observed_state == ObservedState::Unknown
-        && run.detection_source == DetectionSource::Unknown
 }

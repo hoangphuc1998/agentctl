@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { dashboardState } from "./api";
+import { dashboardState, restoreRun } from "./api";
 import type { DashboardState, RunView } from "./types";
 
 vi.mock("./api", () => ({
@@ -11,6 +11,7 @@ vi.mock("./api", () => ({
   endRun: vi.fn(),
   mergeRun: vi.fn(),
   openInVsCode: vi.fn(),
+  restoreRun: vi.fn(),
   stopRun: vi.fn()
 }));
 
@@ -39,20 +40,39 @@ describe("App", () => {
     expect(screen.getByRole("heading", { name: "api-cleanup" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "login-flow" })).not.toBeInTheDocument();
   });
+
+  it("resumes a restorable run instead of treating it as stale", async () => {
+    const restorableDashboard = dashboard("run-2", [run("run-1", "login-flow"), restorableRun()]);
+    vi.mocked(dashboardState).mockResolvedValue(restorableDashboard);
+    vi.mocked(restoreRun).mockResolvedValue({
+      message: "Resumed `feat-score-view`.",
+      run: { ...restorableRun(), observedState: "running", detectionSource: "tmux", restorable: false }
+    });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "feat-score-view" });
+    await userEvent.click(screen.getByRole("button", { name: /resume/i }));
+
+    await waitFor(() => expect(restoreRun).toHaveBeenCalledWith("run-2"));
+    expect(screen.getByText("1 restorable")).toBeInTheDocument();
+    expect(screen.getByText("0 stale")).toBeInTheDocument();
+  });
 });
 
-function dashboard(selectedRunId: string): DashboardState {
+function dashboard(selectedRunId: string, runs: RunView[] = [run("run-1", "login-flow"), run("run-2", "api-cleanup")]): DashboardState {
   return {
     repos: [
       {
         repoName: "agent-manager",
         repoPath: "/repo/agent-manager",
-        runs: [run("run-1", "login-flow"), run("run-2", "api-cleanup")]
+        runs
       }
     ],
     selectedRunId,
-    activeCount: 2,
+    activeCount: runs.length,
     staleCount: 0,
+    restorableCount: runs.filter((run) => run.restorable).length,
     activeRepoPath: "/repo/agent-manager",
     hostTools: [
       { name: "git", available: true, detail: "available" },
@@ -75,7 +95,17 @@ function run(id: string, runName: string): RunView {
     branch: runName,
     baseRef: "HEAD",
     worktreePath: `/repo/worktrees/${runName}`,
+    restorable: false,
     createdAt: 1,
     updatedAt: 2
+  };
+}
+
+function restorableRun(): RunView {
+  return {
+    ...run("run-2", "feat-score-view"),
+    observedState: "unknown",
+    detectionSource: "unknown",
+    restorable: true
   };
 }

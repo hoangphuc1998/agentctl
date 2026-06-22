@@ -6,6 +6,8 @@ use agentctl_core::{
 };
 use serde::{Deserialize, Serialize};
 
+use crate::run_classification::is_restorable_run;
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RunView {
@@ -23,12 +25,14 @@ pub struct RunView {
     pub worktree_path: String,
     pub tmux_session: Option<String>,
     pub tmux_window: Option<String>,
+    pub restorable: bool,
     pub created_at: i64,
     pub updated_at: i64,
 }
 
 impl From<RunRecord> for RunView {
     fn from(run: RunRecord) -> Self {
+        let restorable = is_restorable_run(&run);
         Self {
             id: run.id.to_string(),
             repo_path: path_string(run.repo_path),
@@ -44,6 +48,7 @@ impl From<RunRecord> for RunView {
             worktree_path: path_string(run.worktree_path),
             tmux_session: run.tmux_session,
             tmux_window: run.tmux_window,
+            restorable,
             created_at: run.created_at,
             updated_at: run.updated_at,
         }
@@ -73,6 +78,7 @@ pub struct DashboardState {
     pub selected_run_id: Option<String>,
     pub active_count: usize,
     pub stale_count: usize,
+    pub restorable_count: usize,
     pub active_repo_path: Option<String>,
     pub host_tools: Vec<HostToolStatus>,
 }

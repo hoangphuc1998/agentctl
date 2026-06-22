@@ -26,6 +26,7 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
   const [status, setStatus] = useState("Select a run to attach a terminal.");
   const selectedRunId = selectedRun?.id ?? null;
   const selectedRunName = selectedRun?.runName ?? null;
+  const selectedRunRestorable = selectedRun?.restorable ?? false;
 
   const fitAndResizeTerminal = useCallback(() => {
     const fit = fitRef.current;
@@ -96,6 +97,11 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
         terminalIdRef.current = null;
         return;
       }
+      if (selectedRunRestorable) {
+        setStatus("Resume run to attach a terminal.");
+        terminalIdRef.current = null;
+        return;
+      }
 
       try {
         fitAndResizeTerminal();
@@ -138,7 +144,7 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
       if (terminalId) void closeTerminal(terminalId).catch(() => undefined);
       terminalIdRef.current = null;
     };
-  }, [fitAndResizeTerminal, onError, selectedRunId]);
+  }, [fitAndResizeTerminal, onError, selectedRunId, selectedRunRestorable]);
 
   return (
     <section className="terminal-shell">
@@ -148,7 +154,9 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
           <span>Embedded tmux terminal</span>
         </span>
         <span className="terminal-status">
-          <Chip tone={selectedRunId ? "success" : "neutral"}>{selectedRunId ? "tmux attached" : "idle"}</Chip>
+          <Chip tone={selectedRunId && !selectedRunRestorable ? "success" : "neutral"}>
+            {selectedRunId && !selectedRunRestorable ? "tmux attached" : "idle"}
+          </Chip>
           <Chip tone="info" title={status}>
             {status}
           </Chip>

@@ -1,6 +1,8 @@
 use agent_manager_desktop::{
     models::RunView,
-    services::{build_dashboard_state, suggestions_from_candidates},
+    services::{
+        build_dashboard_state, is_restorable_run, is_stale_run, suggestions_from_candidates,
+    },
 };
 use agentctl_core::{
     agent::AgentKind,
@@ -35,11 +37,11 @@ fn run(name: &str, state: ObservedState, source: DetectionSource) -> RunRecord {
 }
 
 #[test]
-fn dashboard_state_counts_active_runs_and_stale_unknown_runs() {
+fn dashboard_state_counts_active_runs_and_restorable_unknown_runs() {
     let active = vec![
         run("login-flow", ObservedState::Running, DetectionSource::Tmux),
         run(
-            "missing-window",
+            "missing-window-after-reboot",
             ObservedState::Unknown,
             DetectionSource::Unknown,
         ),
@@ -52,7 +54,12 @@ fn dashboard_state_counts_active_runs_and_stale_unknown_runs() {
     );
 
     assert_eq!(state.active_count, 2);
-    assert_eq!(state.stale_count, 1);
+    assert_eq!(state.stale_count, 0);
+    assert_eq!(state.restorable_count, 1);
+    assert!(state.repos[0]
+        .runs
+        .iter()
+        .any(|run| run.run_name == "missing-window-after-reboot" && run.restorable));
     assert_eq!(
         state.active_repo_path,
         Some("/repos/agent-manager".to_string())
@@ -61,6 +68,18 @@ fn dashboard_state_counts_active_runs_and_stale_unknown_runs() {
         state.selected_run_id,
         state.repos[0].runs.first().map(|run| run.id.clone())
     );
+}
+
+#[test]
+fn restorable_runs_are_not_stale_cleanup_candidates() {
+    let restorable = run(
+        "missing-window-after-reboot",
+        ObservedState::Unknown,
+        DetectionSource::Unknown,
+    );
+
+    assert!(is_restorable_run(&restorable));
+    assert!(!is_stale_run(&restorable));
 }
 
 #[test]

@@ -1,4 +1,4 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { TerminalPane, shouldForwardTerminalInput } from "./TerminalPane";
 import type { RunView } from "../types";
@@ -138,6 +138,14 @@ describe("TerminalPane", () => {
     expect(mocks.terminals[0].focus).toHaveBeenCalledTimes(1);
   });
 
+  it("does not attach to missing tmux targets for restorable runs", async () => {
+    render(<TerminalPane selectedRun={{ ...runView(), observedState: "unknown", detectionSource: "unknown", restorable: true }} onError={vi.fn()} />);
+
+    await screen.findByText("Resume run to attach a terminal.");
+
+    expect(mocks.startTerminal).not.toHaveBeenCalled();
+  });
+
   it("refits and resizes the terminal when the pane dimensions change", async () => {
     const run = runView();
     render(<TerminalPane selectedRun={run} onError={vi.fn()} />);
@@ -173,6 +181,7 @@ function runView(): RunView {
     branch: "terminal-fix",
     baseRef: "main",
     worktreePath: "/repo-worktrees/terminal-fix",
+    restorable: false,
     createdAt: 1,
     updatedAt: 2
   };

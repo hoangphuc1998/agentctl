@@ -74,7 +74,7 @@ pub fn restore_run(state: State<'_, DesktopState>, run_id: String) -> DesktopRes
     if let Some(run) = run {
         state.set_selected_run_id(Some(run.id.to_string()))?;
         Ok(ActionResult {
-            message: format!("Restored `{}`.", run.run_name),
+            message: format!("Resumed `{}`.", run.run_name),
             run: Some(run.into()),
         })
     } else {

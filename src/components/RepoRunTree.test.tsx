@@ -22,6 +22,7 @@ const repos: RepoNode[] = [
         branch: "login-flow",
         baseRef: "main",
         worktreePath: "/home/me/agent-manager-worktrees/login-flow",
+        restorable: false,
         createdAt: 1,
         updatedAt: 2
       },
@@ -38,6 +39,7 @@ const repos: RepoNode[] = [
         branch: "api-cleanup",
         baseRef: "master",
         worktreePath: "/home/me/agent-manager-worktrees/api-cleanup",
+        restorable: false,
         createdAt: 3,
         updatedAt: 4
       }
@@ -66,4 +68,3 @@ describe("RepoRunTree", () => {
     expect(onSelectRun).toHaveBeenCalledWith("run-2");
   });
 });
-

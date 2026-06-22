@@ -11,6 +11,7 @@ import {
   Play,
   Plus,
   RefreshCw,
+  RotateCcw,
   Search,
   Square,
   Tag,
@@ -25,6 +26,7 @@ import {
   endRun,
   mergeRun,
   openInVsCode,
+  restoreRun,
   stopRun
 } from "./api";
 import { Chip, type ChipTone } from "./components/Chip";
@@ -47,6 +49,7 @@ const emptyDashboard: DashboardState = {
   selectedRunId: null,
   activeCount: 0,
   staleCount: 0,
+  restorableCount: 0,
   activeRepoPath: null,
   hostTools: []
 };
@@ -132,6 +135,19 @@ export function App() {
     }
   }
 
+  async function resumeRun() {
+    if (!selectedRun) return;
+    try {
+      const result = await restoreRun(selectedRun.id);
+      setNotice(result.message);
+      const nextSelectedRunId = result.run?.id ?? selectedRun.id;
+      selectRun(nextSelectedRunId);
+      await loadDashboard(nextSelectedRunId);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
   function actionTitle(action: PendingAction) {
     if (action.kind === "cleanup-stale") return "Stop stale runs?";
     return `${action.kind === "end" ? "End" : action.kind === "merge" ? "Merge" : "Stop"} ${
@@ -166,6 +182,9 @@ export function App() {
           </Chip>
           <Chip tone={dashboard.staleCount > 0 ? "warning" : "neutral"} icon={<AlertTriangle size={14} />}>
             {dashboard.staleCount} stale
+          </Chip>
+          <Chip tone={dashboard.restorableCount > 0 ? "info" : "neutral"} icon={<RotateCcw size={14} />}>
+            {dashboard.restorableCount} restorable
           </Chip>
           {dashboard.hostTools.map((tool) => (
             <Chip tone={hostToolTone(tool)} icon={hostToolIcon(tool.name)} title={tool.detail || tool.name} key={tool.name}>
@@ -230,6 +249,11 @@ export function App() {
                   </div>
                 </div>
                 <div className="run-actions">
+                  {selectedRun.restorable && (
+                    <button className="icon-button" onClick={resumeRun} title="Resume">
+                      <RotateCcw size={18} />
+                    </button>
+                  )}
                   <button className="icon-button" onClick={openCode} title="Open in VS Code">
                     <Monitor size={18} />
                   </button>

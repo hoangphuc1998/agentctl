@@ -1,4 +1,5 @@
 pub mod models;
+pub mod run_classification;
 pub mod services;
 pub mod terminal_plan;
 

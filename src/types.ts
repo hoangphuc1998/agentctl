@@ -20,6 +20,7 @@ export interface RunView {
   branch: string;
   baseRef: string;
   worktreePath: string;
+  restorable: boolean;
   createdAt: number;
   updatedAt: number;
 }
@@ -41,6 +42,7 @@ export interface DashboardState {
   selectedRunId: string | null;
   activeCount: number;
   staleCount: number;
+  restorableCount: number;
   activeRepoPath: string | null;
   hostTools: HostToolStatus[];
 }
@@ -52,4 +54,3 @@ export interface CreateRunPayload {
   runName: string;
   agent: AgentKind;
 }
-

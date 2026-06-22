@@ -486,12 +486,25 @@ impl AgentCommandBuilder {
 
     pub fn restore(&self, plan: LaunchPlan) -> Vec<String> {
         match plan.agent {
-            AgentKind::Codex => vec![
-                "codex".to_string(),
-                "resume".to_string(),
-                "--last".to_string(),
-            ],
-            AgentKind::Claude => self.launch(plan),
+            AgentKind::Codex => {
+                let mut command = vec!["codex".to_string(), "resume".to_string()];
+                if let Some(session_id) = plan.session_id {
+                    command.push(session_id.to_string());
+                } else {
+                    command.push("--last".to_string());
+                }
+                command
+            }
+            AgentKind::Claude => {
+                let mut command = vec!["claude".to_string()];
+                if let Some(session_id) = plan.session_id {
+                    command.push("--resume".to_string());
+                    command.push(session_id.to_string());
+                } else {
+                    command.push("--continue".to_string());
+                }
+                command
+            }
         }
     }
 }
@@ -511,5 +524,86 @@ fn shell_quote(value: &str) -> String {
         value.to_string()
     } else {
         format!("'{}'", value.replace('\'', "'\\''"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use uuid::Uuid;
+
+    use crate::agent::{AgentKind, LaunchPlan};
+
+    use super::AgentCommandBuilder;
+
+    #[test]
+    fn codex_restore_uses_exact_session_id_when_available() {
+        let session_id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
+
+        let command = AgentCommandBuilder::new().restore(LaunchPlan {
+            agent: AgentKind::Codex,
+            worktree_path: "/repo-worktree".into(),
+            session_id: Some(session_id),
+        });
+
+        assert_eq!(
+            command,
+            vec![
+                "codex".to_string(),
+                "resume".to_string(),
+                session_id.to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn codex_restore_falls_back_to_latest_worktree_session() {
+        let command = AgentCommandBuilder::new().restore(LaunchPlan {
+            agent: AgentKind::Codex,
+            worktree_path: "/repo-worktree".into(),
+            session_id: None,
+        });
+
+        assert_eq!(
+            command,
+            vec![
+                "codex".to_string(),
+                "resume".to_string(),
+                "--last".to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn claude_restore_uses_resume_with_exact_session_id() {
+        let session_id = Uuid::parse_str("11111111-2222-3333-4444-555555555555").unwrap();
+
+        let command = AgentCommandBuilder::new().restore(LaunchPlan {
+            agent: AgentKind::Claude,
+            worktree_path: "/repo-worktree".into(),
+            session_id: Some(session_id),
+        });
+
+        assert_eq!(
+            command,
+            vec![
+                "claude".to_string(),
+                "--resume".to_string(),
+                session_id.to_string()
+            ]
+        );
+    }
+
+    #[test]
+    fn claude_restore_falls_back_to_current_directory_conversation() {
+        let command = AgentCommandBuilder::new().restore(LaunchPlan {
+            agent: AgentKind::Claude,
+            worktree_path: "/repo-worktree".into(),
+            session_id: None,
+        });
+
+        assert_eq!(
+            command,
+            vec!["claude".to_string(), "--continue".to_string()]
+        );
     }
 }

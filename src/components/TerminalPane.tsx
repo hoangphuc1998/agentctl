@@ -1,7 +1,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { Terminal as TerminalIcon } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   closeTerminal,
   listenTerminalClosed,
@@ -27,6 +27,17 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
   const selectedRunId = selectedRun?.id ?? null;
   const selectedRunName = selectedRun?.runName ?? null;
 
+  const fitAndResizeTerminal = useCallback(() => {
+    const fit = fitRef.current;
+    if (!fit) return;
+    fit.fit();
+    const dims = fit.proposeDimensions();
+    const terminalId = terminalIdRef.current;
+    if (dims && terminalId) {
+      void resizeTerminal(terminalId, dims.cols, dims.rows).catch(() => undefined);
+    }
+  }, []);
+
   useEffect(() => {
     const terminal = new Terminal({
       cursorBlink: true,
@@ -45,7 +56,7 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
     fitRef.current = fit;
     if (hostRef.current) {
       terminal.open(hostRef.current);
-      fit.fit();
+      fitAndResizeTerminal();
     }
     const disposable = terminal.onData((data) => {
       const terminalId = terminalIdRef.current;
@@ -59,7 +70,16 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
       terminalRef.current = null;
       fitRef.current = null;
     };
-  }, [onError]);
+  }, [fitAndResizeTerminal, onError]);
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+
+    const observer = new ResizeObserver(() => fitAndResizeTerminal());
+    observer.observe(host);
+    return () => observer.disconnect();
+  }, [fitAndResizeTerminal]);
 
   useEffect(() => {
     let disposed = false;
@@ -78,12 +98,13 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
       }
 
       try {
-        fit.fit();
+        fitAndResizeTerminal();
         const dims = fit.proposeDimensions();
         const started = await startTerminal(selectedRunId, dims?.cols ?? 120, dims?.rows ?? 32);
         if (disposed) return;
         terminalIdRef.current = started.terminalId;
         setStatus(`Attached to ${selectedRunName ?? "selected run"}`);
+        terminal.focus();
         unlistenOutput = await listenTerminalOutput((event) => {
           if (event.payload.terminalId === terminalIdRef.current) {
             terminal.write(event.payload.data);
@@ -104,12 +125,7 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
     void attach();
 
     function onResize() {
-      const fit = fitRef.current;
-      const terminalId = terminalIdRef.current;
-      if (!fit || !terminalId) return;
-      fit.fit();
-      const dims = fit.proposeDimensions();
-      if (dims) void resizeTerminal(terminalId, dims.cols, dims.rows).catch(() => undefined);
+      fitAndResizeTerminal();
     }
 
     window.addEventListener("resize", onResize);
@@ -122,7 +138,7 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
       if (terminalId) void closeTerminal(terminalId).catch(() => undefined);
       terminalIdRef.current = null;
     };
-  }, [onError, selectedRunId]);
+  }, [fitAndResizeTerminal, onError, selectedRunId]);
 
   return (
     <section className="terminal-shell">

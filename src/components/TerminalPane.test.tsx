@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     emitData: (data: string) => void;
     write: ReturnType<typeof vi.fn>;
     reset: ReturnType<typeof vi.fn>;
+    focus: ReturnType<typeof vi.fn>;
     dispose: ReturnType<typeof vi.fn>;
   }>,
   startTerminal: vi.fn(),
@@ -15,7 +16,13 @@ const mocks = vi.hoisted(() => ({
   resizeTerminal: vi.fn(),
   closeTerminal: vi.fn(),
   listenTerminalOutput: vi.fn(),
-  listenTerminalClosed: vi.fn()
+  listenTerminalClosed: vi.fn(),
+  resizeObservers: [] as Array<{
+    observe: ReturnType<typeof vi.fn>;
+    unobserve: ReturnType<typeof vi.fn>;
+    disconnect: ReturnType<typeof vi.fn>;
+    trigger: () => void;
+  }>
 }));
 
 vi.mock("@xterm/xterm", () => {
@@ -23,6 +30,7 @@ vi.mock("@xterm/xterm", () => {
     private dataHandler: ((data: string) => void) | null = null;
     public write = vi.fn();
     public reset = vi.fn();
+    public focus = vi.fn();
     public dispose = vi.fn();
 
     constructor() {
@@ -30,6 +38,7 @@ vi.mock("@xterm/xterm", () => {
         emitData: (data: string) => this.dataHandler?.(data),
         write: this.write,
         reset: this.reset,
+        focus: this.focus,
         dispose: this.dispose
       });
     }
@@ -66,12 +75,28 @@ vi.mock("../api", () => ({
 describe("TerminalPane", () => {
   beforeEach(() => {
     mocks.terminals.length = 0;
+    mocks.resizeObservers.length = 0;
     mocks.startTerminal.mockReset().mockResolvedValue({ terminalId: "term-1", runId: "run-1" });
     mocks.terminalInput.mockReset().mockResolvedValue(undefined);
     mocks.resizeTerminal.mockReset().mockResolvedValue(undefined);
     mocks.closeTerminal.mockReset().mockResolvedValue(undefined);
     mocks.listenTerminalOutput.mockReset().mockResolvedValue(() => undefined);
     mocks.listenTerminalClosed.mockReset().mockResolvedValue(() => undefined);
+    const ResizeObserverMock = class {
+      public observe = vi.fn();
+      public unobserve = vi.fn();
+      public disconnect = vi.fn();
+
+      constructor(callback: ResizeObserverCallback) {
+        mocks.resizeObservers.push({
+          observe: this.observe,
+          unobserve: this.unobserve,
+          disconnect: this.disconnect,
+          trigger: () => callback([], this)
+        });
+      }
+    };
+    vi.stubGlobal("ResizeObserver", ResizeObserverMock);
   });
 
   it("keeps the terminal attached when dashboard refresh replaces the selected run object", async () => {
@@ -102,6 +127,27 @@ describe("TerminalPane", () => {
     mocks.terminals[0].emitData("\x1b[>0;276;0c");
 
     expect(mocks.terminalInput).not.toHaveBeenCalled();
+  });
+
+  it("focuses the terminal when a selected run is attached", async () => {
+    const run = runView();
+    render(<TerminalPane selectedRun={run} onError={vi.fn()} />);
+
+    await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
+
+    expect(mocks.terminals[0].focus).toHaveBeenCalledTimes(1);
+  });
+
+  it("refits and resizes the terminal when the pane dimensions change", async () => {
+    const run = runView();
+    render(<TerminalPane selectedRun={run} onError={vi.fn()} />);
+    await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
+
+    expect(mocks.resizeObservers).toHaveLength(1);
+
+    mocks.resizeObservers[0].trigger();
+
+    await waitFor(() => expect(mocks.resizeTerminal).toHaveBeenCalledWith("term-1", 120, 32));
   });
 });
 

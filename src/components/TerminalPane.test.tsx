@@ -141,16 +141,18 @@ describe("TerminalPane", () => {
     expect(mocks.terminals[0].focus).toHaveBeenCalledTimes(1);
   });
 
-  it("uses a readable text profile for dense tmux output", async () => {
+  it("uses the native terminal font stack for dense tmux output", async () => {
     render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
 
     await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
 
     expect(mocks.terminalOptions[0]).toMatchObject({
+      fontFamily:
+        '"Ubuntu Mono", "MesloLGS NF", "Noto Sans Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
       fontSize: 15,
       lineHeight: 1.22,
       letterSpacing: 0,
-      fontWeight: 500,
+      fontWeight: 400,
       fontWeightBold: 700,
       minimumContrastRatio: 4.5
     });

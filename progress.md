@@ -2,19 +2,21 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-22 22:26 +07
-**Session ID:** merge-master-into-notification
-**Active Feature:** feat-010 - Agent Attention Notifications
+**Last Updated:** 2026-06-22 22:31 +07
+**Session ID:** merge-master-into-font-type
+**Active Feature:** feat-011 - Native Embedded Terminal Font Parity
 
 ## Status
 
 ### What's Done
 
-- [x] Merged local `master` into `notification`.
-- [x] Preserved `master` status-stability fix in `core/src/tmux.rs`.
-- [x] Preserved notification work: backend `agent:attention` events, dashboard `attentionCount`, frontend native notifications, and the top-bar attention badge.
-- [x] Resolved feature tracker collision by keeping `Stable Running Agent Status` as `feat-009` and moving `Agent Attention Notifications` to `feat-010`.
+- [x] Merged local `master` into `font-type`.
+- [x] Preserved master status-stability changes in `core/src/tmux.rs`.
+- [x] Preserved master attention notification work: backend `agent:attention` events, dashboard `attentionCount`, frontend native notifications, and top-bar attention badge.
+- [x] Preserved terminal font parity changes: `Ubuntu Mono` first, `MesloLGS NF` prompt glyph fallback, and regular terminal text weight.
+- [x] Resolved feature tracker collision by keeping master's `feat-009` and `feat-010`, then moving terminal font parity to `feat-011`.
 - [x] Kept notification design and implementation plan artifacts under `docs/superpowers/`.
+- [x] Verified the post-merge branch with formatting and the standard startup path.
 
 ### What's In Progress
 
@@ -27,25 +29,24 @@
 
 ## Blockers / Risks
 
-- [x] No blockers remain.
+- [x] No merge blockers remain.
 - [ ] Native notification behavior is covered by unit tests and Tauri event compile checks; the full Tauri shell has not been manually launched.
-- [ ] Status stability was verified by automated classifier regression coverage from `master`; no live tmux manual observation was performed in this merge session.
+- [ ] Embedded terminal font parity is covered by xterm option regression tests; the full Tauri shell has not been visually compared against the desktop terminal in this merge session.
 
 ## Decisions Made
 
-- **Feature ordering:** `master` already used `feat-009`, so notifications are now `feat-010` and depend on `feat-009`.
-- **Status precedence:** User-input prompts still win, but live agent runtime commands remain `Running` before completion-word heuristics are applied.
-- **Backend source of truth:** tmux-derived state transitions are detected in Rust during `dashboard_state`, and only new transitions into attention states emit `agent:attention`.
-- **Native delivery path:** React listens for backend events and uses the browser `Notification` API, avoiding a new Tauri plugin dependency.
-- **Badge semantics:** The badge count reflects current backend dashboard state for `needs-user` and `completed-unchecked`; selecting a run does not mark it seen in this feature.
+- **Feature ordering:** `master` already used `feat-009` and `feat-010`, so terminal font parity is now `feat-011` and depends on `feat-010`.
+- **Font family:** Keep this branch's xterm stack: `Ubuntu Mono`, `MesloLGS NF`, then standard monospace fallbacks.
+- **Status precedence:** Preserve master's running-agent classifier fix: user-input prompts still win, while live runtime commands stay `Running` before completion-word heuristics apply.
+- **Notification delivery:** Preserve master's backend attention events and frontend native `Notification` API integration without adding a Tauri notification plugin.
 
 ## Files Modified This Session
 
-- `core/src/tmux.rs` - Preserves master status-stability classifier changes.
-- `feature_list.json` - Records both `feat-009` and `feat-010` with completed evidence.
-- `progress.md` - Records the merge handoff state.
-- `docs/superpowers/specs/2026-06-22-agent-attention-notifications-design.md` - Notification design summary from the feature branch.
-- `docs/superpowers/plans/2026-06-22-agent-attention-notifications.md` - Notification implementation plan from the feature branch.
+- `core/src/tmux.rs` - Master status-stability classifier changes.
+- `docs/superpowers/specs/2026-06-22-agent-attention-notifications-design.md` - Notification design artifact from master.
+- `docs/superpowers/plans/2026-06-22-agent-attention-notifications.md` - Notification implementation plan from master.
+- `feature_list.json` - Records master `feat-009`/`feat-010` and renumbered font parity `feat-011`.
+- `progress.md` - Records this merge handoff state.
 - `src-tauri/src/models.rs` - Adds `AgentAttentionEvent` and `DashboardState.attention_count`.
 - `src-tauri/src/services.rs` - Adds attention counting and transition-event helpers.
 - `src-tauri/src/commands.rs` - Emits `agent:attention` from dashboard refresh transitions.
@@ -57,10 +58,10 @@
 
 ## Evidence of Completion
 
-- [x] Pre-merge notification verification: `./init.sh` exited 0 with npm test, npm build, cargo tests, and doc tests passing.
+- [x] Pre-merge baseline: `./init.sh` exited 0 before merging `master`.
 - [x] Post-merge formatting: `cargo fmt --check` exited 0.
 - [x] Post-merge standard verification: `./init.sh` exited 0 with npm test passing 7 files and 25 tests, npm build passing, cargo tests passing, and doc tests passing.
 
 ## Notes for Next Session
 
-The branch should include both master's stable running status classifier fix and this branch's backend event emission, native notification dispatch, and in-app attention badge coverage.
+After verification, this branch should include master's stable running status and attention notification features plus this branch's embedded terminal font parity fix.

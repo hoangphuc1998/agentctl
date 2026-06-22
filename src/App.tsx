@@ -1,6 +1,7 @@
 import {
   Activity,
   AlertTriangle,
+  Bell,
   Bot,
   Code2,
   Command,
@@ -24,6 +25,7 @@ import {
   cleanupStaleRuns,
   dashboardState,
   endRun,
+  listenAgentAttention,
   mergeRun,
   openInVsCode,
   restoreRun,
@@ -36,7 +38,7 @@ import { CreateRunModal } from "./components/CreateRunModal";
 import { RepoRunTree } from "./components/RepoRunTree";
 import { StatusBadge } from "./components/StatusBadge";
 import { TerminalPane } from "./components/TerminalPane";
-import type { DashboardState, HostToolStatus, RunView } from "./types";
+import type { AgentAttentionEvent, DashboardState, HostToolStatus, RunView } from "./types";
 
 type PendingAction =
   | { kind: "stop"; run: RunView }
@@ -48,6 +50,7 @@ const emptyDashboard: DashboardState = {
   repos: [],
   selectedRunId: null,
   activeCount: 0,
+  attentionCount: 0,
   staleCount: 0,
   restorableCount: 0,
   activeRepoPath: null,
@@ -101,6 +104,28 @@ export function App() {
     const interval = window.setInterval(() => void loadDashboard(), 3000);
     return () => window.clearInterval(interval);
   }, [loadDashboard]);
+
+  useEffect(() => {
+    let active = true;
+    let unlisten: (() => void) | null = null;
+
+    void listenAgentAttention((event) => {
+      showAgentAttentionNotification(event.payload);
+    })
+      .then((nextUnlisten) => {
+        if (active) {
+          unlisten = nextUnlisten;
+        } else {
+          nextUnlisten();
+        }
+      })
+      .catch((err) => setError(errorMessage(err)));
+
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, []);
 
   async function runAction(action: PendingAction) {
     try {
@@ -182,6 +207,11 @@ export function App() {
           <Chip tone="success" icon={<Activity size={14} />}>
             {dashboard.activeCount} active
           </Chip>
+          {dashboard.attentionCount > 0 && (
+            <Chip tone="warning" icon={<Bell size={14} />} title="Runs needing attention">
+              {dashboard.attentionCount} attention
+            </Chip>
+          )}
           <Chip tone={dashboard.staleCount > 0 ? "warning" : "neutral"} icon={<AlertTriangle size={14} />}>
             {dashboard.staleCount} stale
           </Chip>
@@ -364,6 +394,29 @@ function errorMessage(err: unknown): string {
     return String((err as { message: unknown }).message);
   }
   return "Unexpected error.";
+}
+
+function showAgentAttentionNotification(event: AgentAttentionEvent) {
+  const NotificationApi = window.Notification;
+  if (!NotificationApi) return;
+
+  const notify = () => {
+    new NotificationApi(event.title, {
+      body: event.body,
+      tag: `agent-attention-${event.runId}`
+    });
+  };
+
+  if (NotificationApi.permission === "granted") {
+    notify();
+    return;
+  }
+
+  if (NotificationApi.permission === "denied") return;
+
+  void NotificationApi.requestPermission().then((permission) => {
+    if (permission === "granted") notify();
+  });
 }
 
 function hostToolTone(tool: HostToolStatus): ChipTone {

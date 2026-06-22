@@ -63,6 +63,14 @@
       "dependencies": ["feat-007"],
       "status": "completed",
       "evidence": "2026-06-22 21:00 +07: Added xterm readability options and terminal font-smoothing CSS with regression coverage. Red targeted tests failed before implementation; npm test, npm run build, and ./init.sh exited 0 after the fix."
+    },
+    {
+      "id": "feat-009",
+      "name": "Agent Attention Notifications",
+      "description": "Emit backend attention events, show native notifications, and display an in-app badge count when agent runs newly need user input or complete.",
+      "dependencies": ["feat-008"],
+      "status": "completed",
+      "evidence": "2026-06-22 21:33 +07: Added backend agent:attention event payloads on new needs-user/completed-unchecked transitions, DashboardState attentionCount, frontend native Notification handling, and top-bar attention badge. RED tests failed before implementation; npm test, npm run build, cargo test, cargo fmt --check, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh exited 0."
     }
   ]
 }

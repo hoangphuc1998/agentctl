@@ -2,55 +2,66 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-22 21:28 +07
-**Session ID:** fix-terminal-font-parity
-**Active Feature:** feat-009 - Native Embedded Terminal Font Parity
+**Last Updated:** 2026-06-22 22:31 +07
+**Session ID:** merge-master-into-font-type
+**Active Feature:** feat-011 - Native Embedded Terminal Font Parity
 
 ## Status
 
 ### What's Done
 
-- [x] Reproduced the font regression with a red `TerminalPane` test.
-- [x] Confirmed the embedded xterm options preferred a non-native stack: JetBrains/Cascadia/Fira/Noto before Ubuntu Mono, plus forced medium weight.
-- [x] Confirmed local terminal settings use the system monospace profile (`Ubuntu Mono`) and the machine has `MesloLGS NF` installed for prompt glyph fallback.
-- [x] Changed the embedded terminal font stack to prefer `Ubuntu Mono`, include `MesloLGS NF`, and use regular weight.
-- [x] Updated `feature_list.json` with completed `feat-009` evidence.
+- [x] Merged local `master` into `font-type`.
+- [x] Preserved master status-stability changes in `core/src/tmux.rs`.
+- [x] Preserved master attention notification work: backend `agent:attention` events, dashboard `attentionCount`, frontend native notifications, and top-bar attention badge.
+- [x] Preserved terminal font parity changes: `Ubuntu Mono` first, `MesloLGS NF` prompt glyph fallback, and regular terminal text weight.
+- [x] Resolved feature tracker collision by keeping master's `feat-009` and `feat-010`, then moving terminal font parity to `feat-011`.
+- [x] Kept notification design and implementation plan artifacts under `docs/superpowers/`.
+- [x] Verified the post-merge branch with formatting and the standard startup path.
 
 ### What's In Progress
 
-- [x] No active implementation work remains.
+- [x] Merge conflict resolution is complete and verified.
 
 ### What's Next
 
-1. Launch the rebuilt app and visually compare the embedded terminal against the desktop terminal.
+1. Commit the verified merge.
 2. Next session can run `./init.sh` immediately from this worktree.
 
 ## Blockers / Risks
 
-- [x] No code or verification blockers remain.
-- [ ] Visual inspection in the full Tauri shell was not launched from this session; verification covered the xterm options and full automated startup path.
+- [x] No merge blockers remain.
+- [ ] Native notification behavior is covered by unit tests and Tauri event compile checks; the full Tauri shell has not been manually launched.
+- [ ] Embedded terminal font parity is covered by xterm option regression tests; the full Tauri shell has not been visually compared against the desktop terminal in this merge session.
 
 ## Decisions Made
 
-- **Font family:** Prefer `Ubuntu Mono` to match the local desktop terminal's system monospace setting.
-- **Prompt glyph fallback:** Keep `MesloLGS NF` immediately after `Ubuntu Mono` so Powerlevel10k/Nerd Font symbols can render without making every normal character use Meslo.
-- **Weight:** Use regular `400` for normal terminal text instead of forced `500`, which made the embedded pane look heavier than the original terminal.
+- **Feature ordering:** `master` already used `feat-009` and `feat-010`, so terminal font parity is now `feat-011` and depends on `feat-010`.
+- **Font family:** Keep this branch's xterm stack: `Ubuntu Mono`, `MesloLGS NF`, then standard monospace fallbacks.
+- **Status precedence:** Preserve master's running-agent classifier fix: user-input prompts still win, while live runtime commands stay `Running` before completion-word heuristics apply.
+- **Notification delivery:** Preserve master's backend attention events and frontend native `Notification` API integration without adding a Tauri notification plugin.
 
 ## Files Modified This Session
 
-- `feature_list.json` - Adds completed `feat-009` with verification evidence.
-- `progress.md` - Records the font parity fix, decisions, verification, and visual-inspection note.
-- `src/components/TerminalPane.tsx` - Updates xterm font family and normal font weight.
-- `src/components/TerminalPane.test.tsx` - Adds regression coverage for the native terminal font stack.
+- `core/src/tmux.rs` - Master status-stability classifier changes.
+- `docs/superpowers/specs/2026-06-22-agent-attention-notifications-design.md` - Notification design artifact from master.
+- `docs/superpowers/plans/2026-06-22-agent-attention-notifications.md` - Notification implementation plan from master.
+- `feature_list.json` - Records master `feat-009`/`feat-010` and renumbered font parity `feat-011`.
+- `progress.md` - Records this merge handoff state.
+- `src-tauri/src/models.rs` - Adds `AgentAttentionEvent` and `DashboardState.attention_count`.
+- `src-tauri/src/services.rs` - Adds attention counting and transition-event helpers.
+- `src-tauri/src/commands.rs` - Emits `agent:attention` from dashboard refresh transitions.
+- `src-tauri/tests/desktop_state.rs` - Covers attention count and transition filtering.
+- `src/types.ts` - Adds frontend attention event and count types.
+- `src/api.ts` - Adds `listenAgentAttention`.
+- `src/App.tsx` - Renders the attention badge and dispatches native notifications.
+- `src/App.test.tsx` - Covers badge rendering and notification dispatch.
 
 ## Evidence of Completion
 
-- [x] Red test: `npm test -- src/components/TerminalPane.test.tsx` failed before implementation because the xterm options still used the old JetBrains/Cascadia/Fira/Noto stack and `fontWeight: 500`.
-- [x] Targeted test after implementation: `npm test -- src/components/TerminalPane.test.tsx` passed with 1 file and 7 tests.
-- [x] Frontend tests: `npm test` passed with 7 files and 23 tests.
-- [x] Frontend build: `npm run build` exited 0.
-- [x] Standard verification: `./init.sh` exited 0 with npm test, npm build, cargo tests, and doc tests passing.
+- [x] Pre-merge baseline: `./init.sh` exited 0 before merging `master`.
+- [x] Post-merge formatting: `cargo fmt --check` exited 0.
+- [x] Post-merge standard verification: `./init.sh` exited 0 with npm test passing 7 files and 25 tests, npm build passing, cargo tests passing, and doc tests passing.
 
 ## Notes for Next Session
 
-The embedded terminal now uses the same local terminal font priority instead of skipping to Noto Sans Mono. If the visual comparison still differs, the next likely adjustment is font size/cell metrics rather than font family.
+After verification, this branch should include master's stable running status and attention notification features plus this branch's embedded terminal font parity fix.

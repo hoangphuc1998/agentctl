@@ -41,6 +41,7 @@ export interface DashboardState {
   repos: RepoNode[];
   selectedRunId: string | null;
   activeCount: number;
+  attentionCount: number;
   staleCount: number;
   restorableCount: number;
   activeRepoPath: string | null;
@@ -53,4 +54,14 @@ export interface CreateRunPayload {
   tag: string;
   runName: string;
   agent: AgentKind;
+}
+
+export interface AgentAttentionEvent {
+  runId: string;
+  runName: string;
+  repoName: string;
+  agent: AgentKind;
+  observedState: Extract<ObservedState, "needs-user" | "completed-unchecked">;
+  title: string;
+  body: string;
 }

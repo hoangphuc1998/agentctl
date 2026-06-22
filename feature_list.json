@@ -66,9 +66,25 @@
     },
     {
       "id": "feat-009",
+      "name": "Stable Running Agent Status",
+      "description": "Keep active agent panes marked running when live agent processes have recent visible text that mentions completion.",
+      "dependencies": ["feat-008"],
+      "status": "completed",
+      "evidence": "2026-06-22 21:22 +07: Added a red core regression test for live codex panes with completion text, then changed tmux status classification so runtime agent commands stay running unless user input is needed. cargo fmt --check, cargo test -p agentctl-core, and ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
+    },
+    {
+      "id": "feat-010",
+      "name": "Agent Attention Notifications",
+      "description": "Emit backend attention events, show native notifications, and display an in-app badge count when agent runs newly need user input or complete.",
+      "dependencies": ["feat-009"],
+      "status": "completed",
+      "evidence": "2026-06-22 21:33 +07: Added backend agent:attention event payloads on new needs-user/completed-unchecked transitions, DashboardState attentionCount, frontend native Notification handling, and top-bar attention badge. RED tests failed before implementation; npm test, npm run build, cargo test, cargo fmt --check, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh exited 0."
+    },
+    {
+      "id": "feat-011",
       "name": "Native Embedded Terminal Font Parity",
       "description": "Make the embedded tmux terminal use the same native Linux terminal font stack as the original desktop terminal.",
-      "dependencies": ["feat-008"],
+      "dependencies": ["feat-010"],
       "status": "completed",
       "evidence": "2026-06-22 21:28 +07: Confirmed the desktop terminal uses the system monospace stack while the embedded xterm preferred Noto/forced medium weight. Added a red regression test for the native terminal font stack, then changed xterm to prefer Ubuntu Mono with MesloLGS NF glyph fallback and regular weight. npm test, npm run build, and ./init.sh exited 0."
     }

@@ -8,7 +8,7 @@ use agentctl_core::{
     registry::SqliteRegistry,
     tmux::{detect_observed_state, detection_source_for, Tmux},
 };
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 use uuid::Uuid;
 
 use crate::{
@@ -17,7 +17,10 @@ use crate::{
         host_tool_statuses, ActionResult, CreateRunPayload, DashboardState, MergeActionResult,
         Suggestion, TerminalStarted,
     },
-    services::{build_dashboard_state, is_stale_run, suggestions_from_candidates},
+    services::{
+        agent_attention_event_for_transition, build_dashboard_state, is_stale_run,
+        suggestions_from_candidates,
+    },
     state::DesktopState,
 };
 
@@ -25,6 +28,7 @@ const TMUX_SESSION: &str = "agentctl";
 
 #[tauri::command]
 pub fn dashboard_state(
+    app_handle: AppHandle,
     state: State<'_, DesktopState>,
     selected_run_id: Option<String>,
 ) -> DesktopResult<DashboardState> {
@@ -32,7 +36,7 @@ pub fn dashboard_state(
         state.set_selected_run_id(selected_run_id)?;
     }
     let registry = registry(&state)?;
-    let runs = refresh_active_runs(&registry)?;
+    let runs = refresh_active_runs(&registry, &app_handle)?;
     let selected = state.selected_run_id()?;
     let dashboard = build_dashboard_state(
         runs,
@@ -241,6 +245,7 @@ fn parse_uuid(value: &str) -> DesktopResult<Uuid> {
 
 fn refresh_active_runs(
     registry: &SqliteRegistry,
+    app_handle: &AppHandle,
 ) -> DesktopResult<Vec<agentctl_core::domain::RunRecord>> {
     let tmux = Tmux::new(TMUX_SESSION);
     let mut runs = registry.list_active_runs()?;
@@ -249,6 +254,7 @@ fn refresh_active_runs(
             continue;
         };
         let snapshot = tmux.snapshot_window(window)?;
+        let previous_state = run.observed_state;
         let state = detect_observed_state(&snapshot);
         let source = detection_source_for(&snapshot);
         registry.set_observed_state(
@@ -260,6 +266,11 @@ fn refresh_active_runs(
         )?;
         run.observed_state = state;
         run.detection_source = source;
+        if let Some(event) = agent_attention_event_for_transition(previous_state, run) {
+            app_handle
+                .emit("agent:attention", &event)
+                .map_err(|err| DesktopError::Message(err.to_string()))?;
+        }
     }
     Ok(runs)
 }

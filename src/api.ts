@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { EventCallback, UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
-import type { CreateRunPayload, DashboardState, RunView } from "./types";
+import type { AgentAttentionEvent, CreateRunPayload, DashboardState, RunView } from "./types";
 
 export interface ActionResult {
   message: string;
@@ -103,3 +103,8 @@ export function listenTerminalClosed(
   return listen<TerminalClosedEvent>("terminal:closed", callback);
 }
 
+export function listenAgentAttention(
+  callback: EventCallback<AgentAttentionEvent>
+): Promise<UnlistenFn> {
+  return listen<AgentAttentionEvent>("agent:attention", callback);
+}

@@ -3,11 +3,9 @@ dist/
 target/
 src-tauri/target/
 src-tauri/gen/
-src-tauri/icons/
 src-tauri/binaries/
 src-tauri/target/
 src-tauri/Cargo.lock
 *.AppImage
 *.deb
 .superpowers/
-

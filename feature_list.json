@@ -87,6 +87,14 @@
       "dependencies": ["feat-010"],
       "status": "completed",
       "evidence": "2026-06-22 21:28 +07: Confirmed the desktop terminal uses the system monospace stack while the embedded xterm preferred Noto/forced medium weight. Added a red regression test for the native terminal font stack, then changed xterm to prefer Ubuntu Mono with MesloLGS NF glyph fallback and regular weight. npm test, npm run build, and ./init.sh exited 0."
+    },
+    {
+      "id": "feat-012",
+      "name": "Minimal Tauri App Icon",
+      "description": "Replace the generated placeholder with a simple Agent Manager app icon that communicates terminal-based agent run control and git worktree branching.",
+      "dependencies": ["feat-011"],
+      "status": "completed",
+      "evidence": "2026-06-22 22:47 +07: Used Image Gen to explore a minimalist terminal/worktree icon concept, replaced scripts/generate-icons.mjs with a deterministic renderer, generated src-tauri/icons PNGs at 32, 128, 256, and 512px, visually checked 32px and 128px outputs, and ran node --check, npm run icons:generate, and ./init.sh. ./init.sh exited 0 with cargo tests passing and npm checks skipped because node_modules is absent."
     }
   ]
 }

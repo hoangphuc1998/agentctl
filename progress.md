@@ -2,18 +2,19 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-22 19:06 +07
-**Session ID:** fix-create-run-agent-exit-recovery
-**Active Feature:** feat-006 - Create Run Agent Exit Recovery
+**Last Updated:** 2026-06-22 21:03 +07
+**Session ID:** fix-dashboard-ui-polish
+**Active Feature:** feat-007 - Compact Dashboard UI Polish
 
 ## Status
 
 ### What's Done
 
-- [x] Traced the create-run failure to the tmux launch check treating an immediately exited agent command as a missing tmux window.
-- [x] Added a shell failure wrapper for agent create/restore launches so non-zero exits keep the pane open with diagnostics and a recovery shell.
-- [x] Added a core regression test covering the wrapped create-run launch command.
-- [x] Verified the wrapper manually in a temporary tmux session with a failing command.
+- [x] Reduced dashboard chrome so the terminal has more usable space.
+- [x] Removed persistent success notices from routine actions while preserving persistent error notices.
+- [x] Reworked the New Run modal into a compact single form with full-width primary fields and smaller secondary controls.
+- [x] Replaced the native Agent dropdown with dark segmented controls for `codex` and `claude`.
+- [x] Added regression coverage for notification behavior, missing merge-result errors, segmented agent selection, and compact CSS hooks.
 - [x] Ran targeted and standard verification.
 
 ### What's In Progress
@@ -22,37 +23,41 @@
 
 ### What's Next
 
-1. Commit the verified changes with a descriptive message.
-2. Next session can run `./init.sh` immediately from this worktree.
+1. Next session can run `./init.sh` immediately from this worktree.
+2. Optional manual follow-up: launch the Tauri app and compare the dashboard against the original screenshots on a desktop-sized viewport.
 
 ## Blockers / Risks
 
 - [x] No blockers remain.
-- [ ] Dependency note: `./init.sh` skipped npm checks because `node_modules` is absent in this worktree. This session changed Rust core code only; Rust verification passed.
+- [ ] Visual inspection was limited to code/CSS review and automated verification in this session; the full Tauri shell was not launched.
 
 ## Decisions Made
 
-- **Keep failed agent panes inspectable:** A create/restore launch now runs the agent command through a small shell wrapper. If the agent exits with a non-zero status, the pane prints the exit status and execs the user's shell so the tmux window remains available.
-  - Context: The previous flow rolled back the run when the agent command exited before the window verification check could observe it.
-  - Detail: The wrapper uses `agent_status` instead of `status` because `status` is a read-only special parameter in `zsh`, which tmux uses on this machine.
+- **Keep current layout:** Use compact polish rather than adding sidebar collapse or new dashboard state.
+- **Errors-only notice area:** Successful actions clear errors but do not create a persistent full-width green notice.
+- **Segmented agent picker:** New Run uses theme-matched buttons for agent selection instead of a native dropdown to avoid platform color mismatches.
+- **Compact modal form:** Repo path and run name remain primary full-width fields; base ref, tag, and agent share a denser grid.
 
 ## Files Modified This Session
 
-- `core/src/commands.rs` - Adds the shell failure wrapper used for agent launch commands.
-- `core/src/app.rs` - Uses the wrapper for create and restore tmux launches and adds a regression test.
+- `src/App.tsx` - Removes persistent success notices and keeps error notices.
+- `src/App.test.tsx` - Adds coverage for errors-only notice behavior and create-run success suppression.
+- `src/components/CreateRunModal.tsx` - Adds compact field grouping and segmented agent selection.
+- `src/components/CreateRunModal.test.tsx` - Adds coverage for segmented agent selection and submitted payload.
+- `src/styles.css` - Tightens dashboard chrome and styles the compact modal/agent segmented control.
+- `src/styles.test.ts` - Adds compact layout and segmented-control CSS coverage.
 - `feature_list.json` - Records completed feature state and verification evidence.
 - `progress.md` - Records this session handoff.
 
 ## Evidence of Completion
 
-- [x] Regression red: `cargo test -p agentctl-core create_run_wraps_agent_launch_so_failures_keep_the_pane_open` failed before implementation because create-run passed bare `codex`.
-- [x] Wrapper portability red: the same test failed after tightening it to require `agent_status`, avoiding zsh's read-only `status` parameter.
-- [x] Targeted test: `cargo test -p agentctl-core create_run_wraps_agent_launch_so_failures_keep_the_pane_open` passed.
-- [x] Core tests: `cargo test -p agentctl-core` passed with 10 tests.
-- [x] Formatting: `cargo fmt --check` exited 0.
-- [x] Manual smoke: temporary tmux window running `false` stayed open, displayed `Agent command exited with status 1...`, and execed `zsh`.
-- [x] Standard verification: `./init.sh` exited 0; npm checks were skipped because `node_modules` is absent, and all Rust tests passed.
-
-## Notes for Next Session
-
-The create-run failure shown as `tmux window was not created or exited immediately: ...` should now be avoided for non-zero agent startup exits: the run can be recorded, and the tmux pane remains open with the agent exit status and a shell for inspection.
+- [x] Baseline: `./init.sh` exited 0 before implementation; npm checks were skipped because `node_modules` was absent.
+- [x] Dependency setup: `npm install` required escalation after sandbox EPERM from esbuild's install script, then exited 0.
+- [x] Baseline UI tests: `npm test` passed with 7 files and 16 tests before feature tests.
+- [x] Red tests: `npm test -- src/App.test.tsx src/components/CreateRunModal.test.tsx` failed because success notices still rendered and `claude` was still only a native select option.
+- [x] Error preservation red: `npm test -- src/App.test.tsx` failed until a missing merge result rendered `Run not found.` as an error notice.
+- [x] CSS red test: `npm test -- src/styles.test.ts` failed because the old 362px sidebar and missing segmented-control styles were still present.
+- [x] Targeted green: `npm test -- src/App.test.tsx src/components/CreateRunModal.test.tsx src/styles.test.ts` passed with 10 tests.
+- [x] Frontend tests: `npm test` passed with 7 files and 21 tests.
+- [x] Frontend build: `npm run build` exited 0.
+- [x] Standard verification: `./init.sh` exited 0 with npm test, npm build, and cargo test all running.

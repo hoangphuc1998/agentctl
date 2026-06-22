@@ -1,12 +1,13 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { dashboardState, restoreRun } from "./api";
+import { createRun, dashboardState, mergeRun, restoreRun } from "./api";
 import type { DashboardState, RunView } from "./types";
 
 vi.mock("./api", () => ({
   cleanupStaleRuns: vi.fn(),
+  createRun: vi.fn(),
   dashboardState: vi.fn(),
   endRun: vi.fn(),
   mergeRun: vi.fn(),
@@ -22,6 +23,10 @@ vi.mock("./components/TerminalPane", () => ({
 }));
 
 describe("App", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it("keeps the run chosen by the user instead of returning to the first run", async () => {
     vi.mocked(dashboardState).mockImplementation((selectedRunId?: string | null) =>
       Promise.resolve(dashboard(selectedRunId ?? "run-1"))
@@ -57,6 +62,52 @@ describe("App", () => {
     await waitFor(() => expect(restoreRun).toHaveBeenCalledWith("run-2"));
     expect(screen.getByText("1 restorable")).toBeInTheDocument();
     expect(screen.getByText("0 stale")).toBeInTheDocument();
+  });
+
+  it("keeps dashboard errors visible in the notice area", async () => {
+    vi.mocked(dashboardState).mockRejectedValue("Dashboard unavailable");
+
+    render(<App />);
+
+    const notice = await screen.findByText("Dashboard unavailable");
+    expect(notice).toHaveClass("notice", "error");
+  });
+
+  it("shows missing merge results as an error notice", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+    vi.mocked(mergeRun).mockResolvedValue(null);
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("button", { name: /merge/i }));
+    await userEvent.click(screen.getByRole("button", { name: /confirm/i }));
+
+    await waitFor(() => expect(mergeRun).toHaveBeenCalledWith("run-1"));
+    const notice = await screen.findByText("Run not found.");
+    expect(notice).toHaveClass("notice", "error");
+  });
+
+  it("does not reserve dashboard space for successful create-run messages", async () => {
+    const createdRun = run("run-3", "fix-ui");
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+    vi.mocked(createRun).mockResolvedValue({
+      message: "Created fix-ui.",
+      run: createdRun
+    });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("button", { name: /new run/i }));
+    const repoPath = screen.getByLabelText(/repo path/i);
+    await userEvent.clear(repoPath);
+    await userEvent.type(repoPath, "/repo/agent-manager");
+    await userEvent.type(screen.getByLabelText(/run name/i), "fix-ui");
+    await userEvent.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => expect(createRun).toHaveBeenCalledOnce());
+    expect(screen.queryByText("Created fix-ui.")).not.toBeInTheDocument();
   });
 });
 

@@ -47,6 +47,14 @@
       "dependencies": ["feat-005"],
       "status": "completed",
       "evidence": "2026-06-22 19:06 +07: Added a shell failure wrapper for create/restore agent launches and a core regression test. cargo fmt --check, cargo test -p agentctl-core, a tmux smoke test, and ./init.sh exited 0; ./init.sh skipped npm checks because node_modules is absent."
+    },
+    {
+      "id": "feat-007",
+      "name": "Compact Dashboard UI Polish",
+      "description": "Reduce dashboard chrome and notification noise while making the New Run modal compact and visually consistent.",
+      "dependencies": ["feat-006"],
+      "status": "completed",
+      "evidence": "2026-06-22 21:03 +07: Added red tests for suppressing successful create-run notices, preserving error notices, and using segmented New Run agent controls, then implemented compact dashboard/modal UI polish. npm test passed with 7 files and 21 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm build, and cargo test all running."
     }
   ]
 }

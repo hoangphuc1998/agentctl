@@ -21,4 +21,11 @@ describe("app shell layout CSS", () => {
     expect(css).toContain("-webkit-font-smoothing: antialiased;");
     expect(css).toContain("text-rendering: optimizeLegibility;");
   });
+
+  it("uses compact dashboard chrome and dark segmented modal controls", () => {
+    expect(css).toContain("grid-template-columns: 320px minmax(0, 1fr);");
+    expect(css).toContain("min-height: 68px;");
+    expect(css).toContain(".agent-segmented-control {");
+    expect(css).toContain(".agent-segment.active {");
+  });
 });

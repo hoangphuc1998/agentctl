@@ -57,7 +57,6 @@ const emptyDashboard: DashboardState = {
 export function App() {
   const [dashboard, setDashboard] = useState<DashboardState>(emptyDashboard);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -106,18 +105,21 @@ export function App() {
   async function runAction(action: PendingAction) {
     try {
       if (action.kind === "stop") {
-        const result = await stopRun(action.run.id);
-        setNotice(result.message);
+        await stopRun(action.run.id);
       } else if (action.kind === "end") {
-        const result = await endRun(action.run.id);
-        setNotice(result.message);
+        await endRun(action.run.id);
       } else if (action.kind === "merge") {
         const result = await mergeRun(action.run.id);
-        setNotice(result?.message ?? "Run not found.");
+        if (!result) {
+          setPendingAction(null);
+          await loadDashboard();
+          setError("Run not found.");
+          return;
+        }
       } else {
-        const result = await cleanupStaleRuns();
-        setNotice(result.message);
+        await cleanupStaleRuns();
       }
+      setError(null);
       setPendingAction(null);
       await loadDashboard();
     } catch (err) {
@@ -128,8 +130,8 @@ export function App() {
   async function openCode() {
     if (!selectedRun) return;
     try {
-      const result = await openInVsCode(selectedRun.id);
-      setNotice(result.message);
+      await openInVsCode(selectedRun.id);
+      setError(null);
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -139,7 +141,7 @@ export function App() {
     if (!selectedRun) return;
     try {
       const result = await restoreRun(selectedRun.id);
-      setNotice(result.message);
+      setError(null);
       const nextSelectedRunId = result.run?.id ?? selectedRun.id;
       selectRun(nextSelectedRunId);
       await loadDashboard(nextSelectedRunId);
@@ -208,9 +210,7 @@ export function App() {
         </div>
       </header>
 
-      {(notice || error) && (
-        <section className={error ? "notice error" : "notice"}>{error ?? notice}</section>
-      )}
+      {error && <section className="notice error">{error}</section>}
 
       <section className="workspace">
         <aside className="left-panel">
@@ -309,7 +309,7 @@ export function App() {
         onCreated={(run) => {
           setCreateOpen(false);
           selectRun(run.id);
-          setNotice(`Created ${run.runName}.`);
+          setError(null);
           void loadDashboard(run.id);
         }}
         onError={setError}

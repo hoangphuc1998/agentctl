@@ -50,9 +50,17 @@
     },
     {
       "id": "feat-007",
+      "name": "Compact Dashboard UI Polish",
+      "description": "Reduce dashboard chrome and notification noise while making the New Run modal compact and visually consistent.",
+      "dependencies": ["feat-006"],
+      "status": "completed",
+      "evidence": "2026-06-22 21:03 +07: Added red tests for suppressing successful create-run notices, preserving error notices, and using segmented New Run agent controls, then implemented compact dashboard/modal UI polish. npm test passed with 7 files and 21 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm build, and cargo test all running."
+    },
+    {
+      "id": "feat-008",
       "name": "Readable Embedded Terminal Text",
       "description": "Improve embedded tmux terminal text clarity so dense agent output is less pixelated and easier to read.",
-      "dependencies": ["feat-006"],
+      "dependencies": ["feat-007"],
       "status": "completed",
       "evidence": "2026-06-22 21:00 +07: Added xterm readability options and terminal font-smoothing CSS with regression coverage. Red targeted tests failed before implementation; npm test, npm run build, and ./init.sh exited 0 after the fix."
     }

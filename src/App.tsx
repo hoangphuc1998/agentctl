@@ -111,6 +111,7 @@ export function App() {
 
     void listenAgentAttention((event) => {
       showAgentAttentionNotification(event.payload);
+      void loadDashboard();
     })
       .then((nextUnlisten) => {
         if (active) {
@@ -125,7 +126,7 @@ export function App() {
       active = false;
       unlisten?.();
     };
-  }, []);
+  }, [loadDashboard]);
 
   async function runAction(action: PendingAction) {
     try {

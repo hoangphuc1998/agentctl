@@ -163,6 +163,43 @@ describe("App", () => {
       )
     );
   });
+
+  it("refreshes the badge count when the backend emits an attention event", async () => {
+    const attentionListener: { current: Parameters<typeof listenAgentAttention>[0] | null } = {
+      current: null
+    };
+    const quietDashboard = dashboard("run-1", [run("run-1", "login-flow")]);
+    const attentionDashboard = dashboard("run-1", [run("run-1", "login-flow"), run("run-2", "api-cleanup")]);
+    vi.mocked(dashboardState)
+      .mockResolvedValueOnce(quietDashboard)
+      .mockResolvedValueOnce(attentionDashboard);
+    vi.mocked(listenAgentAttention).mockImplementation(async (callback) => {
+      attentionListener.current = callback;
+      return vi.fn();
+    });
+    installNotificationMock("granted");
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    expect(screen.queryByText("1 attention")).not.toBeInTheDocument();
+    attentionListener.current?.({
+      event: "agent:attention",
+      id: 1,
+      payload: {
+        runId: "run-2",
+        runName: "api-cleanup",
+        repoName: "agent-manager",
+        agent: "codex",
+        observedState: "completed-unchecked",
+        title: "Agent completed",
+        body: "api-cleanup in agent-manager is ready for review."
+      }
+    });
+
+    expect(await screen.findByText("1 attention")).toBeInTheDocument();
+    expect(dashboardState).toHaveBeenCalledTimes(2);
+  });
 });
 
 function dashboard(selectedRunId: string, runs: RunView[] = [run("run-1", "login-flow"), run("run-2", "api-cleanup")]): DashboardState {

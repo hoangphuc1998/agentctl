@@ -2,6 +2,7 @@ pub mod models;
 pub mod run_classification;
 pub mod services;
 pub mod terminal_plan;
+pub mod tmux_restore;
 
 #[cfg(feature = "tauri-app")]
 pub mod commands;
@@ -27,6 +28,8 @@ pub fn run() {
             commands::merge_run,
             commands::open_in_vscode,
             commands::cleanup_stale_runs,
+            commands::tmux_restore_status,
+            commands::enable_tmux_restore,
             commands::repo_suggestions,
             commands::base_ref_suggestions,
             commands::start_terminal,

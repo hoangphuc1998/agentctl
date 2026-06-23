@@ -2,51 +2,59 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-23 18:33 +07
-**Session ID:** app-icon-attention-badge
-**Active Feature:** feat-019 - App Icon Attention Badge
+**Last Updated:** 2026-06-23 21:03 +07
+**Session ID:** merge-master-into-fix-restart
+**Active Feature:** feat-020 - Tmux Plugin Restart Restore
 
 ## Status
 
 ### What's Done
 
-- [x] Completed the startup workflow in this worktree: confirmed the path, read project instructions/docs/feature tracker, reviewed recent commits, and ran `./init.sh`.
-- [x] Confirmed this checkout was clean on branch `notification` before edits.
-- [x] Identified `dashboard.attentionCount` as the existing source of truth for top-bar and run-row attention state.
-- [x] Added red App coverage showing the Tauri app icon badge was not updated when backend attention count became positive.
-- [x] Added red App coverage showing the Tauri app icon badge was not cleared when viewing a completed run reduced attention count to zero.
-- [x] Synced `dashboard.attentionCount` to `getCurrentWindow().setBadgeCount`, using `undefined` to clear the badge when the count is zero.
+- [x] Started from a clean `fix-restart` worktree.
+- [x] Merged local `master` into `fix-restart`.
+- [x] Resolved conflicts in `feature_list.json`, `progress.md`, `src/App.tsx`, and `src/App.test.tsx`.
+- [x] Kept master's attention notification, run-row badge, completed-seen, terminal repaint, and app-icon badge changes.
+- [x] Kept this branch's tmux restart-restore status/setup UI and backend restore implementation.
+- [x] Renumbered the tmux restart-restore tracker entry to `feat-020` because master already contains `feat-015` through `feat-019`.
 
 ### What's In Progress
 
-- [x] App icon attention badge is implemented and verified.
+- [x] Final merge verification is complete.
+- [x] Merge commit is complete.
 
 ### What's Next
 
-1. Next session can run `./init.sh` immediately from this worktree.
-2. Rebuild/reinstall the desktop package if you need this fix in an installed app rather than the dev checkout.
+1. Next session can run `./init.sh` immediately from this branch.
 
 ## Blockers / Risks
 
-- [x] No known implementation blockers remain.
-- [ ] The app icon badge API is platform-dependent; Tauri documents `setBadgeCount` as unsupported on Windows. The app swallows badge update failures so unsupported platforms do not break the UI.
+- [x] No unresolved merge conflicts are expected after the current resolution pass.
+- [x] Final verification passed.
+- [ ] The tmux restart restore feature still needs real reboot validation outside this merge.
 
 ## Decisions Made
 
-- **Single source of truth:** Use `dashboard.attentionCount` for the app icon badge so polling, attention events, manual refreshes, and selected-run refreshes all stay consistent.
-- **Clear behavior:** Pass `undefined` to `setBadgeCount` when attention count is zero because Tauri documents that as badge removal.
-- **Failure handling:** Keep badge API failures out of the UI and log a warning instead.
+- **Feature numbering:** Preserve master feature IDs and append the tmux restart-restore feature as `feat-020`.
+- **Frontend merge:** Combine app-icon badge synchronization from master with tmux restore setup/status from `fix-restart`.
+- **Test merge:** Keep both the Tauri app badge mocks and the tmux restore status/setup mocks.
 
 ## Files Modified This Session
 
-- `src/App.tsx` - Sync the desktop app icon badge count from `dashboard.attentionCount`.
-- `src/App.test.tsx` - Mock the Tauri window API and cover setting and clearing the app icon badge.
-- `feature_list.json` and `progress.md` - Record feature status and verification evidence.
+- `feature_list.json` - Resolves feature tracker conflicts and appends `feat-020`.
+- `progress.md` - Records this merge handoff state.
+- `src/App.tsx` - Combines master dashboard refresh/badge behavior with tmux restore status/setup UI.
+- `src/App.test.tsx` - Combines app-icon badge mocks with tmux restore setup coverage.
 
 ## Evidence of Completion
 
-- [x] RED: `npm test -- src/App.test.tsx` exited 1 because `setBadgeCount` was never called with `1`.
-- [x] GREEN: `npm test -- src/App.test.tsx` exited 0 with 11 tests passing.
-- [x] `npm test` exited 0 with 8 files and 32 tests passing.
+- [x] Conflict marker scan exited 1 with no matches for conflict markers.
+- [x] `node -e "JSON.parse(...feature_list.json...)"` exited 0.
+- [x] `npm test -- src/App.test.tsx` exited 0 with 12 tests passing.
+- [x] `cargo fmt --check` exited 0.
+- [x] `npm test` exited 0 with 8 files and 33 tests passing.
 - [x] `npm run build` exited 0.
-- [x] `./init.sh` exited 0, running npm test, npm run build, and cargo test.
+- [x] `cargo test` exited 0.
+- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
+- [x] `git diff --check` exited 0.
+- [x] `./init.sh` exited 0 with npm test, npm run build, and cargo test.
+- [x] Merge commit created on `fix-restart`.

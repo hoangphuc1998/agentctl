@@ -2,8 +2,16 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { createRun, dashboardState, listenAgentAttention, mergeRun, restoreRun } from "./api";
-import type { DashboardState, RunView } from "./types";
+import {
+  createRun,
+  dashboardState,
+  enableTmuxRestore,
+  listenAgentAttention,
+  mergeRun,
+  restoreRun,
+  tmuxRestoreStatus
+} from "./api";
+import type { DashboardState, RunView, TmuxRestoreStatus } from "./types";
 
 const tauriWindowMocks = vi.hoisted(() => ({
   setBadgeCount: vi.fn()
@@ -13,12 +21,14 @@ vi.mock("./api", () => ({
   cleanupStaleRuns: vi.fn(),
   createRun: vi.fn(),
   dashboardState: vi.fn(),
+  enableTmuxRestore: vi.fn(),
   endRun: vi.fn(),
   listenAgentAttention: vi.fn(),
   mergeRun: vi.fn(),
   openInVsCode: vi.fn(),
   restoreRun: vi.fn(),
-  stopRun: vi.fn()
+  stopRun: vi.fn(),
+  tmuxRestoreStatus: vi.fn()
 }));
 
 vi.mock("./components/TerminalPane", () => ({
@@ -35,6 +45,8 @@ describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(listenAgentAttention).mockResolvedValue(vi.fn());
+    vi.mocked(tmuxRestoreStatus).mockResolvedValue(restoreStatus(true));
+    vi.mocked(enableTmuxRestore).mockResolvedValue(restoreStatus(true));
     tauriWindowMocks.setBadgeCount.mockResolvedValue(undefined);
   });
 
@@ -73,6 +85,21 @@ describe("App", () => {
     await waitFor(() => expect(restoreRun).toHaveBeenCalledWith("run-2"));
     expect(screen.getByText("1 restorable")).toBeInTheDocument();
     expect(screen.getByText("0 stale")).toBeInTheDocument();
+  });
+
+  it("enables tmux restart restore when plugin setup is missing", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+    vi.mocked(tmuxRestoreStatus)
+      .mockResolvedValueOnce(restoreStatus(false))
+      .mockResolvedValue(restoreStatus(true));
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("button", { name: /enable restart restore/i }));
+
+    await waitFor(() => expect(enableTmuxRestore).toHaveBeenCalledOnce());
+    expect(await screen.findByText("restart restore on")).toBeInTheDocument();
   });
 
   it("keeps dashboard errors visible in the notice area", async () => {
@@ -331,5 +358,22 @@ function restorableRun(): RunView {
     observedState: "unknown",
     detectionSource: "unknown",
     restorable: true
+  };
+}
+
+function restoreStatus(configured: boolean): TmuxRestoreStatus {
+  return {
+    configured,
+    tpmInstalled: configured,
+    resurrectInstalled: configured,
+    continuumInstalled: configured,
+    autoRestoreEnabled: configured,
+    bootEnabled: configured,
+    savedStateExists: configured,
+    systemdUnitExists: configured,
+    configPath: "/home/me/.tmux.conf",
+    detail: configured
+      ? "tmux restart restore is configured and has a saved session."
+      : "tmux restart restore is not configured."
   };
 }

@@ -25,12 +25,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   cleanupStaleRuns,
   dashboardState,
+  enableTmuxRestore,
   endRun,
   listenAgentAttention,
   mergeRun,
   openInVsCode,
   restoreRun,
-  stopRun
+  stopRun,
+  tmuxRestoreStatus
 } from "./api";
 import { Chip, type ChipTone } from "./components/Chip";
 import { CommandPalette } from "./components/CommandPalette";
@@ -39,7 +41,7 @@ import { CreateRunModal } from "./components/CreateRunModal";
 import { RepoRunTree } from "./components/RepoRunTree";
 import { StatusBadge } from "./components/StatusBadge";
 import { TerminalPane } from "./components/TerminalPane";
-import type { DashboardState, HostToolStatus, RunView } from "./types";
+import type { DashboardState, HostToolStatus, RunView, TmuxRestoreStatus } from "./types";
 
 type PendingAction =
   | { kind: "stop"; run: RunView }
@@ -66,6 +68,7 @@ export function App() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [restoreStatus, setRestoreStatus] = useState<TmuxRestoreStatus | null>(null);
   const selectedRunIdRef = useRef<string | null>(null);
 
   const selectedRun = useMemo(
@@ -100,6 +103,14 @@ export function App() {
     [selectRun]
   );
 
+  const loadTmuxRestoreStatus = useCallback(async () => {
+    try {
+      setRestoreStatus(await tmuxRestoreStatus());
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }, []);
+
   const selectRunAndLoad = useCallback(
     (runId: string) => {
       selectRun(runId);
@@ -110,9 +121,10 @@ export function App() {
 
   useEffect(() => {
     void loadDashboard(null);
+    void loadTmuxRestoreStatus();
     const interval = window.setInterval(() => void loadDashboard(), 3000);
     return () => window.clearInterval(interval);
-  }, [loadDashboard]);
+  }, [loadDashboard, loadTmuxRestoreStatus]);
 
   useEffect(() => {
     let active = true;
@@ -193,6 +205,16 @@ export function App() {
     }
   }
 
+  async function enableRestartRestore() {
+    try {
+      setRestoreStatus(await enableTmuxRestore());
+      setError(null);
+    } catch (err) {
+      setError(errorMessage(err));
+      void loadTmuxRestoreStatus();
+    }
+  }
+
   function actionTitle(action: PendingAction) {
     if (action.kind === "cleanup-stale") return "Stop stale runs?";
     return `${action.kind === "end" ? "End" : action.kind === "merge" ? "Merge" : "Stop"} ${
@@ -236,6 +258,15 @@ export function App() {
           <Chip tone={dashboard.restorableCount > 0 ? "info" : "neutral"} icon={<RotateCcw size={14} />}>
             {dashboard.restorableCount} restorable
           </Chip>
+          {restoreStatus && (
+            <Chip
+              tone={restoreStatus.configured ? "success" : "warning"}
+              icon={<RotateCcw size={14} />}
+              title={`${restoreStatus.detail} Config: ${restoreStatus.configPath}`}
+            >
+              {restoreStatus.configured ? "restart restore on" : "restart restore off"}
+            </Chip>
+          )}
           {dashboard.hostTools.map((tool) => (
             <Chip tone={hostToolTone(tool)} icon={hostToolIcon(tool.name)} title={tool.detail || tool.name} key={tool.name}>
               {tool.name}
@@ -244,6 +275,12 @@ export function App() {
         </div>
 
         <div className="top-actions">
+          {restoreStatus && !restoreStatus.configured && (
+            <button className="button secondary" onClick={enableRestartRestore}>
+              <RotateCcw size={18} />
+              Enable restart restore
+            </button>
+          )}
           <button className="icon-button" onClick={() => void loadDashboard()} title="Refresh">
             <RefreshCw size={18} className={refreshing ? "spin" : ""} />
           </button>

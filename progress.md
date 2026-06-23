@@ -2,45 +2,58 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-23 22:10 +07
-**Session ID:** startup-maximized-window
-**Active Feature:** feat-023 - Reliable Startup Maximized Window
+**Last Updated:** 2026-06-23 22:47 +07
+**Session ID:** merge-fast-options-to-master
+**Active Feature:** feat-024 - Quick Create Run Prefill
 
 ## Status
 
-### What's Done
+### What is Done
 
-- [x] Kept the app in normal maximized-window mode instead of true OS fullscreen.
-- [x] Added a Tauri startup hook that re-applies maximize and focus after the main window exists.
-- [x] Added Rust policy coverage for maximize-before-focus behavior and non-fatal startup errors.
-- [x] Added package-config coverage that preserves `maximized: true` with `fullscreen` disabled.
-- [x] Recorded the implementation plan in `docs/superpowers/plans/2026-06-23-startup-maximized-window.md`.
+- [x] Merged fast-options into master with a merge commit.
+- [x] Preserved master feature records for AppImage App Icon Repair and Reliable Startup Maximized Window.
+- [x] Added feat-024 for Quick Create Run Prefill after resolving tracker conflicts.
+- [x] Added contextual plus buttons to repo rows and run rows in the left workspace tree.
+- [x] New Run opens with editable defaults from the clicked repo or run while leaving run name blank.
 
-### What's Next
+### What is In Progress
 
-1. Next session can run `./init.sh` immediately.
-2. Rebuild the AppImage before checking the behavior from an installed/downloaded bundle.
+- [x] Merge conflict resolution is complete.
+- [x] Post-merge verification on master is complete.
+
+### What is Next
+
+1. Next session can run ./init.sh immediately from master.
 
 ## Blockers / Risks
 
 - [x] No unresolved blockers.
-- [x] The fix depends on the Linux window manager honoring Tauri's startup `maximize` request after window creation; failures are logged and do not stop app startup.
+- [ ] Manual visual review in the packaged Tauri app was not run; automated React tests cover the modal defaults and row click behavior.
+
+## Decisions Made
+
+- Backend unchanged: the existing create_run payload already supports the required prefilled values.
+- Run name stays blank: Quick Create copies source context but leaves runName empty so the user intentionally names the new run.
+- Feature id adjusted on merge: master already had feat-022 and feat-023, so Quick Create is recorded as feat-024.
 
 ## Files Modified This Session
 
-- `src-tauri/src/lib.rs` - Adds startup maximize/focus policy and wires it into Tauri setup.
-- `src-tauri/tauriConfig.test.ts` - Verifies the main window stays configured as maximized and not fullscreen.
-- `docs/superpowers/plans/2026-06-23-startup-maximized-window.md` - Records the implementation checklist.
-- `feature_list.json` - Records `feat-023` completion evidence.
-- `progress.md` - Records this session state and verification evidence.
+- feature_list.json - Preserves master feature records and adds completed feat-024.
+- progress.md - Records the merge session state and pending post-merge verification.
+- docs/superpowers/specs/2026-06-23-quick-create-run-prefill-design.md - Adds the approved design.
+- docs/superpowers/plans/2026-06-23-quick-create-run-prefill.md - Adds the implementation plan.
+- src/App.tsx - Owns create-run defaults and opens the modal from repo/run click sources.
+- src/App.test.tsx - Adds integration coverage for repo/run prefill and edited submit payloads.
+- src/components/CreateRunModal.tsx - Initializes editable fields from optional defaults.
+- src/components/CreateRunModal.test.tsx - Adds modal default coverage.
+- src/components/RepoRunTree.tsx - Adds contextual quick-create buttons and focusable run rows.
+- src/components/RepoRunTree.test.tsx - Adds repo/run callback and no-selection coverage.
+- src/styles.css - Styles compact tree quick-create buttons and focus states.
+- src/types.ts - Adds CreateRunDefaults.
 
 ## Evidence of Completion
 
-- [x] `npm test -- src-tauri/tauriConfig.test.ts` exited 0 with 3 tests passing.
-- [x] `cargo test -p agent-manager-desktop startup_window` exited 0 with 2 focused tests passing.
-- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
-- [x] `cargo fmt --check` exited 0.
-- [x] `npm test` exited 0 with 9 files and 38 tests passing.
-- [x] `npm run build` exited 0.
-- [x] `./init.sh` exited 0 with npm test, npm run build, and cargo test.
-- [x] `git diff --check` exited 0.
+- [x] Pre-merge fast-options verification: npm test passed with 8 files and 39 tests.
+- [x] Pre-merge fast-options verification: npm run build exited 0.
+- [x] Pre-merge fast-options verification: ./init.sh exited 0 with npm test, npm run build, and cargo test.
+- [x] Post-merge master verification: ./init.sh exited 0 with npm test, npm run build, and cargo test. npm test covered 9 files and 44 tests.

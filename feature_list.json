@@ -246,6 +246,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-23 22:10 +07: Added a startup-window policy helper and Tauri setup hook that calls maximize then focus on the main window, while keeping config fullscreen false. npm test -- src-tauri/tauriConfig.test.ts, cargo test -p agent-manager-desktop startup_window, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --check, npm test, npm run build, ./init.sh, and git diff --check exited 0."
+    },
+    {
+      "id": "feat-024",
+      "name": "Quick Create Run Prefill",
+      "description": "Open the New Run modal from a clicked repo or existing run with editable prefilled values from that source.",
+      "dependencies": [
+        "feat-023"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-23 22:47 +07: Added red CreateRunModal, RepoRunTree, and App coverage for contextual New Run prefill from repo and run rows, then implemented editable create defaults and contextual plus buttons. Merged into master after resolving tracker conflicts with feat-024. Post-merge ./init.sh exited 0 with npm test covering 9 files and 44 tests, npm run build, and cargo test."
     }
   ]
 }

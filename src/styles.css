@@ -366,7 +366,7 @@ h2 {
 .repo-row {
   height: 28px;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 4px;
   color: #f4f8fc;
@@ -397,7 +397,7 @@ h2 {
   width: 100%;
   min-height: 62px;
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 7px;
   border: 1px solid #202b39;
@@ -407,6 +407,7 @@ h2 {
   text-align: left;
   border-radius: 7px;
   padding: 7px;
+  cursor: pointer;
 }
 
 .run-row:hover {
@@ -419,6 +420,12 @@ h2 {
   border-color: rgba(94, 225, 140, 0.28);
   border-left-color: var(--success);
   box-shadow: 0 0 0 1px rgba(94, 225, 140, 0.12) inset;
+}
+
+.run-row:focus-visible,
+.tree-create-button:focus-visible {
+  outline: 2px solid rgba(115, 183, 255, 0.72);
+  outline-offset: 2px;
 }
 
 .run-row-status {
@@ -465,6 +472,24 @@ h2 {
 
 .run-row-meta .chip {
   max-width: 190px;
+}
+
+.tree-create-button {
+  width: 26px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(16, 22, 30, 0.72);
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.tree-create-button:hover {
+  border-color: rgba(94, 225, 140, 0.42);
+  background: rgba(30, 100, 73, 0.32);
+  color: #c8f8dc;
 }
 
 .run-surface {

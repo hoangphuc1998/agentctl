@@ -2,29 +2,44 @@ import { Bot, Folder, GitBranch, Play, Tag, Type, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createRun } from "../api";
 import { Chip } from "./Chip";
-import type { AgentKind, RunView } from "../types";
+import type { AgentKind, CreateRunDefaults, RunView } from "../types";
 
 interface CreateRunModalProps {
   open: boolean;
   activeRepoPath: string | null;
+  defaults?: CreateRunDefaults | null;
   onClose: () => void;
   onCreated: (run: RunView) => void;
   onError: (message: string | null) => void;
 }
 
-export function CreateRunModal({ open, activeRepoPath, onClose, onCreated, onError }: CreateRunModalProps) {
-  const [repoPath, setRepoPath] = useState(activeRepoPath ?? "");
-  const [baseRef, setBaseRef] = useState("HEAD");
-  const [tag, setTag] = useState("default");
+export function CreateRunModal({
+  open,
+  activeRepoPath,
+  defaults,
+  onClose,
+  onCreated,
+  onError
+}: CreateRunModalProps) {
+  const initialValues = createInitialValues(defaults, activeRepoPath);
+  const [repoPath, setRepoPath] = useState(initialValues.repoPath);
+  const [baseRef, setBaseRef] = useState(initialValues.baseRef);
+  const [tag, setTag] = useState(initialValues.tag);
   const [runName, setRunName] = useState("");
-  const [agent, setAgent] = useState<AgentKind>("codex");
+  const [agent, setAgent] = useState<AgentKind>(initialValues.agent);
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!open || !activeRepoPath) return;
-    setRepoPath((current) => (current.trim() ? current : activeRepoPath));
-  }, [activeRepoPath, open]);
+    if (!open) return;
+    const next = createInitialValues(defaults, activeRepoPath);
+    setRepoPath(next.repoPath);
+    setBaseRef(next.baseRef);
+    setTag(next.tag);
+    setAgent(next.agent);
+    setRunName("");
+    setSubmitError(null);
+  }, [activeRepoPath, defaults, open]);
 
   if (!open) return null;
 
@@ -150,6 +165,15 @@ export function CreateRunModal({ open, activeRepoPath, onClose, onCreated, onErr
 }
 
 const agentOptions: AgentKind[] = ["codex", "claude"];
+
+function createInitialValues(defaults: CreateRunDefaults | null | undefined, activeRepoPath: string | null) {
+  return {
+    repoPath: defaults?.repoPath ?? activeRepoPath ?? "",
+    baseRef: defaults?.baseRef ?? "HEAD",
+    tag: defaults?.tag ?? "default",
+    agent: defaults?.agent ?? "codex"
+  };
+}
 
 function errorMessage(err: unknown): string {
   if (typeof err === "string") return err;

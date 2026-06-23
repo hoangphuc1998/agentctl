@@ -13,6 +13,30 @@ describe("CreateRunModal", () => {
     vi.clearAllMocks();
   });
 
+  it("prefills editable create fields from defaults", () => {
+    render(
+      <CreateRunModal
+        open
+        activeRepoPath={null}
+        defaults={{
+          repoPath: "/repo/agent-manager",
+          baseRef: "main",
+          tag: "review",
+          agent: "claude"
+        }}
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        onError={vi.fn()}
+      />
+    );
+
+    expect(screen.getByLabelText(/repo path/i)).toHaveValue("/repo/agent-manager");
+    expect(screen.getByLabelText(/base ref/i)).toHaveValue("main");
+    expect(screen.getByLabelText(/tag/i)).toHaveValue("review");
+    expect(screen.getByRole("button", { name: /claude/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText(/run name/i)).toHaveValue("");
+  });
+
   it("uses segmented agent controls and submits the selected agent", async () => {
     vi.mocked(createRun).mockResolvedValue({
       message: "Created fix-ui.",

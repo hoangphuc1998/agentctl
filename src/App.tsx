@@ -41,7 +41,14 @@ import { CreateRunModal } from "./components/CreateRunModal";
 import { RepoRunTree } from "./components/RepoRunTree";
 import { StatusBadge } from "./components/StatusBadge";
 import { TerminalPane } from "./components/TerminalPane";
-import type { DashboardState, HostToolStatus, RunView, TmuxRestoreStatus } from "./types";
+import type {
+  CreateRunDefaults,
+  DashboardState,
+  HostToolStatus,
+  RepoNode,
+  RunView,
+  TmuxRestoreStatus
+} from "./types";
 
 type PendingAction =
   | { kind: "stop"; run: RunView }
@@ -65,6 +72,7 @@ export function App() {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
+  const [createDefaults, setCreateDefaults] = useState<CreateRunDefaults | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -117,6 +125,39 @@ export function App() {
       void loadDashboard(runId);
     },
     [loadDashboard, selectRun]
+  );
+
+  const openCreateRun = useCallback((defaults: CreateRunDefaults | null = null) => {
+    setCreateDefaults(defaults);
+    setCreateOpen(true);
+  }, []);
+
+  const closeCreateRun = useCallback(() => {
+    setCreateOpen(false);
+  }, []);
+
+  const openCreateRunFromRepo = useCallback(
+    (repo: RepoNode) => {
+      openCreateRun({
+        repoPath: repo.repoPath,
+        baseRef: "HEAD",
+        tag: "default",
+        agent: "codex"
+      });
+    },
+    [openCreateRun]
+  );
+
+  const openCreateRunFromRun = useCallback(
+    (run: RunView) => {
+      openCreateRun({
+        repoPath: run.repoPath,
+        baseRef: run.baseRef,
+        tag: run.tag,
+        agent: run.agent
+      });
+    },
+    [openCreateRun]
   );
 
   useEffect(() => {
@@ -288,7 +329,7 @@ export function App() {
             <Command size={18} />
             Palette
           </button>
-          <button className="button primary" onClick={() => setCreateOpen(true)}>
+          <button className="button primary" onClick={() => openCreateRun()}>
             <Plus size={18} />
             New Run
           </button>
@@ -306,7 +347,13 @@ export function App() {
             </span>
             <Chip tone="neutral">{dashboard.repos.length} repos</Chip>
           </div>
-          <RepoRunTree repos={dashboard.repos} selectedRunId={selectedRunId} onSelectRun={selectRunAndLoad} />
+          <RepoRunTree
+            repos={dashboard.repos}
+            selectedRunId={selectedRunId}
+            onSelectRun={selectRunAndLoad}
+            onCreateRunFromRepo={openCreateRunFromRepo}
+            onCreateRunFromRun={openCreateRunFromRun}
+          />
         </aside>
 
         <section className="run-surface">
@@ -390,7 +437,8 @@ export function App() {
       <CreateRunModal
         open={createOpen}
         activeRepoPath={dashboard.activeRepoPath}
-        onClose={() => setCreateOpen(false)}
+        defaults={createDefaults}
+        onClose={closeCreateRun}
         onCreated={(run) => {
           setCreateOpen(false);
           selectRun(run.id);
@@ -406,7 +454,7 @@ export function App() {
         onClose={() => setPaletteOpen(false)}
         onNewRun={() => {
           setPaletteOpen(false);
-          setCreateOpen(true);
+          openCreateRun();
         }}
         onSelectRun={(id) => {
           setPaletteOpen(false);
@@ -434,7 +482,7 @@ export function App() {
       )}
 
       {!selectedRun && (
-        <button className="floating-run-button" onClick={() => setCreateOpen(true)}>
+        <button className="floating-run-button" onClick={() => openCreateRun()}>
           <Play size={18} />
           Create first run
         </button>

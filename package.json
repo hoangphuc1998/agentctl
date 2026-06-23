@@ -12,8 +12,8 @@
     "test:watch": "vitest",
     "tauri": "tauri",
     "tauri:dev": "npm run preflight:tauri && tauri dev --features tauri-app",
-    "tauri:build": "npm run preflight:tauri -- --bundle && tauri build --features tauri-app --bundles appimage,deb",
-    "tauri:build:appimage": "npm run preflight:tauri -- --bundle && tauri build --features tauri-app --bundles appimage",
+    "tauri:build": "npm run preflight:tauri -- --bundle && tauri build --features tauri-app --bundles appimage,deb && node scripts/repair-appimage-dir-icon.mjs",
+    "tauri:build:appimage": "npm run preflight:tauri -- --bundle && tauri build --features tauri-app --bundles appimage && node scripts/repair-appimage-dir-icon.mjs",
     "tauri:build:deb": "npm run preflight:tauri && tauri build --features tauri-app --bundles deb"
   },
   "dependencies": {

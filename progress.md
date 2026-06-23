@@ -2,59 +2,45 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-23 21:03 +07
-**Session ID:** merge-master-into-fix-restart
-**Active Feature:** feat-020 - Tmux Plugin Restart Restore
+**Last Updated:** 2026-06-23 21:53 +07
+**Session ID:** appimage-dir-icon-repair
+**Active Feature:** feat-021 - AppImage App Icon Repair
 
 ## Status
 
 ### What's Done
 
-- [x] Started from a clean `fix-restart` worktree.
-- [x] Merged local `master` into `fix-restart`.
-- [x] Resolved conflicts in `feature_list.json`, `progress.md`, `src/App.tsx`, and `src/App.test.tsx`.
-- [x] Kept master's attention notification, run-row badge, completed-seen, terminal repaint, and app-icon badge changes.
-- [x] Kept this branch's tmux restart-restore status/setup UI and backend restore implementation.
-- [x] Renumbered the tmux restart-restore tracker entry to `feat-020` because master already contains `feat-015` through `feat-019`.
-
-### What's In Progress
-
-- [x] Final merge verification is complete.
-- [x] Merge commit is complete.
+- [x] Reproduced the AppImage packaging issue by building and extracting the bundle.
+- [x] Confirmed the packaged `.DirIcon` was an absolute symlink to the build checkout, which can break on another machine and cause a generic/default AppImage icon.
+- [x] Added a post-build repair script that extracts the built AppImage, rewrites `.DirIcon` to a relative internal icon symlink, repacks with the original runtime, and replaces the artifact.
+- [x] Wired the repair into `tauri:build` and `tauri:build:appimage`.
+- [x] Added Vitest coverage for the package-script hook, `.DirIcon` symlink repair, and cross-filesystem AppImage replacement.
 
 ### What's Next
 
-1. Next session can run `./init.sh` immediately from this branch.
+1. Next session can run `./init.sh` immediately.
+2. If an already-downloaded AppImage still shows the old icon, rebuild or replace it with a newly generated bundle.
 
 ## Blockers / Risks
 
-- [x] No unresolved merge conflicts are expected after the current resolution pass.
-- [x] Final verification passed.
-- [ ] The tmux restart restore feature still needs real reboot validation outside this merge.
-
-## Decisions Made
-
-- **Feature numbering:** Preserve master feature IDs and append the tmux restart-restore feature as `feat-020`.
-- **Frontend merge:** Combine app-icon badge synchronization from master with tmux restore setup/status from `fix-restart`.
-- **Test merge:** Keep both the Tauri app badge mocks and the tmux restore status/setup mocks.
+- [x] No unresolved blockers.
+- [x] AppImage build requires running outside the sandbox in this environment because `linuxdeploy` fails inside the sandbox.
 
 ## Files Modified This Session
 
-- `feature_list.json` - Resolves feature tracker conflicts and appends `feat-020`.
-- `progress.md` - Records this merge handoff state.
-- `src/App.tsx` - Combines master dashboard refresh/badge behavior with tmux restore status/setup UI.
-- `src/App.test.tsx` - Combines app-icon badge mocks with tmux restore setup coverage.
+- `package.json` - Runs AppImage `.DirIcon` repair after AppImage-producing Tauri builds.
+- `scripts/repair-appimage-dir-icon.mjs` - Repairs and repacks built AppImage artifacts.
+- `scripts/repair-appimage-dir-icon.test.ts` - Covers symlink repair and cross-filesystem replacement behavior.
+- `src-tauri/tauriConfig.test.ts` - Covers package-script repair hook.
+- `feature_list.json` - Records `feat-021` completion evidence.
+- `progress.md` - Records this session state and verification evidence.
 
 ## Evidence of Completion
 
-- [x] Conflict marker scan exited 1 with no matches for conflict markers.
-- [x] `node -e "JSON.parse(...feature_list.json...)"` exited 0.
-- [x] `npm test -- src/App.test.tsx` exited 0 with 12 tests passing.
-- [x] `cargo fmt --check` exited 0.
-- [x] `npm test` exited 0 with 8 files and 33 tests passing.
+- [x] `npm test -- src-tauri/tauriConfig.test.ts scripts/repair-appimage-dir-icon.test.ts` exited 0 with 4 tests passing after red failures.
+- [x] `npm test` exited 0 with 9 files and 37 tests passing.
 - [x] `npm run build` exited 0.
-- [x] `cargo test` exited 0.
-- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
-- [x] `git diff --check` exited 0.
+- [x] `npm run tauri:build:appimage` exited 0 outside the sandbox and reported `Repaired AppImage .DirIcon: Agent Manager_0.1.0_amd64.AppImage -> Agent Manager.png`.
+- [x] Extracted the freshly built AppImage and verified `.DirIcon -> Agent Manager.png`, with `Agent Manager.png` and hicolor `agent-manager.png` present as 512x512 PNGs.
 - [x] `./init.sh` exited 0 with npm test, npm run build, and cargo test.
-- [x] Merge commit created on `fix-restart`.
+- [x] `git diff --check` exited 0.

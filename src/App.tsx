@@ -99,6 +99,14 @@ export function App() {
     [selectRun]
   );
 
+  const selectRunAndLoad = useCallback(
+    (runId: string) => {
+      selectRun(runId);
+      void loadDashboard(runId);
+    },
+    [loadDashboard, selectRun]
+  );
+
   useEffect(() => {
     void loadDashboard(null);
     const interval = window.setInterval(() => void loadDashboard(), 3000);
@@ -251,7 +259,7 @@ export function App() {
             </span>
             <Chip tone="neutral">{dashboard.repos.length} repos</Chip>
           </div>
-          <RepoRunTree repos={dashboard.repos} selectedRunId={selectedRunId} onSelectRun={selectRun} />
+          <RepoRunTree repos={dashboard.repos} selectedRunId={selectedRunId} onSelectRun={selectRunAndLoad} />
         </aside>
 
         <section className="run-surface">
@@ -355,7 +363,7 @@ export function App() {
         }}
         onSelectRun={(id) => {
           setPaletteOpen(false);
-          selectRun(id);
+          selectRunAndLoad(id);
         }}
         onRefresh={() => {
           setPaletteOpen(false);

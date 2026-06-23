@@ -195,6 +195,29 @@ describe("App", () => {
     expect(within(screen.getByRole("treeitem", { name: /api-cleanup/i })).getByText("Review")).toBeInTheDocument();
     expect(dashboardState).toHaveBeenCalledTimes(2);
   });
+
+  it("refreshes a selected completed run so its row attention badge can clear", async () => {
+    const completedDashboard = dashboard("run-1", [
+      run("run-1", "login-flow"),
+      run("run-2", "api-cleanup")
+    ]);
+    const seenDashboard = dashboard("run-2", [
+      run("run-1", "login-flow"),
+      { ...run("run-2", "api-cleanup"), observedState: "completed-seen" }
+    ]);
+    vi.mocked(dashboardState).mockResolvedValueOnce(completedDashboard).mockResolvedValueOnce(seenDashboard);
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    expect(within(screen.getByRole("treeitem", { name: /api-cleanup/i })).getByText("Review")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("treeitem", { name: /api-cleanup/i }));
+
+    await waitFor(() => expect(dashboardState).toHaveBeenLastCalledWith("run-2"));
+    expect(within(screen.getByRole("treeitem", { name: /api-cleanup/i })).queryByText("Review")).not.toBeInTheDocument();
+    expect(screen.queryByText("1 attention")).not.toBeInTheDocument();
+  });
 });
 
 function dashboard(selectedRunId: string, runs: RunView[] = [run("run-1", "login-flow"), run("run-2", "api-cleanup")]): DashboardState {

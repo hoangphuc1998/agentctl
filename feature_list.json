@@ -135,6 +135,14 @@
       "dependencies": ["feat-010", "feat-014", "feat-015"],
       "status": "completed",
       "evidence": "2026-06-23 17:58 +07: Added red RepoRunTree and App coverage showing per-run left-panel Input/Review badges were missing after attention refresh, then rendered warning badges for needs-user and completed-unchecked run rows. npm test -- src/components/RepoRunTree.test.tsx src/App.test.tsx failed red, then passed with 11 tests; npm test passed with 8 files and 28 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
+    },
+    {
+      "id": "feat-017",
+      "name": "Seen Completed Runs and Need Input Notifications",
+      "description": "Clear completed-run attention badges when the run is viewed, keep seen completions from becoming unchecked again, and recognize literal Need input terminal text for system notifications.",
+      "dependencies": ["feat-015", "feat-016"],
+      "status": "completed",
+      "evidence": "2026-06-23 18:12 +07: Added red App coverage showing selecting a completed run did not refresh through the backend to clear its Review badge, red desktop service coverage for marking/preserving completed-seen state, and red core tmux coverage for literal Need input text being classified as running. Implemented backend seen-state persistence on selected dashboard refresh, preserved completed-seen during tmux refresh, and matched Need input/needs input/requires input/waiting for input as needs-user. npm test -- src/App.test.tsx, cargo test -p agent-manager-desktop completed_run, cargo test -p agentctl-core visible_need_input_text_reports_needs_user, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh all exited 0."
     }
   ]
 }

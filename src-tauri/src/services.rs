@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use agentctl_core::{
     completion::CompletionCandidate,
-    domain::{ObservedState, RunRecord},
+    domain::{mark_seen_on_select, ObservedState, RunRecord},
 };
 
 use crate::{
@@ -47,6 +47,36 @@ pub fn count_attention_runs(runs: &[RunRecord]) -> usize {
     runs.iter()
         .filter(|run| is_attention_state(run.observed_state))
         .count()
+}
+
+pub fn observed_state_after_refresh(
+    detected_state: ObservedState,
+    notification_seen_at: Option<i64>,
+) -> ObservedState {
+    if detected_state == ObservedState::CompletedUnchecked && notification_seen_at.is_some() {
+        ObservedState::CompletedSeen
+    } else {
+        detected_state
+    }
+}
+
+pub fn mark_selected_run_seen(
+    runs: &mut [RunRecord],
+    selected_run_id: Option<&str>,
+    now: i64,
+) -> Option<RunRecord> {
+    let selected_run_id = selected_run_id?;
+    let run = runs
+        .iter_mut()
+        .find(|run| run.id.to_string() == selected_run_id)?;
+    let previous_state = run.observed_state;
+    let previous_seen_at = run.notification_seen_at;
+    mark_seen_on_select(run, now);
+    if run.observed_state != previous_state || run.notification_seen_at != previous_seen_at {
+        Some(run.clone())
+    } else {
+        None
+    }
 }
 
 pub fn agent_attention_event_for_transition(

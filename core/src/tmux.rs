@@ -28,8 +28,12 @@ pub fn detect_observed_state(snapshot: &PaneSnapshot) -> ObservedState {
         &[
             "approve command",
             "do you want to",
+            "need input",
+            "needs input",
             "need approval",
             "requires approval",
+            "requires input",
+            "waiting for input",
             "waiting for user",
             "press enter",
             "enter to submit answer",
@@ -140,6 +144,18 @@ mod tests {
             detect_observed_state(&snapshot),
             ObservedState::CompletedUnchecked
         );
+        assert_eq!(detection_source_for(&snapshot), DetectionSource::Heuristic);
+    }
+
+    #[test]
+    fn visible_need_input_text_reports_needs_user() {
+        let snapshot = PaneSnapshot {
+            pane_active: true,
+            current_command: "codex".to_string(),
+            visible_text: "Need input\nReview the command before continuing.\n".to_string(),
+        };
+
+        assert_eq!(detect_observed_state(&snapshot), ObservedState::NeedsUser);
         assert_eq!(detection_source_for(&snapshot), DetectionSource::Heuristic);
     }
 }

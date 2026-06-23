@@ -20,6 +20,7 @@ import {
   Trash2,
   Wrench
 } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   cleanupStaleRuns,
@@ -134,6 +135,15 @@ export function App() {
       unlisten?.();
     };
   }, [loadDashboard]);
+
+  useEffect(() => {
+    const badgeCount = dashboard.attentionCount > 0 ? dashboard.attentionCount : undefined;
+    void getCurrentWindow()
+      .setBadgeCount(badgeCount)
+      .catch((err) => {
+        console.warn("Failed to update app icon badge count.", err);
+      });
+  }, [dashboard.attentionCount]);
 
   async function runAction(action: PendingAction) {
     try {

@@ -167,6 +167,14 @@
       "dependencies": ["feat-010", "feat-013"],
       "status": "completed",
       "evidence": "2026-06-23 16:48 +07: Added tmux restore status/setup commands, a guarded ~/.tmux.conf plugin block, a tmux-resurrect pre-restore rewrite hook, app-start session restore, lifecycle snapshot saves, frontend setup controls, and Rust/React regression coverage. ./init.sh exited 0 with npm test, npm run build, and cargo test; cargo fmt --check, cargo check -p agent-manager-desktop --features tauri-app, and git diff --check also exited 0."
+    },
+    {
+      "id": "feat-021",
+      "name": "Reliable Tmux Initial Redraw",
+      "description": "Keep the embedded xterm terminal from dropping tmux's initial attach redraw bytes so the pane does not render black, stale, or visually overlaid until another run selection forces a redraw.",
+      "dependencies": ["feat-018"],
+      "status": "completed",
+      "evidence": "2026-06-23 21:53 +07: Found the frontend registered terminal output listeners after startTerminal created the PTY, allowing tmux attach's initial clear/redraw bytes to race ahead and be lost. Added a red TerminalPane regression for output emitted before startTerminal resolves, then registered output/closed listeners before startTerminal and buffered startup output by terminal id until the id is known. npm test -- src/components/TerminalPane.test.tsx failed red then passed with 9 tests; npm test passed with 8 files and 34 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
     }
   ]
 }

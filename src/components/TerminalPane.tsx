@@ -121,6 +121,9 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
     let disposed = false;
     let unlistenOutput: (() => void) | null = null;
     let unlistenClosed: (() => void) | null = null;
+    let awaitingTerminalId = false;
+    const pendingOutput = new Map<string, string[]>();
+    const pendingClosed = new Set<string>();
 
     async function attach() {
       const terminal = terminalRef.current;
@@ -139,25 +142,70 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
       }
 
       try {
+        const runId = selectedRunId;
+        const [outputUnlisten, closedUnlisten] = await Promise.all([
+          listenTerminalOutput((event) => {
+            if (disposed) return;
+            const activeTerminalId = terminalIdRef.current;
+            if (event.payload.terminalId === activeTerminalId) {
+              writeTerminalData(terminal, event.payload.data, repaintTerminal);
+              return;
+            }
+            if (awaitingTerminalId && !activeTerminalId && event.payload.runId === runId) {
+              const buffered = pendingOutput.get(event.payload.terminalId) ?? [];
+              buffered.push(event.payload.data);
+              pendingOutput.set(event.payload.terminalId, buffered);
+            }
+          }),
+          listenTerminalClosed((event) => {
+            if (disposed) return;
+            const activeTerminalId = terminalIdRef.current;
+            if (event.payload.terminalId === activeTerminalId) {
+              setStatus("Terminal session closed.");
+              terminalIdRef.current = null;
+              return;
+            }
+            if (awaitingTerminalId && !activeTerminalId && event.payload.runId === runId) {
+              pendingClosed.add(event.payload.terminalId);
+            }
+          })
+        ]);
+        if (disposed) {
+          outputUnlisten();
+          closedUnlisten();
+          return;
+        }
+        unlistenOutput = outputUnlisten;
+        unlistenClosed = closedUnlisten;
+
         fitAndResizeTerminal();
         const dims = fit.proposeDimensions();
+        awaitingTerminalId = true;
         const started = await startTerminal(selectedRunId, dims?.cols ?? 120, dims?.rows ?? 32);
         if (disposed) return;
         terminalIdRef.current = started.terminalId;
+        awaitingTerminalId = false;
         setStatus(`Attached to ${selectedRunName ?? "selected run"}`);
+        for (const data of pendingOutput.get(started.terminalId) ?? []) {
+          writeTerminalData(terminal, data, repaintTerminal);
+        }
+        pendingOutput.clear();
+        if (pendingClosed.has(started.terminalId)) {
+          setStatus("Terminal session closed.");
+          terminalIdRef.current = null;
+          return;
+        }
         terminal.focus();
-        unlistenOutput = await listenTerminalOutput((event) => {
-          if (event.payload.terminalId === terminalIdRef.current) {
-            terminal.write(event.payload.data);
-          }
-        });
-        unlistenClosed = await listenTerminalClosed((event) => {
-          if (event.payload.terminalId === terminalIdRef.current) {
-            setStatus("Terminal session closed.");
-            terminalIdRef.current = null;
-          }
-        });
       } catch (err) {
+        awaitingTerminalId = false;
+        if (unlistenOutput) {
+          unlistenOutput();
+          unlistenOutput = null;
+        }
+        if (unlistenClosed) {
+          unlistenClosed();
+          unlistenClosed = null;
+        }
         setStatus("Terminal unavailable.");
         onError(errorMessage(err));
       }
@@ -179,7 +227,14 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
       if (terminalId) void closeTerminal(terminalId).catch(() => undefined);
       terminalIdRef.current = null;
     };
-  }, [fitAndResizeTerminal, onError, selectedRunId, selectedRunRestorable]);
+  }, [
+    fitAndResizeTerminal,
+    onError,
+    repaintTerminal,
+    selectedRunId,
+    selectedRunName,
+    selectedRunRestorable
+  ]);
 
   return (
     <section className="terminal-shell">
@@ -204,6 +259,10 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
 
 export function shouldForwardTerminalInput(data: string): boolean {
   return !/^\x1b\[(?:\?\d+(?:;\d+)*|>0;\d+;0)c$/.test(data);
+}
+
+function writeTerminalData(terminal: Terminal, data: string, afterWrite: () => void): void {
+  terminal.write(data, afterWrite);
 }
 
 function errorMessage(err: unknown): string {

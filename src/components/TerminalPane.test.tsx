@@ -3,6 +3,14 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import { TerminalPane, shouldForwardTerminalInput } from "./TerminalPane";
 import type { RunView } from "../types";
 
+type TerminalOutputHandler = (event: {
+  payload: { terminalId: string; runId: string; data: string };
+}) => void;
+
+type TerminalClosedHandler = (event: {
+  payload: { terminalId: string; runId: string };
+}) => void;
+
 const mocks = vi.hoisted(() => ({
   terminalOptions: [] as Array<Record<string, unknown>>,
   terminals: [] as Array<{
@@ -19,6 +27,8 @@ const mocks = vi.hoisted(() => ({
   closeTerminal: vi.fn(),
   listenTerminalOutput: vi.fn(),
   listenTerminalClosed: vi.fn(),
+  outputHandler: null as TerminalOutputHandler | null,
+  closedHandler: null as TerminalClosedHandler | null,
   resizeObservers: [] as Array<{
     observe: ReturnType<typeof vi.fn>;
     unobserve: ReturnType<typeof vi.fn>;
@@ -87,8 +97,16 @@ describe("TerminalPane", () => {
     mocks.terminalInput.mockReset().mockResolvedValue(undefined);
     mocks.resizeTerminal.mockReset().mockResolvedValue(undefined);
     mocks.closeTerminal.mockReset().mockResolvedValue(undefined);
-    mocks.listenTerminalOutput.mockReset().mockResolvedValue(() => undefined);
-    mocks.listenTerminalClosed.mockReset().mockResolvedValue(() => undefined);
+    mocks.outputHandler = null;
+    mocks.closedHandler = null;
+    mocks.listenTerminalOutput.mockReset().mockImplementation((handler: TerminalOutputHandler) => {
+      mocks.outputHandler = handler;
+      return Promise.resolve(() => undefined);
+    });
+    mocks.listenTerminalClosed.mockReset().mockImplementation((handler: TerminalClosedHandler) => {
+      mocks.closedHandler = handler;
+      return Promise.resolve(() => undefined);
+    });
     const ResizeObserverMock = class {
       public observe = vi.fn();
       public unobserve = vi.fn();
@@ -134,6 +152,27 @@ describe("TerminalPane", () => {
     mocks.terminals[0].emitData("\x1b[>0;276;0c");
 
     expect(mocks.terminalInput).not.toHaveBeenCalled();
+  });
+
+  it("keeps tmux initial redraw output emitted before startTerminal resolves", async () => {
+    mocks.startTerminal.mockImplementation(async () => {
+      mocks.outputHandler?.({
+        payload: {
+          terminalId: "term-1",
+          runId: "run-1",
+          data: "initial tmux redraw"
+        }
+      });
+      return { terminalId: "term-1", runId: "run-1" };
+    });
+
+    render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(mocks.terminals[0].write.mock.calls.map(([data]) => data)).toContain(
+        "initial tmux redraw"
+      );
+    });
   });
 
   it("focuses the terminal when a selected run is attached", async () => {

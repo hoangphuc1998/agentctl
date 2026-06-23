@@ -175,6 +175,14 @@
       "dependencies": ["feat-012"],
       "status": "completed",
       "evidence": "2026-06-23 21:53 +07: Reproduced the AppImage icon issue by extracting the bundle and finding .DirIcon pointed at the build checkout. Added a post-build repair script that rewrites .DirIcon to Agent Manager.png, repacks with the original AppImage runtime, and runs after tauri:build/tauri:build:appimage. npm test, npm run build, npm run tauri:build:appimage, extracted AppImage inspection, ./init.sh, and git diff --check exited 0."
+    },
+    {
+      "id": "feat-022",
+      "name": "Reliable Startup Maximized Window",
+      "description": "Re-apply maximize and focus after the Tauri main window exists so Linux AppImage launches open in the intended maximized desktop window state.",
+      "dependencies": ["feat-021"],
+      "status": "completed",
+      "evidence": "2026-06-23 22:10 +07: Added a startup-window policy helper and Tauri setup hook that calls maximize then focus on the main window, while keeping config fullscreen false. npm test -- src-tauri/tauriConfig.test.ts, cargo test -p agent-manager-desktop startup_window, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --check, npm test, npm run build, ./init.sh, and git diff --check exited 0."
     }
   ]
 }

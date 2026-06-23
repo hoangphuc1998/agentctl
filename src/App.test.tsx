@@ -124,7 +124,7 @@ describe("App", () => {
     expect(screen.getByText("1 attention")).toBeInTheDocument();
   });
 
-  it("shows a native notification when the backend emits an attention event", async () => {
+  it("does not dispatch browser notifications when the backend emits an attention event", async () => {
     const attentionListener: { current: Parameters<typeof listenAgentAttention>[0] | null } = {
       current: null
     };
@@ -153,15 +153,8 @@ describe("App", () => {
       }
     });
 
-    await waitFor(() =>
-      expect(notificationSpy).toHaveBeenCalledWith(
-        "Agent completed",
-        expect.objectContaining({
-          body: "api-cleanup in agent-manager is ready for review.",
-          tag: "agent-attention-run-2"
-        })
-      )
-    );
+    await waitFor(() => expect(dashboardState).toHaveBeenCalledTimes(2));
+    expect(notificationSpy).not.toHaveBeenCalled();
   });
 
   it("refreshes the badge count when the backend emits an attention event", async () => {

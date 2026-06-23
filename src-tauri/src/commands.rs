@@ -9,6 +9,7 @@ use agentctl_core::{
     tmux::{detect_observed_state, detection_source_for, Tmux},
 };
 use tauri::{AppHandle, Emitter, State};
+use tauri_plugin_notification::NotificationExt;
 use uuid::Uuid;
 
 use crate::{
@@ -18,8 +19,8 @@ use crate::{
         Suggestion, TerminalStarted,
     },
     services::{
-        agent_attention_event_for_transition, build_dashboard_state, is_stale_run,
-        suggestions_from_candidates,
+        agent_attention_event_for_transition, agent_system_notification_for_event,
+        build_dashboard_state, is_stale_run, suggestions_from_candidates,
     },
     state::DesktopState,
 };
@@ -267,10 +268,25 @@ fn refresh_active_runs(
         run.observed_state = state;
         run.detection_source = source;
         if let Some(event) = agent_attention_event_for_transition(previous_state, run) {
-            app_handle
-                .emit("agent:attention", &event)
-                .map_err(|err| DesktopError::Message(err.to_string()))?;
+            notify_agent_attention(app_handle, &event);
         }
     }
     Ok(runs)
+}
+
+fn notify_agent_attention(app_handle: &AppHandle, event: &crate::models::AgentAttentionEvent) {
+    let (title, body) = agent_system_notification_for_event(event);
+    if let Err(err) = app_handle
+        .notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+    {
+        eprintln!("failed to show agent attention notification: {err}");
+    }
+
+    if let Err(err) = app_handle.emit("agent:attention", event) {
+        eprintln!("failed to emit agent attention event: {err}");
+    }
 }

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { RepoRunTree } from "./RepoRunTree";
@@ -66,5 +66,35 @@ describe("RepoRunTree", () => {
     await userEvent.click(screen.getByRole("treeitem", { name: /api-cleanup/i }));
 
     expect(onSelectRun).toHaveBeenCalledWith("run-2");
+  });
+
+  it("shows notification badges on runs that need attention", () => {
+    const attentionRepos: RepoNode[] = [
+      {
+        ...repos[0],
+        runs: [
+          repos[0].runs[0],
+          repos[0].runs[1],
+          {
+            ...repos[0].runs[0],
+            id: "run-3",
+            runName: "docs-review",
+            observedState: "completed-unchecked"
+          }
+        ]
+      }
+    ];
+
+    render(<RepoRunTree repos={attentionRepos} selectedRunId={null} onSelectRun={() => {}} />);
+
+    expect(
+      within(screen.getByRole("treeitem", { name: /api-cleanup/i })).getByText("Input")
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("treeitem", { name: /docs-review/i })).getByText("Review")
+    ).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("treeitem", { name: /login-flow/i })).queryByText(/input|review/i)
+    ).not.toBeInTheDocument();
   });
 });

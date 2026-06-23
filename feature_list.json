@@ -12,7 +12,9 @@
       "id": "feat-002",
       "name": "Create Run Error Details",
       "description": "Show create-run failures in a persistent read-only textbox inside the New Run modal",
-      "dependencies": ["feat-001"],
+      "dependencies": [
+        "feat-001"
+      ],
       "status": "completed",
       "evidence": "src/components/CreateRunModal.tsx now stores submit errors locally and renders a read-only textarea labelled Create run error details."
     },
@@ -20,7 +22,9 @@
       "id": "feat-003",
       "name": "Verification Coverage",
       "description": "Add or confirm tests, type checks, linting, or manual verification for the active feature",
-      "dependencies": ["feat-002"],
+      "dependencies": [
+        "feat-002"
+      ],
       "status": "completed",
       "evidence": "Added src/components/CreateRunModal.test.tsx. Red test failed before implementation; npm test reports 7 files and 16 tests passing."
     },
@@ -28,7 +32,9 @@
       "id": "feat-004",
       "name": "Documentation Update",
       "description": "Update README, architecture notes, or product docs affected by the implemented feature",
-      "dependencies": ["feat-003"],
+      "dependencies": [
+        "feat-003"
+      ],
       "status": "completed",
       "evidence": "progress.md records the session state and verification evidence; README/product docs were not affected by this narrow UI error handling change."
     },
@@ -36,7 +42,9 @@
       "id": "feat-005",
       "name": "Cleanup and Handoff",
       "description": "Record verification evidence, update progress.md, and leave a clear next-session path",
-      "dependencies": ["feat-004"],
+      "dependencies": [
+        "feat-004"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 18:14 +07: ./init.sh exited 0 after npm dependencies were installed; intended files are ready for commit."
     },
@@ -44,7 +52,9 @@
       "id": "feat-006",
       "name": "Create Run Agent Exit Recovery",
       "description": "Keep create-run tmux panes visible when the agent command exits non-zero so the run can be recorded and diagnostics remain inspectable.",
-      "dependencies": ["feat-005"],
+      "dependencies": [
+        "feat-005"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 19:06 +07: Added a shell failure wrapper for create/restore agent launches and a core regression test. cargo fmt --check, cargo test -p agentctl-core, a tmux smoke test, and ./init.sh exited 0; ./init.sh skipped npm checks because node_modules is absent."
     },
@@ -52,7 +62,9 @@
       "id": "feat-007",
       "name": "Compact Dashboard UI Polish",
       "description": "Reduce dashboard chrome and notification noise while making the New Run modal compact and visually consistent.",
-      "dependencies": ["feat-006"],
+      "dependencies": [
+        "feat-006"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 21:03 +07: Added red tests for suppressing successful create-run notices, preserving error notices, and using segmented New Run agent controls, then implemented compact dashboard/modal UI polish. npm test passed with 7 files and 21 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm build, and cargo test all running."
     },
@@ -60,7 +72,9 @@
       "id": "feat-008",
       "name": "Readable Embedded Terminal Text",
       "description": "Improve embedded tmux terminal text clarity so dense agent output is less pixelated and easier to read.",
-      "dependencies": ["feat-007"],
+      "dependencies": [
+        "feat-007"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 21:00 +07: Added xterm readability options and terminal font-smoothing CSS with regression coverage. Red targeted tests failed before implementation; npm test, npm run build, and ./init.sh exited 0 after the fix."
     },
@@ -68,7 +82,9 @@
       "id": "feat-009",
       "name": "Stable Running Agent Status",
       "description": "Keep active agent panes marked running when live agent processes have recent visible text that mentions completion.",
-      "dependencies": ["feat-008"],
+      "dependencies": [
+        "feat-008"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 21:22 +07: Added a red core regression test for live codex panes with completion text, then changed tmux status classification so runtime agent commands stay running unless user input is needed. cargo fmt --check, cargo test -p agentctl-core, and ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
     },
@@ -76,7 +92,9 @@
       "id": "feat-010",
       "name": "Agent Attention Notifications",
       "description": "Emit backend attention events, show native notifications, and display an in-app badge count when agent runs newly need user input or complete.",
-      "dependencies": ["feat-009"],
+      "dependencies": [
+        "feat-009"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 21:33 +07: Added backend agent:attention event payloads on new needs-user/completed-unchecked transitions, DashboardState attentionCount, frontend native Notification handling, and top-bar attention badge. RED tests failed before implementation; npm test, npm run build, cargo test, cargo fmt --check, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh exited 0."
     },
@@ -84,7 +102,9 @@
       "id": "feat-011",
       "name": "Native Embedded Terminal Font Parity",
       "description": "Make the embedded tmux terminal use the same native Linux terminal font stack as the original desktop terminal.",
-      "dependencies": ["feat-010"],
+      "dependencies": [
+        "feat-010"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 21:28 +07: Confirmed the desktop terminal uses the system monospace stack while the embedded xterm preferred Noto/forced medium weight. Added a red regression test for the native terminal font stack, then changed xterm to prefer Ubuntu Mono with MesloLGS NF glyph fallback and regular weight. npm test, npm run build, and ./init.sh exited 0."
     },
@@ -92,7 +112,9 @@
       "id": "feat-012",
       "name": "Minimal Tauri App Icon",
       "description": "Replace the generated placeholder with a simple Agent Manager app icon that communicates terminal-based agent run control and git worktree branching.",
-      "dependencies": ["feat-011"],
+      "dependencies": [
+        "feat-011"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 22:47 +07: Used Image Gen to explore a minimalist terminal/worktree icon concept, replaced scripts/generate-icons.mjs with a deterministic renderer, generated src-tauri/icons PNGs at 32, 128, 256, and 512px, visually checked 32px and 128px outputs, and ran node --check, npm run icons:generate, and ./init.sh. ./init.sh exited 0 with cargo tests passing and npm checks skipped because node_modules is absent."
     },
@@ -100,7 +122,10 @@
       "id": "feat-013",
       "name": "Completed Run Status Detection",
       "description": "Restore completed-unchecked classification and completed attention events for live Codex/Claude panes whose recent output is final completion text.",
-      "dependencies": ["feat-010", "feat-009"],
+      "dependencies": [
+        "feat-010",
+        "feat-009"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 23:00 +07: Added a red core regression test showing a live codex pane with final completion text was classified as running, then restored classifier priority so active work markers stay running while final completion text becomes completed-unchecked. cargo fmt --check, cargo test -p agentctl-core tmux::tests::, cargo test -p agent-manager-desktop dashboard_, npm install, and ./init.sh exited 0; ./init.sh ran npm test, npm run build, and cargo test."
     },
@@ -108,7 +133,9 @@
       "id": "feat-014",
       "name": "Debian App Icon Cache Refresh",
       "description": "Ensure Debian installs refresh Linux desktop icon caches so the Agent Manager launcher resolves the new app icon instead of a stale placeholder.",
-      "dependencies": ["feat-012"],
+      "dependencies": [
+        "feat-012"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 23:27 +07: Added a red Vitest package-config regression for Debian icon cache scripts, wired postInstallScript/postRemoveScript into tauri.conf.json, added maintainer scripts that refresh hicolor icon and desktop databases, rebuilt the .deb, and extracted it to confirm executable postinst/postrm plus matching hicolor agent-manager PNGs. npm test, npm run build, npm run tauri:build:deb, and ./init.sh exited 0."
     },
@@ -116,7 +143,10 @@
       "id": "feat-014",
       "name": "Attention Badge Refresh",
       "description": "Refresh the in-app attention badge immediately when an agent attention notification event is received.",
-      "dependencies": ["feat-010", "feat-013"],
+      "dependencies": [
+        "feat-010",
+        "feat-013"
+      ],
       "status": "completed",
       "evidence": "2026-06-22 23:21 +07: Added a red App regression test showing an agent:attention notification event did not refresh the top-bar badge count, then refreshed dashboard state from the event listener. npm test -- src/App.test.tsx, npm test, npm run build, and ./init.sh exited 0; ./init.sh ran npm test, npm run build, and cargo test."
     },
@@ -124,7 +154,10 @@
       "id": "feat-015",
       "name": "Reliable Linux Attention Notifications",
       "description": "Send Linux system notifications from the Tauri backend whenever a run newly needs input or completes, while keeping the in-app attention badge refreshed from backend state.",
-      "dependencies": ["feat-010", "feat-014"],
+      "dependencies": [
+        "feat-010",
+        "feat-014"
+      ],
       "status": "completed",
       "evidence": "2026-06-23 16:43 +07: Added red App coverage showing the frontend must not use browser Notification for backend attention events, and red Rust coverage for backend notification payload mapping. Moved notification dispatch to tauri-plugin-notification in Rust while preserving agent:attention events for badge refresh. npm install, npm test -- src/App.test.tsx, cargo test -p agent-manager-desktop agent_system_notification_uses_attention_event_text, cargo fmt --check, cargo test -p agent-manager-desktop dashboard_, cargo check -p agent-manager-desktop --features tauri-app, npm test, npm run build, and ./init.sh exited 0."
     },
@@ -132,7 +165,11 @@
       "id": "feat-016",
       "name": "Left Panel Run Attention Badges",
       "description": "Show a visible notification badge on each left-panel run row that currently needs input or is completed and awaiting review.",
-      "dependencies": ["feat-010", "feat-014", "feat-015"],
+      "dependencies": [
+        "feat-010",
+        "feat-014",
+        "feat-015"
+      ],
       "status": "completed",
       "evidence": "2026-06-23 17:58 +07: Added red RepoRunTree and App coverage showing per-run left-panel Input/Review badges were missing after attention refresh, then rendered warning badges for needs-user and completed-unchecked run rows. npm test -- src/components/RepoRunTree.test.tsx src/App.test.tsx failed red, then passed with 11 tests; npm test passed with 8 files and 28 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
     },
@@ -140,7 +177,10 @@
       "id": "feat-017",
       "name": "Seen Completed Runs and Need Input Notifications",
       "description": "Clear completed-run attention badges when the run is viewed, keep seen completions from becoming unchecked again, and recognize literal Need input terminal text for system notifications.",
-      "dependencies": ["feat-015", "feat-016"],
+      "dependencies": [
+        "feat-015",
+        "feat-016"
+      ],
       "status": "completed",
       "evidence": "2026-06-23 18:12 +07: Added red App coverage showing selecting a completed run did not refresh through the backend to clear its Review badge, red desktop service coverage for marking/preserving completed-seen state, and red core tmux coverage for literal Need input text being classified as running. Implemented backend seen-state persistence on selected dashboard refresh, preserved completed-seen during tmux refresh, and matched Need input/needs input/requires input/waiting for input as needs-user. npm test -- src/App.test.tsx, cargo test -p agent-manager-desktop completed_run, cargo test -p agentctl-core visible_need_input_text_reports_needs_user, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh all exited 0."
     },
@@ -148,7 +188,9 @@
       "id": "feat-018",
       "name": "Embedded Terminal Repaint on App Return",
       "description": "Force the embedded xterm terminal to refit and repaint when the app window becomes visible again so tmux text does not appear blank after returning to the app.",
-      "dependencies": ["feat-008"],
+      "dependencies": [
+        "feat-008"
+      ],
       "status": "completed",
       "evidence": "2026-06-23 18:22 +07: Added a red TerminalPane regression showing visibility restore did not call xterm refresh, then added visibilitychange/focus/pageshow repaint handling that refits and refreshes the visible buffer. npm test -- src/components/TerminalPane.test.tsx failed red then passed with 8 tests; npm test passed with 8 files and 30 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
     },
@@ -156,7 +198,11 @@
       "id": "feat-019",
       "name": "App Icon Attention Badge",
       "description": "Mirror the current attention count onto the desktop app icon badge and clear it when no runs need attention.",
-      "dependencies": ["feat-010", "feat-016", "feat-017"],
+      "dependencies": [
+        "feat-010",
+        "feat-016",
+        "feat-017"
+      ],
       "status": "completed",
       "evidence": "2026-06-23 18:33 +07: Added red App coverage showing the app icon badge was not updated from backend attention count and was not cleared after viewing a completed run, then synced dashboard.attentionCount to Tauri setBadgeCount. npm test -- src/App.test.tsx failed red then passed with 11 tests; npm test passed with 8 files and 32 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
     },
@@ -164,7 +210,10 @@
       "id": "feat-020",
       "name": "Tmux Plugin Restart Restore",
       "description": "Configure tmux-resurrect and tmux-continuum for actual Agent Manager tmux session restore after computer restart, including saved-pane command rewriting for Codex and Claude runs.",
-      "dependencies": ["feat-010", "feat-013"],
+      "dependencies": [
+        "feat-010",
+        "feat-013"
+      ],
       "status": "completed",
       "evidence": "2026-06-23 16:48 +07: Added tmux restore status/setup commands, a guarded ~/.tmux.conf plugin block, a tmux-resurrect pre-restore rewrite hook, app-start session restore, lifecycle snapshot saves, frontend setup controls, and Rust/React regression coverage. ./init.sh exited 0 with npm test, npm run build, and cargo test; cargo fmt --check, cargo check -p agent-manager-desktop --features tauri-app, and git diff --check also exited 0."
     },
@@ -172,9 +221,31 @@
       "id": "feat-021",
       "name": "Reliable Tmux Initial Redraw",
       "description": "Keep the embedded xterm terminal from dropping tmux's initial attach redraw bytes so the pane does not render black, stale, or visually overlaid until another run selection forces a redraw.",
-      "dependencies": ["feat-018"],
+      "dependencies": [
+        "feat-018"
+      ],
       "status": "completed",
       "evidence": "2026-06-23 21:53 +07: Found the frontend registered terminal output listeners after startTerminal created the PTY, allowing tmux attach's initial clear/redraw bytes to race ahead and be lost. Added a red TerminalPane regression for output emitted before startTerminal resolves, then registered output/closed listeners before startTerminal and buffered startup output by terminal id until the id is known. npm test -- src/components/TerminalPane.test.tsx failed red then passed with 9 tests; npm test passed with 8 files and 34 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
+    },
+    {
+      "id": "feat-022",
+      "name": "AppImage App Icon Repair",
+      "description": "Ensure AppImage bundles expose the Agent Manager app icon through a portable .DirIcon link instead of a build-host absolute symlink.",
+      "dependencies": [
+        "feat-012"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-23 21:53 +07: Reproduced the AppImage icon issue by extracting the bundle and finding .DirIcon pointed at the build checkout. Added a post-build repair script that rewrites .DirIcon to Agent Manager.png, repacks with the original AppImage runtime, and runs after tauri:build/tauri:build:appimage. npm test, npm run build, npm run tauri:build:appimage, extracted AppImage inspection, ./init.sh, and git diff --check exited 0."
+    },
+    {
+      "id": "feat-023",
+      "name": "Reliable Startup Maximized Window",
+      "description": "Re-apply maximize and focus after the Tauri main window exists so Linux AppImage launches open in the intended maximized desktop window state.",
+      "dependencies": [
+        "feat-022"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-23 22:10 +07: Added a startup-window policy helper and Tauri setup hook that calls maximize then focus on the main window, while keeping config fullscreen false. npm test -- src-tauri/tauriConfig.test.ts, cargo test -p agent-manager-desktop startup_window, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --check, npm test, npm run build, ./init.sh, and git diff --check exited 0."
     }
   ]
 }

@@ -9,6 +9,23 @@ function readText(path: string) {
 }
 
 describe("Tauri package configuration", () => {
+  it("starts the main window as a normal maximized window", () => {
+    const config = JSON.parse(readText("src-tauri/tauri.conf.json"));
+    const [mainWindow] = config.app.windows;
+
+    expect(mainWindow.maximized).toBe(true);
+    expect(mainWindow.fullscreen ?? false).toBe(false);
+  });
+
+  it("repairs AppImage DirIcon metadata after AppImage bundle builds", () => {
+    const packageJson = JSON.parse(readText("package.json"));
+    const repairCommand = "node scripts/repair-appimage-dir-icon.mjs";
+
+    expect(packageJson.scripts["tauri:build"]).toContain(`--bundles appimage,deb && ${repairCommand}`);
+    expect(packageJson.scripts["tauri:build:appimage"]).toContain(`--bundles appimage && ${repairCommand}`);
+    expect(packageJson.scripts["tauri:build:deb"]).not.toContain(repairCommand);
+  });
+
   it("refreshes Linux desktop icon caches after Debian install and remove", () => {
     const config = JSON.parse(readText("src-tauri/tauri.conf.json"));
     const debConfig = config.bundle.linux.deb;

@@ -38,7 +38,7 @@ import { CreateRunModal } from "./components/CreateRunModal";
 import { RepoRunTree } from "./components/RepoRunTree";
 import { StatusBadge } from "./components/StatusBadge";
 import { TerminalPane } from "./components/TerminalPane";
-import type { AgentAttentionEvent, DashboardState, HostToolStatus, RunView } from "./types";
+import type { DashboardState, HostToolStatus, RunView } from "./types";
 
 type PendingAction =
   | { kind: "stop"; run: RunView }
@@ -109,8 +109,7 @@ export function App() {
     let active = true;
     let unlisten: (() => void) | null = null;
 
-    void listenAgentAttention((event) => {
-      showAgentAttentionNotification(event.payload);
+    void listenAgentAttention(() => {
       void loadDashboard();
     })
       .then((nextUnlisten) => {
@@ -395,29 +394,6 @@ function errorMessage(err: unknown): string {
     return String((err as { message: unknown }).message);
   }
   return "Unexpected error.";
-}
-
-function showAgentAttentionNotification(event: AgentAttentionEvent) {
-  const NotificationApi = window.Notification;
-  if (!NotificationApi) return;
-
-  const notify = () => {
-    new NotificationApi(event.title, {
-      body: event.body,
-      tag: `agent-attention-${event.runId}`
-    });
-  };
-
-  if (NotificationApi.permission === "granted") {
-    notify();
-    return;
-  }
-
-  if (NotificationApi.permission === "denied") return;
-
-  void NotificationApi.requestPermission().then((permission) => {
-    if (permission === "granted") notify();
-  });
 }
 
 function hostToolTone(tool: HostToolStatus): ChipTone {

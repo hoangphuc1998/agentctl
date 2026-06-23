@@ -119,6 +119,14 @@
       "dependencies": ["feat-010", "feat-013"],
       "status": "completed",
       "evidence": "2026-06-22 23:21 +07: Added a red App regression test showing an agent:attention notification event did not refresh the top-bar badge count, then refreshed dashboard state from the event listener. npm test -- src/App.test.tsx, npm test, npm run build, and ./init.sh exited 0; ./init.sh ran npm test, npm run build, and cargo test."
+    },
+    {
+      "id": "feat-015",
+      "name": "Reliable Linux Attention Notifications",
+      "description": "Send Linux system notifications from the Tauri backend whenever a run newly needs input or completes, while keeping the in-app attention badge refreshed from backend state.",
+      "dependencies": ["feat-010", "feat-014"],
+      "status": "completed",
+      "evidence": "2026-06-23 16:43 +07: Added red App coverage showing the frontend must not use browser Notification for backend attention events, and red Rust coverage for backend notification payload mapping. Moved notification dispatch to tauri-plugin-notification in Rust while preserving agent:attention events for badge refresh. npm install, npm test -- src/App.test.tsx, cargo test -p agent-manager-desktop agent_system_notification_uses_attention_event_text, cargo fmt --check, cargo test -p agent-manager-desktop dashboard_, cargo check -p agent-manager-desktop --features tauri-app, npm test, npm run build, and ./init.sh exited 0."
     }
   ]
 }

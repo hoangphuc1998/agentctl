@@ -1,8 +1,8 @@
 use agent_manager_desktop::{
     models::{AgentAttentionEvent, RunView},
     services::{
-        agent_attention_event_for_transition, build_dashboard_state, is_restorable_run,
-        is_stale_run, suggestions_from_candidates,
+        agent_attention_event_for_transition, agent_system_notification_for_event,
+        build_dashboard_state, is_restorable_run, is_stale_run, suggestions_from_candidates,
     },
 };
 use agentctl_core::{
@@ -147,6 +147,21 @@ fn dashboard_attention_events_only_fire_on_new_attention_states() {
         agent_attention_event_for_transition(ObservedState::Unknown, &running),
         None
     );
+}
+
+#[test]
+fn agent_system_notification_uses_attention_event_text() {
+    let completed = run(
+        "api-cleanup",
+        ObservedState::CompletedUnchecked,
+        DetectionSource::Heuristic,
+    );
+    let event = agent_attention_event_for_transition(ObservedState::Running, &completed).unwrap();
+
+    let (title, body) = agent_system_notification_for_event(&event);
+
+    assert_eq!(title, "Agent completed");
+    assert_eq!(body, "api-cleanup in agent-manager is ready for review.");
 }
 
 #[test]

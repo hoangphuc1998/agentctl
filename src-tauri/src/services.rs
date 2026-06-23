@@ -80,6 +80,10 @@ pub fn agent_attention_event_for_transition(
     })
 }
 
+pub fn agent_system_notification_for_event(event: &AgentAttentionEvent) -> (&str, &str) {
+    (&event.title, &event.body)
+}
+
 fn is_attention_state(state: ObservedState) -> bool {
     matches!(
         state,

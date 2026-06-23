@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
     emitData: (data: string) => void;
     write: ReturnType<typeof vi.fn>;
     reset: ReturnType<typeof vi.fn>;
+    refresh: ReturnType<typeof vi.fn>;
     focus: ReturnType<typeof vi.fn>;
     dispose: ReturnType<typeof vi.fn>;
   }>,
@@ -31,8 +32,10 @@ vi.mock("@xterm/xterm", () => {
     private dataHandler: ((data: string) => void) | null = null;
     public write = vi.fn();
     public reset = vi.fn();
+    public refresh = vi.fn();
     public focus = vi.fn();
     public dispose = vi.fn();
+    public rows = 32;
 
     constructor(options: Record<string, unknown>) {
       mocks.terminalOptions.push(options);
@@ -40,6 +43,7 @@ vi.mock("@xterm/xterm", () => {
         emitData: (data: string) => this.dataHandler?.(data),
         write: this.write,
         reset: this.reset,
+        refresh: this.refresh,
         focus: this.focus,
         dispose: this.dispose
       });
@@ -176,6 +180,16 @@ describe("TerminalPane", () => {
     mocks.resizeObservers[0].trigger();
 
     await waitFor(() => expect(mocks.resizeTerminal).toHaveBeenCalledWith("term-1", 120, 32));
+  });
+
+  it("repaints the terminal when the app becomes visible again", async () => {
+    render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
+    await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
+    mocks.terminals[0].refresh.mockClear();
+
+    document.dispatchEvent(new Event("visibilitychange"));
+
+    expect(mocks.terminals[0].refresh).toHaveBeenCalledWith(0, 31);
   });
 });
 

@@ -20,6 +20,7 @@ import {
   Trash2,
   Wrench
 } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   cleanupStaleRuns,
@@ -40,7 +41,7 @@ import { CreateRunModal } from "./components/CreateRunModal";
 import { RepoRunTree } from "./components/RepoRunTree";
 import { StatusBadge } from "./components/StatusBadge";
 import { TerminalPane } from "./components/TerminalPane";
-import type { AgentAttentionEvent, DashboardState, HostToolStatus, RunView, TmuxRestoreStatus } from "./types";
+import type { DashboardState, HostToolStatus, RunView, TmuxRestoreStatus } from "./types";
 
 type PendingAction =
   | { kind: "stop"; run: RunView }
@@ -110,6 +111,14 @@ export function App() {
     }
   }, []);
 
+  const selectRunAndLoad = useCallback(
+    (runId: string) => {
+      selectRun(runId);
+      void loadDashboard(runId);
+    },
+    [loadDashboard, selectRun]
+  );
+
   useEffect(() => {
     void loadDashboard(null);
     void loadTmuxRestoreStatus();
@@ -121,8 +130,7 @@ export function App() {
     let active = true;
     let unlisten: (() => void) | null = null;
 
-    void listenAgentAttention((event) => {
-      showAgentAttentionNotification(event.payload);
+    void listenAgentAttention(() => {
       void loadDashboard();
     })
       .then((nextUnlisten) => {
@@ -139,6 +147,15 @@ export function App() {
       unlisten?.();
     };
   }, [loadDashboard]);
+
+  useEffect(() => {
+    const badgeCount = dashboard.attentionCount > 0 ? dashboard.attentionCount : undefined;
+    void getCurrentWindow()
+      .setBadgeCount(badgeCount)
+      .catch((err) => {
+        console.warn("Failed to update app icon badge count.", err);
+      });
+  }, [dashboard.attentionCount]);
 
   async function runAction(action: PendingAction) {
     try {
@@ -289,7 +306,7 @@ export function App() {
             </span>
             <Chip tone="neutral">{dashboard.repos.length} repos</Chip>
           </div>
-          <RepoRunTree repos={dashboard.repos} selectedRunId={selectedRunId} onSelectRun={selectRun} />
+          <RepoRunTree repos={dashboard.repos} selectedRunId={selectedRunId} onSelectRun={selectRunAndLoad} />
         </aside>
 
         <section className="run-surface">
@@ -393,7 +410,7 @@ export function App() {
         }}
         onSelectRun={(id) => {
           setPaletteOpen(false);
-          selectRun(id);
+          selectRunAndLoad(id);
         }}
         onRefresh={() => {
           setPaletteOpen(false);
@@ -432,29 +449,6 @@ function errorMessage(err: unknown): string {
     return String((err as { message: unknown }).message);
   }
   return "Unexpected error.";
-}
-
-function showAgentAttentionNotification(event: AgentAttentionEvent) {
-  const NotificationApi = window.Notification;
-  if (!NotificationApi) return;
-
-  const notify = () => {
-    new NotificationApi(event.title, {
-      body: event.body,
-      tag: `agent-attention-${event.runId}`
-    });
-  };
-
-  if (NotificationApi.permission === "granted") {
-    notify();
-    return;
-  }
-
-  if (NotificationApi.permission === "denied") return;
-
-  void NotificationApi.requestPermission().then((permission) => {
-    if (permission === "granted") notify();
-  });
 }
 
 function hostToolTone(tool: HostToolStatus): ChipTone {

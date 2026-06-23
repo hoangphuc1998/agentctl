@@ -1,8 +1,9 @@
 use agent_manager_desktop::{
     models::{AgentAttentionEvent, RunView},
     services::{
-        agent_attention_event_for_transition, build_dashboard_state, is_restorable_run,
-        is_stale_run, suggestions_from_candidates,
+        agent_attention_event_for_transition, agent_system_notification_for_event,
+        build_dashboard_state, is_restorable_run, is_stale_run, mark_selected_run_seen,
+        observed_state_after_refresh, suggestions_from_candidates,
     },
 };
 use agentctl_core::{
@@ -146,6 +147,61 @@ fn dashboard_attention_events_only_fire_on_new_attention_states() {
     assert_eq!(
         agent_attention_event_for_transition(ObservedState::Unknown, &running),
         None
+    );
+}
+
+#[test]
+fn agent_system_notification_uses_attention_event_text() {
+    let completed = run(
+        "api-cleanup",
+        ObservedState::CompletedUnchecked,
+        DetectionSource::Heuristic,
+    );
+    let event = agent_attention_event_for_transition(ObservedState::Running, &completed).unwrap();
+
+    let (title, body) = agent_system_notification_for_event(&event);
+
+    assert_eq!(title, "Agent completed");
+    assert_eq!(body, "api-cleanup in agent-manager is ready for review.");
+}
+
+#[test]
+fn selecting_completed_run_marks_it_seen_before_building_dashboard() {
+    let completed = run(
+        "api-cleanup",
+        ObservedState::CompletedUnchecked,
+        DetectionSource::Heuristic,
+    );
+    let selected = completed.id.to_string();
+    let mut active = vec![
+        run("login-flow", ObservedState::Running, DetectionSource::Tmux),
+        completed,
+    ];
+
+    let marked = mark_selected_run_seen(&mut active, Some(&selected), 42);
+
+    assert!(marked.is_some());
+    assert_eq!(active[1].observed_state, ObservedState::CompletedSeen);
+    assert_eq!(active[1].notification_seen_at, Some(42));
+    let state = build_dashboard_state(active, None, vec![], Some(selected.clone()));
+    assert_eq!(state.selected_run_id, Some(selected));
+    assert_eq!(state.attention_count, 0);
+    assert_eq!(state.repos[0].runs[0].observed_state, "completed-seen");
+}
+
+#[test]
+fn completed_run_with_seen_timestamp_stays_seen_after_refresh_detection() {
+    assert_eq!(
+        observed_state_after_refresh(ObservedState::CompletedUnchecked, Some(42)),
+        ObservedState::CompletedSeen
+    );
+    assert_eq!(
+        observed_state_after_refresh(ObservedState::CompletedUnchecked, None),
+        ObservedState::CompletedUnchecked
+    );
+    assert_eq!(
+        observed_state_after_refresh(ObservedState::NeedsUser, Some(42)),
+        ObservedState::NeedsUser
     );
 }
 

@@ -9,6 +9,7 @@ use agentctl_core::{
     tmux::{detect_observed_state, detection_source_for, Tmux},
 };
 use tauri::{AppHandle, Emitter, State};
+use tauri_plugin_notification::NotificationExt;
 use uuid::Uuid;
 
 use crate::{
@@ -18,7 +19,8 @@ use crate::{
         Suggestion, TerminalStarted,
     },
     services::{
-        agent_attention_event_for_transition, build_dashboard_state, is_stale_run,
+        agent_attention_event_for_transition, agent_system_notification_for_event,
+        build_dashboard_state, is_stale_run, mark_selected_run_seen, observed_state_after_refresh,
         suggestions_from_candidates,
     },
     state::DesktopState,
@@ -42,8 +44,15 @@ pub fn dashboard_state(
         state.set_selected_run_id(selected_run_id)?;
     }
     let registry = registry(&state)?;
-    let runs = refresh_active_runs(&registry, &app_handle)?;
+    let mut runs = refresh_active_runs(&registry, &app_handle)?;
     let selected = state.selected_run_id()?;
+    if let Some(run) = mark_selected_run_seen(
+        &mut runs,
+        selected.as_deref(),
+        chrono::Utc::now().timestamp(),
+    ) {
+        registry.upsert_run(&run)?;
+    }
     let dashboard = build_dashboard_state(
         runs,
         registry.active_repo_path()?,
@@ -279,7 +288,10 @@ fn refresh_active_runs(
         };
         let snapshot = tmux.snapshot_window(window)?;
         let previous_state = run.observed_state;
-        let state = detect_observed_state(&snapshot);
+        let state = observed_state_after_refresh(
+            detect_observed_state(&snapshot),
+            run.notification_seen_at,
+        );
         let source = detection_source_for(&snapshot);
         registry.set_observed_state(
             run.id,
@@ -291,10 +303,25 @@ fn refresh_active_runs(
         run.observed_state = state;
         run.detection_source = source;
         if let Some(event) = agent_attention_event_for_transition(previous_state, run) {
-            app_handle
-                .emit("agent:attention", &event)
-                .map_err(|err| DesktopError::Message(err.to_string()))?;
+            notify_agent_attention(app_handle, &event);
         }
     }
     Ok(runs)
+}
+
+fn notify_agent_attention(app_handle: &AppHandle, event: &crate::models::AgentAttentionEvent) {
+    let (title, body) = agent_system_notification_for_event(event);
+    if let Err(err) = app_handle
+        .notification()
+        .builder()
+        .title(title)
+        .body(body)
+        .show()
+    {
+        eprintln!("failed to show agent attention notification: {err}");
+    }
+
+    if let Err(err) = app_handle.emit("agent:attention", event) {
+        eprintln!("failed to emit agent attention event: {err}");
+    }
 }

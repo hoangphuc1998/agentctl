@@ -122,6 +122,46 @@
     },
     {
       "id": "feat-015",
+      "name": "Reliable Linux Attention Notifications",
+      "description": "Send Linux system notifications from the Tauri backend whenever a run newly needs input or completes, while keeping the in-app attention badge refreshed from backend state.",
+      "dependencies": ["feat-010", "feat-014"],
+      "status": "completed",
+      "evidence": "2026-06-23 16:43 +07: Added red App coverage showing the frontend must not use browser Notification for backend attention events, and red Rust coverage for backend notification payload mapping. Moved notification dispatch to tauri-plugin-notification in Rust while preserving agent:attention events for badge refresh. npm install, npm test -- src/App.test.tsx, cargo test -p agent-manager-desktop agent_system_notification_uses_attention_event_text, cargo fmt --check, cargo test -p agent-manager-desktop dashboard_, cargo check -p agent-manager-desktop --features tauri-app, npm test, npm run build, and ./init.sh exited 0."
+    },
+    {
+      "id": "feat-016",
+      "name": "Left Panel Run Attention Badges",
+      "description": "Show a visible notification badge on each left-panel run row that currently needs input or is completed and awaiting review.",
+      "dependencies": ["feat-010", "feat-014", "feat-015"],
+      "status": "completed",
+      "evidence": "2026-06-23 17:58 +07: Added red RepoRunTree and App coverage showing per-run left-panel Input/Review badges were missing after attention refresh, then rendered warning badges for needs-user and completed-unchecked run rows. npm test -- src/components/RepoRunTree.test.tsx src/App.test.tsx failed red, then passed with 11 tests; npm test passed with 8 files and 28 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
+    },
+    {
+      "id": "feat-017",
+      "name": "Seen Completed Runs and Need Input Notifications",
+      "description": "Clear completed-run attention badges when the run is viewed, keep seen completions from becoming unchecked again, and recognize literal Need input terminal text for system notifications.",
+      "dependencies": ["feat-015", "feat-016"],
+      "status": "completed",
+      "evidence": "2026-06-23 18:12 +07: Added red App coverage showing selecting a completed run did not refresh through the backend to clear its Review badge, red desktop service coverage for marking/preserving completed-seen state, and red core tmux coverage for literal Need input text being classified as running. Implemented backend seen-state persistence on selected dashboard refresh, preserved completed-seen during tmux refresh, and matched Need input/needs input/requires input/waiting for input as needs-user. npm test -- src/App.test.tsx, cargo test -p agent-manager-desktop completed_run, cargo test -p agentctl-core visible_need_input_text_reports_needs_user, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh all exited 0."
+    },
+    {
+      "id": "feat-018",
+      "name": "Embedded Terminal Repaint on App Return",
+      "description": "Force the embedded xterm terminal to refit and repaint when the app window becomes visible again so tmux text does not appear blank after returning to the app.",
+      "dependencies": ["feat-008"],
+      "status": "completed",
+      "evidence": "2026-06-23 18:22 +07: Added a red TerminalPane regression showing visibility restore did not call xterm refresh, then added visibilitychange/focus/pageshow repaint handling that refits and refreshes the visible buffer. npm test -- src/components/TerminalPane.test.tsx failed red then passed with 8 tests; npm test passed with 8 files and 30 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
+    },
+    {
+      "id": "feat-019",
+      "name": "App Icon Attention Badge",
+      "description": "Mirror the current attention count onto the desktop app icon badge and clear it when no runs need attention.",
+      "dependencies": ["feat-010", "feat-016", "feat-017"],
+      "status": "completed",
+      "evidence": "2026-06-23 18:33 +07: Added red App coverage showing the app icon badge was not updated from backend attention count and was not cleared after viewing a completed run, then synced dashboard.attentionCount to Tauri setBadgeCount. npm test -- src/App.test.tsx failed red then passed with 11 tests; npm test passed with 8 files and 32 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
+    },
+    {
+      "id": "feat-020",
       "name": "Tmux Plugin Restart Restore",
       "description": "Configure tmux-resurrect and tmux-continuum for actual Agent Manager tmux session restore after computer restart, including saved-pane command rewriting for Codex and Claude runs.",
       "dependencies": ["feat-010", "feat-013"],

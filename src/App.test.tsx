@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -12,6 +12,10 @@ import {
   tmuxRestoreStatus
 } from "./api";
 import type { DashboardState, RunView, TmuxRestoreStatus } from "./types";
+
+const tauriWindowMocks = vi.hoisted(() => ({
+  setBadgeCount: vi.fn()
+}));
 
 vi.mock("./api", () => ({
   cleanupStaleRuns: vi.fn(),
@@ -33,12 +37,17 @@ vi.mock("./components/TerminalPane", () => ({
   )
 }));
 
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ setBadgeCount: tauriWindowMocks.setBadgeCount })
+}));
+
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(listenAgentAttention).mockResolvedValue(vi.fn());
     vi.mocked(tmuxRestoreStatus).mockResolvedValue(restoreStatus(true));
     vi.mocked(enableTmuxRestore).mockResolvedValue(restoreStatus(true));
+    tauriWindowMocks.setBadgeCount.mockResolvedValue(undefined);
   });
 
   it("keeps the run chosen by the user instead of returning to the first run", async () => {
@@ -151,7 +160,41 @@ describe("App", () => {
     expect(screen.getByText("1 attention")).toBeInTheDocument();
   });
 
-  it("shows a native notification when the backend emits an attention event", async () => {
+  it("sets the app icon badge count from backend attention count", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(
+      dashboard("run-1", [run("run-1", "login-flow"), run("run-2", "api-cleanup")])
+    );
+
+    render(<App />);
+
+    await screen.findByText("1 attention");
+
+    await waitFor(() => expect(tauriWindowMocks.setBadgeCount).toHaveBeenLastCalledWith(1));
+  });
+
+  it("clears the app icon badge when attention count returns to zero", async () => {
+    const completedDashboard = dashboard("run-1", [
+      run("run-1", "login-flow"),
+      run("run-2", "api-cleanup")
+    ]);
+    const seenDashboard = dashboard("run-2", [
+      run("run-1", "login-flow"),
+      { ...run("run-2", "api-cleanup"), observedState: "completed-seen" }
+    ]);
+    vi.mocked(dashboardState).mockResolvedValueOnce(completedDashboard).mockResolvedValueOnce(seenDashboard);
+
+    render(<App />);
+
+    await screen.findByText("1 attention");
+    await waitFor(() => expect(tauriWindowMocks.setBadgeCount).toHaveBeenLastCalledWith(1));
+
+    await userEvent.click(screen.getByRole("treeitem", { name: /api-cleanup/i }));
+
+    await waitFor(() => expect(dashboardState).toHaveBeenLastCalledWith("run-2"));
+    await waitFor(() => expect(tauriWindowMocks.setBadgeCount).toHaveBeenLastCalledWith(undefined));
+  });
+
+  it("does not dispatch browser notifications when the backend emits an attention event", async () => {
     const attentionListener: { current: Parameters<typeof listenAgentAttention>[0] | null } = {
       current: null
     };
@@ -180,15 +223,8 @@ describe("App", () => {
       }
     });
 
-    await waitFor(() =>
-      expect(notificationSpy).toHaveBeenCalledWith(
-        "Agent completed",
-        expect.objectContaining({
-          body: "api-cleanup in agent-manager is ready for review.",
-          tag: "agent-attention-run-2"
-        })
-      )
-    );
+    await waitFor(() => expect(dashboardState).toHaveBeenCalledTimes(2));
+    expect(notificationSpy).not.toHaveBeenCalled();
   });
 
   it("refreshes the badge count when the backend emits an attention event", async () => {
@@ -210,6 +246,7 @@ describe("App", () => {
 
     await screen.findByRole("heading", { name: "login-flow" });
     expect(screen.queryByText("1 attention")).not.toBeInTheDocument();
+    expect(screen.queryByText("Review")).not.toBeInTheDocument();
     attentionListener.current?.({
       event: "agent:attention",
       id: 1,
@@ -225,7 +262,31 @@ describe("App", () => {
     });
 
     expect(await screen.findByText("1 attention")).toBeInTheDocument();
+    expect(within(screen.getByRole("treeitem", { name: /api-cleanup/i })).getByText("Review")).toBeInTheDocument();
     expect(dashboardState).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes a selected completed run so its row attention badge can clear", async () => {
+    const completedDashboard = dashboard("run-1", [
+      run("run-1", "login-flow"),
+      run("run-2", "api-cleanup")
+    ]);
+    const seenDashboard = dashboard("run-2", [
+      run("run-1", "login-flow"),
+      { ...run("run-2", "api-cleanup"), observedState: "completed-seen" }
+    ]);
+    vi.mocked(dashboardState).mockResolvedValueOnce(completedDashboard).mockResolvedValueOnce(seenDashboard);
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    expect(within(screen.getByRole("treeitem", { name: /api-cleanup/i })).getByText("Review")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("treeitem", { name: /api-cleanup/i }));
+
+    await waitFor(() => expect(dashboardState).toHaveBeenLastCalledWith("run-2"));
+    expect(within(screen.getByRole("treeitem", { name: /api-cleanup/i })).queryByText("Review")).not.toBeInTheDocument();
+    expect(screen.queryByText("1 attention")).not.toBeInTheDocument();
   });
 });
 

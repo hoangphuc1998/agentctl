@@ -432,13 +432,27 @@ h2 {
   gap: 6px;
 }
 
-.run-row-main strong {
+.run-name-line {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.run-name-line strong {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   color: #f2f7fc;
   font-size: 13px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.run-name-line > .chip {
+  flex: 0 0 auto;
+  justify-content: center;
+  min-width: 64px;
 }
 
 .run-row-meta {

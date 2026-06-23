@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -176,6 +176,7 @@ describe("App", () => {
 
     await screen.findByRole("heading", { name: "login-flow" });
     expect(screen.queryByText("1 attention")).not.toBeInTheDocument();
+    expect(screen.queryByText("Review")).not.toBeInTheDocument();
     attentionListener.current?.({
       event: "agent:attention",
       id: 1,
@@ -191,6 +192,7 @@ describe("App", () => {
     });
 
     expect(await screen.findByText("1 attention")).toBeInTheDocument();
+    expect(within(screen.getByRole("treeitem", { name: /api-cleanup/i })).getByText("Review")).toBeInTheDocument();
     expect(dashboardState).toHaveBeenCalledTimes(2);
   });
 });

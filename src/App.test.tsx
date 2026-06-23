@@ -5,6 +5,10 @@ import { App } from "./App";
 import { createRun, dashboardState, listenAgentAttention, mergeRun, restoreRun } from "./api";
 import type { DashboardState, RunView } from "./types";
 
+const tauriWindowMocks = vi.hoisted(() => ({
+  setBadgeCount: vi.fn()
+}));
+
 vi.mock("./api", () => ({
   cleanupStaleRuns: vi.fn(),
   createRun: vi.fn(),
@@ -23,10 +27,15 @@ vi.mock("./components/TerminalPane", () => ({
   )
 }));
 
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => ({ setBadgeCount: tauriWindowMocks.setBadgeCount })
+}));
+
 describe("App", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(listenAgentAttention).mockResolvedValue(vi.fn());
+    tauriWindowMocks.setBadgeCount.mockResolvedValue(undefined);
   });
 
   it("keeps the run chosen by the user instead of returning to the first run", async () => {
@@ -122,6 +131,40 @@ describe("App", () => {
     await screen.findByRole("heading", { name: "login-flow" });
 
     expect(screen.getByText("1 attention")).toBeInTheDocument();
+  });
+
+  it("sets the app icon badge count from backend attention count", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(
+      dashboard("run-1", [run("run-1", "login-flow"), run("run-2", "api-cleanup")])
+    );
+
+    render(<App />);
+
+    await screen.findByText("1 attention");
+
+    await waitFor(() => expect(tauriWindowMocks.setBadgeCount).toHaveBeenLastCalledWith(1));
+  });
+
+  it("clears the app icon badge when attention count returns to zero", async () => {
+    const completedDashboard = dashboard("run-1", [
+      run("run-1", "login-flow"),
+      run("run-2", "api-cleanup")
+    ]);
+    const seenDashboard = dashboard("run-2", [
+      run("run-1", "login-flow"),
+      { ...run("run-2", "api-cleanup"), observedState: "completed-seen" }
+    ]);
+    vi.mocked(dashboardState).mockResolvedValueOnce(completedDashboard).mockResolvedValueOnce(seenDashboard);
+
+    render(<App />);
+
+    await screen.findByText("1 attention");
+    await waitFor(() => expect(tauriWindowMocks.setBadgeCount).toHaveBeenLastCalledWith(1));
+
+    await userEvent.click(screen.getByRole("treeitem", { name: /api-cleanup/i }));
+
+    await waitFor(() => expect(dashboardState).toHaveBeenLastCalledWith("run-2"));
+    await waitFor(() => expect(tauriWindowMocks.setBadgeCount).toHaveBeenLastCalledWith(undefined));
   });
 
   it("does not dispatch browser notifications when the backend emits an attention event", async () => {

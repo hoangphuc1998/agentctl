@@ -151,6 +151,14 @@
       "dependencies": ["feat-008"],
       "status": "completed",
       "evidence": "2026-06-23 18:22 +07: Added a red TerminalPane regression showing visibility restore did not call xterm refresh, then added visibilitychange/focus/pageshow repaint handling that refits and refreshes the visible buffer. npm test -- src/components/TerminalPane.test.tsx failed red then passed with 8 tests; npm test passed with 8 files and 30 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
+    },
+    {
+      "id": "feat-019",
+      "name": "App Icon Attention Badge",
+      "description": "Mirror the current attention count onto the desktop app icon badge and clear it when no runs need attention.",
+      "dependencies": ["feat-010", "feat-016", "feat-017"],
+      "status": "completed",
+      "evidence": "2026-06-23 18:33 +07: Added red App coverage showing the app icon badge was not updated from backend attention count and was not cleared after viewing a completed run, then synced dashboard.attentionCount to Tauri setBadgeCount. npm test -- src/App.test.tsx failed red then passed with 11 tests; npm test passed with 8 files and 32 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
     }
   ]
 }

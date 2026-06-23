@@ -106,6 +106,14 @@
     },
     {
       "id": "feat-014",
+      "name": "Debian App Icon Cache Refresh",
+      "description": "Ensure Debian installs refresh Linux desktop icon caches so the Agent Manager launcher resolves the new app icon instead of a stale placeholder.",
+      "dependencies": ["feat-012"],
+      "status": "completed",
+      "evidence": "2026-06-22 23:27 +07: Added a red Vitest package-config regression for Debian icon cache scripts, wired postInstallScript/postRemoveScript into tauri.conf.json, added maintainer scripts that refresh hicolor icon and desktop databases, rebuilt the .deb, and extracted it to confirm executable postinst/postrm plus matching hicolor agent-manager PNGs. npm test, npm run build, npm run tauri:build:deb, and ./init.sh exited 0."
+    },
+    {
+      "id": "feat-014",
       "name": "Attention Badge Refresh",
       "description": "Refresh the in-app attention badge immediately when an agent attention notification event is received.",
       "dependencies": ["feat-010", "feat-013"],

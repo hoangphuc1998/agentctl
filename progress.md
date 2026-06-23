@@ -52,4 +52,4 @@
 
 ## Notes for Next Session
 
-`node_modules` is installed in this worktree, so `./init.sh` should run npm and cargo checks immediately.
+`node_modules` is installed in this worktree, so `./init.sh` should run npm and cargo checks immediately. Rebuild the Debian package with `npm run tauri:build:deb` before reinstalling so the new maintainer scripts are included.

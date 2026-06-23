@@ -39,6 +39,13 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
     }
   }, []);
 
+  const repaintTerminal = useCallback(() => {
+    fitAndResizeTerminal();
+    const terminal = terminalRef.current;
+    if (!terminal) return;
+    terminal.refresh(0, Math.max(0, terminal.rows - 1));
+  }, [fitAndResizeTerminal]);
+
   useEffect(() => {
     const terminal = new Terminal({
       cursorBlink: true,
@@ -87,6 +94,28 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
     observer.observe(host);
     return () => observer.disconnect();
   }, [fitAndResizeTerminal]);
+
+  useEffect(() => {
+    function repaintIfVisible() {
+      if (document.visibilityState === "hidden") return;
+      repaintTerminal();
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        repaintTerminal();
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", repaintIfVisible);
+    window.addEventListener("pageshow", repaintIfVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", repaintIfVisible);
+      window.removeEventListener("pageshow", repaintIfVisible);
+    };
+  }, [repaintTerminal]);
 
   useEffect(() => {
     let disposed = false;

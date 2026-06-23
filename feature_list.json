@@ -143,6 +143,14 @@
       "dependencies": ["feat-015", "feat-016"],
       "status": "completed",
       "evidence": "2026-06-23 18:12 +07: Added red App coverage showing selecting a completed run did not refresh through the backend to clear its Review badge, red desktop service coverage for marking/preserving completed-seen state, and red core tmux coverage for literal Need input text being classified as running. Implemented backend seen-state persistence on selected dashboard refresh, preserved completed-seen during tmux refresh, and matched Need input/needs input/requires input/waiting for input as needs-user. npm test -- src/App.test.tsx, cargo test -p agent-manager-desktop completed_run, cargo test -p agentctl-core visible_need_input_text_reports_needs_user, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh all exited 0."
+    },
+    {
+      "id": "feat-018",
+      "name": "Embedded Terminal Repaint on App Return",
+      "description": "Force the embedded xterm terminal to refit and repaint when the app window becomes visible again so tmux text does not appear blank after returning to the app.",
+      "dependencies": ["feat-008"],
+      "status": "completed",
+      "evidence": "2026-06-23 18:22 +07: Added a red TerminalPane regression showing visibility restore did not call xterm refresh, then added visibilitychange/focus/pageshow repaint handling that refits and refreshes the visible buffer. npm test -- src/components/TerminalPane.test.tsx failed red then passed with 8 tests; npm test passed with 8 files and 30 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm run build, and cargo test passing."
     }
   ]
 }

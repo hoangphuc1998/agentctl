@@ -22,6 +22,11 @@ use crate::{
         suggestions_from_candidates,
     },
     state::DesktopState,
+    tmux_restore::{
+        enable_tmux_restore as enable_tmux_restore_setup, restore_tmux_session_best_effort,
+        save_tmux_restore_snapshot_best_effort, tmux_restore_status as current_tmux_restore_status,
+        TmuxRestorePaths, TmuxRestoreStatus,
+    },
 };
 
 const TMUX_SESSION: &str = "agentctl";
@@ -32,6 +37,7 @@ pub fn dashboard_state(
     state: State<'_, DesktopState>,
     selected_run_id: Option<String>,
 ) -> DesktopResult<DashboardState> {
+    restore_tmux_session_best_effort(TMUX_SESSION);
     if selected_run_id.is_some() {
         state.set_selected_run_id(selected_run_id)?;
     }
@@ -63,6 +69,7 @@ pub fn create_run(
     };
     let mut app = App::new(registry, SystemCommandRunner, AppConfig::from_environment());
     let run = app.create_run(request)?;
+    save_tmux_restore_snapshot_best_effort();
     state.set_selected_run_id(Some(run.id.to_string()))?;
     Ok(ActionResult {
         message: format!("Created `{}`.", run.run_name),
@@ -76,6 +83,7 @@ pub fn restore_run(state: State<'_, DesktopState>, run_id: String) -> DesktopRes
     let mut app = app(&state)?;
     let run = app.restore_run(id)?;
     if let Some(run) = run {
+        save_tmux_restore_snapshot_best_effort();
         state.set_selected_run_id(Some(run.id.to_string()))?;
         Ok(ActionResult {
             message: format!("Resumed `{}`.", run.run_name),
@@ -94,6 +102,7 @@ pub fn stop_run(state: State<'_, DesktopState>, run_id: String) -> DesktopResult
     let id = parse_uuid(&run_id)?;
     let mut app = app(&state)?;
     app.stop_run(id)?;
+    save_tmux_restore_snapshot_best_effort();
     Ok(ActionResult {
         message: "Stopped run. Worktree and branch preserved.".to_string(),
         run: None,
@@ -105,6 +114,7 @@ pub fn end_run(state: State<'_, DesktopState>, run_id: String) -> DesktopResult<
     let id = parse_uuid(&run_id)?;
     let mut app = app(&state)?;
     app.end_run(id)?;
+    save_tmux_restore_snapshot_best_effort();
     Ok(ActionResult {
         message: "Ended run. Worktree and branch removed.".to_string(),
         run: None,
@@ -156,10 +166,24 @@ pub fn cleanup_stale_runs(state: State<'_, DesktopState>) -> DesktopResult<Actio
     for id in &ids {
         app.stop_run(*id)?;
     }
+    save_tmux_restore_snapshot_best_effort();
     Ok(ActionResult {
         message: format!("Stopped {} stale runs.", ids.len()),
         run: None,
     })
+}
+
+#[tauri::command]
+pub fn tmux_restore_status() -> TmuxRestoreStatus {
+    current_tmux_restore_status(&TmuxRestorePaths::from_environment())
+}
+
+#[tauri::command]
+pub fn enable_tmux_restore() -> DesktopResult<TmuxRestoreStatus> {
+    let paths = TmuxRestorePaths::from_environment();
+    let executable = std::env::current_exe()?;
+    enable_tmux_restore_setup(&paths, &executable)?;
+    Ok(current_tmux_restore_status(&paths))
 }
 
 #[tauri::command]

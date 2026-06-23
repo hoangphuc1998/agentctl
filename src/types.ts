@@ -65,3 +65,16 @@ export interface AgentAttentionEvent {
   title: string;
   body: string;
 }
+
+export interface TmuxRestoreStatus {
+  configured: boolean;
+  tpmInstalled: boolean;
+  resurrectInstalled: boolean;
+  continuumInstalled: boolean;
+  autoRestoreEnabled: boolean;
+  bootEnabled: boolean;
+  savedStateExists: boolean;
+  systemdUnitExists: boolean;
+  configPath: string;
+  detail: string;
+}

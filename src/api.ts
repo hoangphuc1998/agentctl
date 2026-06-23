@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { EventCallback, UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
-import type { AgentAttentionEvent, CreateRunPayload, DashboardState, RunView } from "./types";
+import type { AgentAttentionEvent, CreateRunPayload, DashboardState, RunView, TmuxRestoreStatus } from "./types";
 
 export interface ActionResult {
   message: string;
@@ -65,6 +65,14 @@ export function openInVsCode(runId: string): Promise<ActionResult> {
 
 export function cleanupStaleRuns(): Promise<ActionResult> {
   return invoke("cleanup_stale_runs");
+}
+
+export function tmuxRestoreStatus(): Promise<TmuxRestoreStatus> {
+  return invoke("tmux_restore_status");
+}
+
+export function enableTmuxRestore(): Promise<TmuxRestoreStatus> {
+  return invoke("enable_tmux_restore");
 }
 
 export function repoSuggestions(input: string): Promise<Suggestion[]> {

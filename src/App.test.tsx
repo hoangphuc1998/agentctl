@@ -137,7 +137,7 @@ describe("App", () => {
     render(<App />);
 
     await screen.findByRole("heading", { name: "login-flow" });
-    await userEvent.click(screen.getByRole("button", { name: /new run/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^new run$/i }));
     const repoPath = screen.getByLabelText(/repo path/i);
     await userEvent.clear(repoPath);
     await userEvent.type(repoPath, "/repo/agent-manager");
@@ -146,6 +146,57 @@ describe("App", () => {
 
     await waitFor(() => expect(createRun).toHaveBeenCalledOnce());
     expect(screen.queryByText("Created fix-ui.")).not.toBeInTheDocument();
+  });
+
+  it("opens New Run prefilled from a repo row", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("button", { name: /new run from agent-manager/i }));
+
+    expect(screen.getByLabelText(/repo path/i)).toHaveValue("/repo/agent-manager");
+    expect(screen.getByLabelText(/base ref/i)).toHaveValue("HEAD");
+    expect(screen.getByLabelText(/tag/i)).toHaveValue("default");
+    expect(screen.getByRole("button", { name: /codex/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText(/run name/i)).toHaveValue("");
+  });
+
+  it("opens New Run prefilled from an existing run and submits edited data", async () => {
+    const sourceRun: RunView = {
+      ...run("run-2", "api-cleanup"),
+      agent: "claude",
+      baseRef: "master",
+      tag: "review"
+    };
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1", [run("run-1", "login-flow"), sourceRun]));
+    vi.mocked(createRun).mockResolvedValue({ message: "Created.", run: null });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("button", { name: /new run from api-cleanup/i }));
+    expect(screen.getByLabelText(/repo path/i)).toHaveValue("/repo/agent-manager");
+    expect(screen.getByLabelText(/base ref/i)).toHaveValue("master");
+    expect(screen.getByLabelText(/tag/i)).toHaveValue("review");
+    expect(screen.getByRole("button", { name: /claude/i })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByLabelText(/run name/i)).toHaveValue("");
+
+    await userEvent.type(screen.getByLabelText(/run name/i), "api-followup");
+    await userEvent.clear(screen.getByLabelText(/base ref/i));
+    await userEvent.type(screen.getByLabelText(/base ref/i), "release");
+    await userEvent.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() =>
+      expect(createRun).toHaveBeenCalledWith({
+        repoPath: "/repo/agent-manager",
+        baseRef: "release",
+        tag: "review",
+        runName: "api-followup",
+        agent: "claude"
+      })
+    );
   });
 
   it("shows the backend attention badge count in the top bar", async () => {

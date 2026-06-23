@@ -68,6 +68,42 @@ describe("RepoRunTree", () => {
     expect(onSelectRun).toHaveBeenCalledWith("run-2");
   });
 
+  it("requests a new run from a repo row", async () => {
+    const onCreateRunFromRepo = vi.fn();
+    render(
+      <RepoRunTree
+        repos={repos}
+        selectedRunId={null}
+        onSelectRun={vi.fn()}
+        onCreateRunFromRepo={onCreateRunFromRepo}
+        onCreateRunFromRun={vi.fn()}
+      />
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /new run from agent-manager/i }));
+
+    expect(onCreateRunFromRepo).toHaveBeenCalledWith(repos[0]);
+  });
+
+  it("requests a new run from an existing run without selecting it", async () => {
+    const onCreateRunFromRun = vi.fn();
+    const onSelectRun = vi.fn();
+    render(
+      <RepoRunTree
+        repos={repos}
+        selectedRunId={null}
+        onSelectRun={onSelectRun}
+        onCreateRunFromRepo={vi.fn()}
+        onCreateRunFromRun={onCreateRunFromRun}
+      />
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /new run from api-cleanup/i }));
+
+    expect(onCreateRunFromRun).toHaveBeenCalledWith(repos[0].runs[1]);
+    expect(onSelectRun).not.toHaveBeenCalled();
+  });
+
   it("shows notification badges on runs that need attention", () => {
     const attentionRepos: RepoNode[] = [
       {

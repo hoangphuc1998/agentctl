@@ -1,4 +1,4 @@
-import { Bell, Bot, ChevronDown, GitBranch, Tag } from "lucide-react";
+import { Bell, Bot, ChevronDown, GitBranch, Plus, Tag } from "lucide-react";
 import type { RepoNode, RunView } from "../types";
 import { Chip } from "./Chip";
 import { StatusBadge } from "./StatusBadge";
@@ -7,6 +7,8 @@ interface RepoRunTreeProps {
   repos: RepoNode[];
   selectedRunId: string | null;
   onSelectRun: (runId: string) => void;
+  onCreateRunFromRepo?: (repo: RepoNode) => void;
+  onCreateRunFromRun?: (run: RunView) => void;
 }
 
 function attentionBadgeForState(state: RunView["observedState"]) {
@@ -19,7 +21,13 @@ function attentionBadgeForState(state: RunView["observedState"]) {
   return null;
 }
 
-export function RepoRunTree({ repos, selectedRunId, onSelectRun }: RepoRunTreeProps) {
+export function RepoRunTree({
+  repos,
+  selectedRunId,
+  onSelectRun,
+  onCreateRunFromRepo,
+  onCreateRunFromRun
+}: RepoRunTreeProps) {
   if (repos.length === 0) {
     return <div className="empty-tree">No runs yet.</div>;
   }
@@ -32,19 +40,35 @@ export function RepoRunTree({ repos, selectedRunId, onSelectRun }: RepoRunTreePr
             <ChevronDown size={16} />
             <span>{repo.repoName}</span>
             <span className="repo-count">{repo.runs.length}</span>
+            <button
+              type="button"
+              className="tree-create-button"
+              aria-label={`New run from ${repo.repoName}`}
+              title={`New run from ${repo.repoName}`}
+              onClick={() => onCreateRunFromRepo?.(repo)}
+            >
+              <Plus size={14} />
+            </button>
           </div>
           <div className="run-children" role="group">
             {repo.runs.map((run) => {
               const attentionBadge = attentionBadgeForState(run.observedState);
 
               return (
-                <button
+                <div
                   className={run.id === selectedRunId ? "run-row selected" : "run-row"}
                   key={run.id}
                   role="treeitem"
+                  tabIndex={0}
                   aria-selected={run.id === selectedRunId}
                   aria-label={`${run.runName} ${run.agent} ${run.observedState}`}
                   onClick={() => onSelectRun(run.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      onSelectRun(run.id);
+                    }
+                  }}
                 >
                   <span className="run-row-status">
                     <StatusBadge state={run.observedState} compact />
@@ -70,7 +94,19 @@ export function RepoRunTree({ repos, selectedRunId, onSelectRun }: RepoRunTreePr
                   <Chip tone="neutral" icon={<Bot size={13} />}>
                     {run.agent}
                   </Chip>
-                </button>
+                  <button
+                    type="button"
+                    className="tree-create-button"
+                    aria-label={`New run from ${run.runName}`}
+                    title={`New run from ${run.runName}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onCreateRunFromRun?.(run);
+                    }}
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
               );
             })}
           </div>

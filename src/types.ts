@@ -56,6 +56,13 @@ export interface CreateRunPayload {
   agent: AgentKind;
 }
 
+export interface CreateRunDefaults {
+  repoPath?: string;
+  baseRef?: string;
+  tag?: string;
+  agent?: AgentKind;
+}
+
 export interface AgentAttentionEvent {
   runId: string;
   runName: string;

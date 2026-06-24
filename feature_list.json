@@ -259,14 +259,13 @@
     },
     {
       "id": "feat-025",
-      "name": "Favorite Toolbar AppImage Launch Repair",
-      "description": "Keep tmux restore hooks pointed at a durable packaged executable path so GNOME favorite launches do not run stale worktree binaries or temporary AppImage mount paths.",
+      "name": "Keyboard Run Shortcuts",
+      "description": "Add keyboard shortcuts for opening the command palette, creating runs, navigating runs, and ending the selected run through confirmation.",
       "dependencies": [
-        "feat-020",
-        "feat-022"
+        "feat-024"
       ],
       "status": "completed",
-      "evidence": "2026-06-24 10:04 +07: Traced GNOME favorite failures in the user journal to tmux restore invoking stale Agent Manager hook commands and terminal-client restore errors, while direct target AppImage launch worked. Added red Rust coverage for durable APPIMAGE executable selection and stale tmux hook refresh, then used APPIMAGE for AppImage hooks, current_exe for installed binaries, and refreshed existing Agent Manager tmux restore blocks before startup restore. cargo test -p agent-manager-desktop tmux_restore failed red before implementation; cargo test -p agent-manager-desktop, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --check, npm test, npm run build, ./init.sh, npm run tauri:build:appimage, and extracted AppImage metadata inspection all exited 0."
+      "evidence": "2026-06-24 09:55 +07: Added red App and CommandPalette coverage for Ctrl+K palette, Ctrl+Shift+N new run, Alt+Up/Down run navigation, Ctrl+Shift+E end confirmation, and palette Arrow/Enter/Escape controls. Targeted tests failed before implementation, then npm test -- src/App.test.tsx src/components/CommandPalette.test.tsx passed with 20 tests; npm test passed with 10 files and 50 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm build, and cargo test."
     }
   ]
 }

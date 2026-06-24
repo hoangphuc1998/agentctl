@@ -793,7 +793,8 @@ textarea:focus,
   cursor: pointer;
 }
 
-.palette-item:hover {
+.palette-item:hover,
+.palette-item.active {
   border-color: #3c526b;
   background: rgba(27, 38, 51, 0.94);
 }

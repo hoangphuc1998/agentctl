@@ -41,6 +41,7 @@ import { CreateRunModal } from "./components/CreateRunModal";
 import { RepoRunTree } from "./components/RepoRunTree";
 import { StatusBadge } from "./components/StatusBadge";
 import { TerminalPane } from "./components/TerminalPane";
+import { appShortcutFromEvent } from "./keyboardShortcuts";
 import type {
   CreateRunDefaults,
   DashboardState,
@@ -85,6 +86,10 @@ export function App() {
         .flatMap((repo) => repo.runs)
         .find((run) => run.id === selectedRunId) ?? null,
     [dashboard.repos, selectedRunId]
+  );
+  const runsInDisplayOrder = useMemo(
+    () => dashboard.repos.flatMap((repo) => repo.runs),
+    [dashboard.repos]
   );
 
   const selectRun = useCallback((runId: string | null) => {
@@ -160,6 +165,22 @@ export function App() {
     [openCreateRun]
   );
 
+  const selectAdjacentRun = useCallback(
+    (direction: 1 | -1) => {
+      if (runsInDisplayOrder.length === 0) return false;
+
+      const currentIndex = runsInDisplayOrder.findIndex((run) => run.id === selectedRunId);
+      const fallbackIndex = direction === 1 ? 0 : runsInDisplayOrder.length - 1;
+      const nextIndex =
+        currentIndex === -1
+          ? fallbackIndex
+          : (currentIndex + direction + runsInDisplayOrder.length) % runsInDisplayOrder.length;
+      selectRunAndLoad(runsInDisplayOrder[nextIndex].id);
+      return true;
+    },
+    [runsInDisplayOrder, selectRunAndLoad, selectedRunId]
+  );
+
   useEffect(() => {
     void loadDashboard(null);
     void loadTmuxRestoreStatus();
@@ -197,6 +218,36 @@ export function App() {
         console.warn("Failed to update app icon badge count.", err);
       });
   }, [dashboard.attentionCount]);
+
+  useEffect(() => {
+    function handleGlobalShortcut(event: KeyboardEvent) {
+      const shortcut = appShortcutFromEvent(event);
+      if (!shortcut || createOpen || paletteOpen || pendingAction) return;
+
+      let handled = true;
+      if (shortcut === "open-palette") {
+        setPaletteOpen(true);
+      } else if (shortcut === "new-run") {
+        openCreateRun();
+      } else if (shortcut === "previous-run") {
+        handled = selectAdjacentRun(-1);
+      } else if (shortcut === "next-run") {
+        handled = selectAdjacentRun(1);
+      } else if (selectedRun) {
+        setPendingAction({ kind: "end", run: selectedRun });
+      } else {
+        handled = false;
+      }
+
+      if (handled) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    }
+
+    window.addEventListener("keydown", handleGlobalShortcut, true);
+    return () => window.removeEventListener("keydown", handleGlobalShortcut, true);
+  }, [createOpen, openCreateRun, paletteOpen, pendingAction, selectAdjacentRun, selectedRun]);
 
   async function runAction(action: PendingAction) {
     try {
@@ -325,11 +376,21 @@ export function App() {
           <button className="icon-button" onClick={() => void loadDashboard()} title="Refresh">
             <RefreshCw size={18} className={refreshing ? "spin" : ""} />
           </button>
-          <button className="button secondary" onClick={() => setPaletteOpen(true)}>
+          <button
+            className="button secondary"
+            aria-keyshortcuts="Control+K Meta+K"
+            onClick={() => setPaletteOpen(true)}
+            title="Palette (Ctrl+K)"
+          >
             <Command size={18} />
             Palette
           </button>
-          <button className="button primary" onClick={() => openCreateRun()}>
+          <button
+            className="button primary"
+            aria-keyshortcuts="Control+Shift+N Meta+Shift+N"
+            onClick={() => openCreateRun()}
+            title="New Run (Ctrl+Shift+N)"
+          >
             <Plus size={18} />
             New Run
           </button>
@@ -405,8 +466,9 @@ export function App() {
                   </button>
                   <button
                     className="icon-button danger"
+                    aria-keyshortcuts="Control+Shift+E Meta+Shift+E"
                     onClick={() => setPendingAction({ kind: "end", run: selectedRun })}
-                    title="End"
+                    title="End (Ctrl+Shift+E)"
                   >
                     <Trash2 size={18} />
                   </button>

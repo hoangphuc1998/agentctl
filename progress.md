@@ -2,64 +2,58 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-24 10:04 +07
-**Session ID:** favorite-toolbar-appimage-launch
-**Active Feature:** feat-025 - Favorite Toolbar AppImage Launch Repair
+**Last Updated:** 2026-06-24 09:55 +07
+**Session ID:** keyboard-run-shortcuts
+**Active Feature:** feat-025 - Keyboard Run Shortcuts
 
 ## Status
 
 ### What is Done
 
-- [x] Reproduced the failing launch path from system state: GNOME favorites contains `Agent Manager.desktop`, which resolves to `/usr/share/applications/Agent Manager.desktop` with `Exec=agent-manager`.
-- [x] Confirmed direct AppImage launch differs from favorite launch because AppImage runtime sets bundle-specific environment and paths, while the favorite uses the installed desktop entry.
-- [x] Traced journal failures from favorite clicks to tmux restore startup work: `open terminal failed: not a terminal` and stale Agent Manager hook execution.
-- [x] Found the managed tmux restore hook in `~/.tmux.conf` pointed at an old worktree binary instead of the packaged executable.
-- [x] Added regression coverage for durable AppImage executable selection and stale managed tmux hook refresh.
-- [x] Implemented durable executable resolution: prefer `$APPIMAGE` for AppImage launches and fall back to `current_exe()` for installed binaries.
-- [x] Startup restore now refreshes an existing Agent Manager tmux restore block before attempting restore.
-- [x] `enable_tmux_restore` now writes the same durable executable path.
-- [x] Built and extracted the AppImage bundle; `.DirIcon` resolves to `Agent Manager.png` and the bundle desktop entry remains present.
+- [x] Added app-level shortcuts for opening the command palette, creating a run, selecting previous/next runs, and opening end-run confirmation.
+- [x] Added keyboard navigation inside the command palette with ArrowUp, ArrowDown, Enter, and Escape.
+- [x] Kept end-run destructive behavior behind the existing confirmation dialog, with the confirm action focused for keyboard completion.
+- [x] Added focused React coverage for the shortcut and palette behaviors.
 
 ### What is In Progress
 
-- [x] Implementation and verification are complete.
+- [x] Feature implementation is complete.
+- [x] Frontend verification is complete.
+- [x] Final standard `./init.sh` verification is complete.
 
 ### What is Next
 
-1. Install or run the new AppImage build and click the GNOME favorite once to confirm the live desktop launcher opens the app.
-2. Next session can run `./init.sh` immediately.
+1. Next session can run `./init.sh` immediately.
 
 ## Blockers / Risks
 
-- [x] No unresolved code blockers.
-- [ ] Manual GNOME favorite click was not performed from the live desktop in this session; verification covered journal root-cause tracing, automated regression tests, Tauri feature compile, full project verification, AppImage build, and extracted bundle inspection.
+- [x] No unresolved blockers.
+- [ ] Manual visual review in the packaged Tauri app was not run; automated React tests cover the keyboard flows.
 
 ## Decisions Made
 
-- Use `$APPIMAGE` for tmux restore hooks when available because `current_exe()` inside an AppImage points at a temporary `/tmp/.mount_*` binary that is invalid after unmount.
-- Do not add a tmux restore block during startup. Startup only refreshes an existing Agent Manager-managed block, keeping unmanaged tmux configs untouched.
-- Keep restore startup best-effort. If hook refresh or tmux restore fails, the desktop app should still launch.
+- Command palette opens with Ctrl+K or Meta+K.
+- New Run opens with Ctrl+Shift+N or Meta+Shift+N.
+- Run selection moves with Alt+ArrowDown and Alt+ArrowUp, wrapping through the displayed run order.
+- End selected run opens the existing confirmation dialog with Ctrl+Shift+E or Meta+Shift+E.
+- App shortcuts ignore normal editable fields, but remain available from the embedded terminal surface through capture-phase handling.
 
 ## Files Modified This Session
 
 - feature_list.json - Adds completed feat-025 with verification evidence.
-- progress.md - Records launcher root cause, implementation, verification, and residual manual-check risk.
-- src-tauri/src/tmux_restore.rs - Adds durable executable path resolution and stale managed hook refresh before startup restore.
-- src-tauri/src/commands.rs - Uses durable executable path when enabling tmux restore.
-- src-tauri/tests/tmux_restore.rs - Adds regression tests for AppImage path selection and stale hook refresh.
+- progress.md - Records keyboard shortcut implementation status and verification.
+- src/App.tsx - Adds app-level shortcut handling, adjacent run selection, and accessible shortcut metadata.
+- src/App.test.tsx - Adds regression coverage for palette, create, navigation, and end-run shortcuts.
+- src/keyboardShortcuts.ts - Adds the shortcut classifier and editable-target guard.
+- src/components/CommandPalette.tsx - Adds active-result state and keyboard controls.
+- src/components/CommandPalette.test.tsx - Adds palette keyboard navigation tests.
+- src/components/ConfirmDialog.tsx - Focuses the confirm action and supports Escape cancel.
+- src/styles.css - Styles the active command palette result.
 
 ## Evidence of Completion
 
-- [x] Baseline `./init.sh` exited 0 before changes, with npm checks skipped because `node_modules` was absent.
-- [x] RED: `cargo test -p agent-manager-desktop tmux_restore` failed because `stable_agent_manager_executable` and `refresh_tmux_restore_hook` did not exist yet.
-- [x] GREEN: `cargo test -p agent-manager-desktop stable_agent_manager_executable` exited 0.
-- [x] GREEN: `cargo test -p agent-manager-desktop refresh_tmux_restore_hook` exited 0.
-- [x] `cargo test -p agent-manager-desktop` exited 0.
-- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
-- [x] `cargo fmt --check` exited 0.
-- [x] `npm install` exited 0 after escalation for the esbuild postinstall binary.
-- [x] `npm test` exited 0 with 9 files and 44 tests passing.
-- [x] `npm run build` exited 0.
-- [x] `./init.sh` exited 0 with npm test, npm build, and cargo test.
-- [x] `npm run tauri:build:appimage` exited 0 after escalation for linuxdeploy, producing `target/release/bundle/appimage/Agent Manager_0.1.0_amd64.AppImage`.
-- [x] Extracted the built AppImage and confirmed `.DirIcon -> Agent Manager.png` plus the bundled `Agent Manager.desktop`.
+- [x] RED: `npm test -- src/App.test.tsx src/components/CommandPalette.test.tsx` failed with 6 expected shortcut/palette failures before implementation.
+- [x] GREEN: `npm test -- src/App.test.tsx src/components/CommandPalette.test.tsx` passed with 2 files and 20 tests.
+- [x] Full frontend tests: `npm test` passed with 10 files and 50 tests.
+- [x] Frontend build: `npm run build` exited 0.
+- [x] Standard verification: `./init.sh` exited 0 with npm test, npm build, and cargo test.

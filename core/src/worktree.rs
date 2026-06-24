@@ -6,12 +6,23 @@ pub fn default_sibling_worktree_path(repo_path: &Path, run_slug: &str) -> PathBu
         .and_then(|name| name.to_str())
         .unwrap_or("repo");
     let parent = repo_path.parent().unwrap_or_else(|| Path::new("."));
-    parent
-        .join(format!("{repo_name}-worktrees"))
-        .join(sanitize_slug(run_slug))
+    let mut path = parent.join(format!("{repo_name}-worktrees"));
+    for segment in path_slug(run_slug).split('/') {
+        path = path.join(segment);
+    }
+    path
 }
 
 pub fn sanitize_slug(value: &str) -> String {
+    let slug = sanitize_slug_segment(value);
+    if slug.is_empty() {
+        "agent-run".to_string()
+    } else {
+        slug
+    }
+}
+
+fn sanitize_slug_segment(value: &str) -> String {
     let mut slug = String::new();
     let mut last_dash = false;
     for ch in value.trim().chars() {
@@ -35,14 +46,44 @@ pub fn sanitize_slug(value: &str) -> String {
             }
         }
     }
-    let slug = slug.trim_matches('-').to_string();
-    if slug.is_empty() {
+    slug.trim_matches('-').to_string()
+}
+
+fn path_slug(value: &str) -> String {
+    let segments: Vec<String> = value
+        .split('/')
+        .map(sanitize_slug_segment)
+        .filter(|segment| !segment.is_empty())
+        .collect();
+    if segments.is_empty() {
         "agent-run".to_string()
     } else {
-        slug
+        segments.join("/")
     }
 }
 
 pub fn default_branch_name(run_name: &str) -> String {
-    sanitize_slug(run_name)
+    path_slug(run_name)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{default_branch_name, default_sibling_worktree_path};
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn branch_name_preserves_slash_hierarchy() {
+        assert_eq!(default_branch_name("feature/login"), "feature/login");
+    }
+
+    #[test]
+    fn sibling_worktree_path_preserves_slash_hierarchy() {
+        let path =
+            default_sibling_worktree_path(Path::new("/repos/agent-manager"), "feature/login");
+
+        assert_eq!(
+            path,
+            PathBuf::from("/repos/agent-manager-worktrees/feature/login")
+        );
+    }
 }

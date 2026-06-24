@@ -6,6 +6,7 @@ import {
   createRun,
   dashboardState,
   enableTmuxRestore,
+  endRun,
   listenAgentAttention,
   mergeRun,
   restoreRun,
@@ -197,6 +198,65 @@ describe("App", () => {
         agent: "claude"
       })
     );
+  });
+
+  it("opens the command palette with the keyboard shortcut", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.keyboard("{Control>}k{/Control}");
+
+    expect(screen.getByRole("dialog", { name: /command palette/i })).toBeInTheDocument();
+  });
+
+  it("opens New Run with the keyboard shortcut", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.keyboard("{Control>}{Shift>}N{/Shift}{/Control}");
+
+    expect(screen.getByRole("heading", { name: /create worktree and launch agent/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/repo path/i)).toHaveValue("/repo/agent-manager");
+  });
+
+  it("navigates between runs with keyboard shortcuts", async () => {
+    vi.mocked(dashboardState).mockImplementation((selectedRunId?: string | null) =>
+      Promise.resolve(dashboard(selectedRunId ?? "run-1"))
+    );
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.keyboard("{Alt>}{ArrowDown}{/Alt}");
+
+    await waitFor(() => expect(dashboardState).toHaveBeenLastCalledWith("run-2"));
+    expect(screen.getByRole("heading", { name: "api-cleanup" })).toBeInTheDocument();
+
+    await userEvent.keyboard("{Alt>}{ArrowUp}{/Alt}");
+
+    await waitFor(() => expect(dashboardState).toHaveBeenLastCalledWith("run-1"));
+    expect(screen.getByRole("heading", { name: "login-flow" })).toBeInTheDocument();
+  });
+
+  it("opens the selected run end confirmation with the keyboard shortcut", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+    vi.mocked(endRun).mockResolvedValue({ message: "Ended login-flow.", run: null });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.keyboard("{Control>}{Shift>}E{/Shift}{/Control}");
+
+    expect(screen.getByRole("alertdialog", { name: /end login-flow/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /end run/i })).toHaveFocus();
+
+    await userEvent.keyboard("{Enter}");
+
+    await waitFor(() => expect(endRun).toHaveBeenCalledWith("run-1"));
   });
 
   it("shows the backend attention badge count in the top bar", async () => {

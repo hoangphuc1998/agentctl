@@ -256,6 +256,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-23 22:47 +07: Added red CreateRunModal, RepoRunTree, and App coverage for contextual New Run prefill from repo and run rows, then implemented editable create defaults and contextual plus buttons. Merged into master after resolving tracker conflicts with feat-024. Post-merge ./init.sh exited 0 with npm test covering 9 files and 44 tests, npm run build, and cargo test."
+    },
+    {
+      "id": "feat-025",
+      "name": "Keyboard Run Shortcuts",
+      "description": "Add keyboard shortcuts for opening the command palette, creating runs, navigating runs, and ending the selected run through confirmation.",
+      "dependencies": [
+        "feat-024"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-24 09:55 +07: Added red App and CommandPalette coverage for Ctrl+K palette, Ctrl+Shift+N new run, Alt+Up/Down run navigation, Ctrl+Shift+E end confirmation, and palette Arrow/Enter/Escape controls. Targeted tests failed before implementation, then npm test -- src/App.test.tsx src/components/CommandPalette.test.tsx passed with 20 tests; npm test passed with 10 files and 50 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm build, and cargo test."
     }
   ]
 }

@@ -1,4 +1,5 @@
 import { AlertTriangle } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Chip } from "./Chip";
 
 interface ConfirmDialogProps {
@@ -11,9 +12,22 @@ interface ConfirmDialogProps {
 }
 
 export function ConfirmDialog({ title, body, confirmLabel, destructive, onCancel, onConfirm }: ConfirmDialogProps) {
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    confirmButtonRef.current?.focus();
+  }, []);
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      onCancel();
+    }
+  }
+
   return (
     <div className="modal-backdrop">
-      <div className="confirm-dialog" role="alertdialog" aria-labelledby="confirm-title">
+      <div className="confirm-dialog" role="alertdialog" aria-labelledby="confirm-title" onKeyDown={handleKeyDown}>
         <div className="confirm-title-row">
           <AlertTriangle size={18} />
           <h2 id="confirm-title">{title}</h2>
@@ -24,7 +38,11 @@ export function ConfirmDialog({ title, body, confirmLabel, destructive, onCancel
           <button className="button secondary" onClick={onCancel}>
             Cancel
           </button>
-          <button className={destructive ? "button danger" : "button primary"} onClick={onConfirm}>
+          <button
+            className={destructive ? "button danger" : "button primary"}
+            ref={confirmButtonRef}
+            onClick={onConfirm}
+          >
             {confirmLabel}
           </button>
         </div>

@@ -266,6 +266,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-24 09:55 +07: Added red App and CommandPalette coverage for Ctrl+K palette, Ctrl+Shift+N new run, Alt+Up/Down run navigation, Ctrl+Shift+E end confirmation, and palette Arrow/Enter/Escape controls. Targeted tests failed before implementation, then npm test -- src/App.test.tsx src/components/CommandPalette.test.tsx passed with 20 tests; npm test passed with 10 files and 50 tests; npm run build exited 0; ./init.sh exited 0 with npm test, npm build, and cargo test."
+    },
+    {
+      "id": "feat-026",
+      "name": "Slash Branch Worktree Paths",
+      "description": "Preserve slash-separated run name hierarchy in created Git branch names and default worktree folders.",
+      "dependencies": [
+        "feat-025"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-24 10:31 +07: Added red core tests proving feature/login was flattened to featurelogin in branch and worktree paths, then implemented slash-aware segment sanitization for branch/worktree naming while keeping tmux window slugs flat. cargo test -p agentctl-core worktree::tests:: and cargo test -p agentctl-core create_run_preserves_slash_hierarchy_in_branch_and_worktree_path failed red then passed; cargo fmt --check and cargo test -p agentctl-core exited 0; ./init.sh exited 0 with cargo tests passing and npm checks skipped because node_modules is not installed."
     }
   ]
 }

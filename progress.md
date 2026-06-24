@@ -2,24 +2,24 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-24 09:55 +07
-**Session ID:** keyboard-run-shortcuts
-**Active Feature:** feat-025 - Keyboard Run Shortcuts
+**Last Updated:** 2026-06-24 10:31 +07
+**Session ID:** slash-branch-worktree-paths
+**Active Feature:** feat-026 - Slash Branch Worktree Paths
 
 ## Status
 
 ### What is Done
 
-- [x] Added app-level shortcuts for opening the command palette, creating a run, selecting previous/next runs, and opening end-run confirmation.
-- [x] Added keyboard navigation inside the command palette with ArrowUp, ArrowDown, Enter, and Escape.
-- [x] Kept end-run destructive behavior behind the existing confirmation dialog, with the confirm action focused for keyboard completion.
-- [x] Added focused React coverage for the shortcut and palette behaviors.
+- [x] Preserved slash-separated run name hierarchy in created Git branch names.
+- [x] Preserved the same hierarchy as nested default worktree folders.
+- [x] Kept tmux window naming on the existing flattened slug path.
+- [x] Added focused Rust regression coverage for naming helpers and create-run behavior.
 
 ### What is In Progress
 
 - [x] Feature implementation is complete.
-- [x] Frontend verification is complete.
-- [x] Final standard `./init.sh` verification is complete.
+- [x] Core verification is complete.
+- [x] Standard `./init.sh` verification is complete.
 
 ### What is Next
 
@@ -28,32 +28,31 @@
 ## Blockers / Risks
 
 - [x] No unresolved blockers.
-- [ ] Manual visual review in the packaged Tauri app was not run; automated React tests cover the keyboard flows.
+- [ ] `./init.sh` skipped npm checks because `node_modules` is not installed in this workspace; cargo verification ran and passed.
 
 ## Decisions Made
 
-- Command palette opens with Ctrl+K or Meta+K.
-- New Run opens with Ctrl+Shift+N or Meta+Shift+N.
-- Run selection moves with Alt+ArrowDown and Alt+ArrowUp, wrapping through the displayed run order.
-- End selected run opens the existing confirmation dialog with Ctrl+Shift+E or Meta+Shift+E.
-- App shortcuts ignore normal editable fields, but remain available from the embedded terminal surface through capture-phase handling.
+- A run name like `feature/login` now creates branch `feature/login`.
+- The default worktree path now becomes `<repo-parent>/<repo-name>-worktrees/feature/login`.
+- Slash-separated segments are sanitized individually and empty segments are ignored.
+- The fallback for names with no valid segment remains `agent-run`.
+- Tmux window names continue to use the existing flattened-safe slug behavior.
 
 ## Files Modified This Session
 
-- feature_list.json - Adds completed feat-025 with verification evidence.
-- progress.md - Records keyboard shortcut implementation status and verification.
-- src/App.tsx - Adds app-level shortcut handling, adjacent run selection, and accessible shortcut metadata.
-- src/App.test.tsx - Adds regression coverage for palette, create, navigation, and end-run shortcuts.
-- src/keyboardShortcuts.ts - Adds the shortcut classifier and editable-target guard.
-- src/components/CommandPalette.tsx - Adds active-result state and keyboard controls.
-- src/components/CommandPalette.test.tsx - Adds palette keyboard navigation tests.
-- src/components/ConfirmDialog.tsx - Focuses the confirm action and supports Escape cancel.
-- src/styles.css - Styles the active command palette result.
+- docs/superpowers/specs/2026-06-24-slash-branch-worktree-design.md - Records the approved design; committed separately.
+- docs/superpowers/plans/2026-06-24-slash-branch-worktrees.md - Records the implementation checklist and completed steps.
+- core/src/worktree.rs - Adds slash-aware path slugging for branch and worktree naming.
+- core/src/app.rs - Uses the user run name for branch/worktree naming while keeping flat run slug for tmux windows.
+- feature_list.json - Adds completed feat-026 with verification evidence.
+- progress.md - Records this session status and verification evidence.
 
 ## Evidence of Completion
 
-- [x] RED: `npm test -- src/App.test.tsx src/components/CommandPalette.test.tsx` failed with 6 expected shortcut/palette failures before implementation.
-- [x] GREEN: `npm test -- src/App.test.tsx src/components/CommandPalette.test.tsx` passed with 2 files and 20 tests.
-- [x] Full frontend tests: `npm test` passed with 10 files and 50 tests.
-- [x] Frontend build: `npm run build` exited 0.
-- [x] Standard verification: `./init.sh` exited 0 with npm test, npm build, and cargo test.
+- [x] RED: `cargo test -p agentctl-core worktree::tests::` failed because `feature/login` became `featurelogin`.
+- [x] RED: `cargo test -p agentctl-core create_run_preserves_slash_hierarchy_in_branch_and_worktree_path` failed because create-run stored branch `featurelogin`.
+- [x] GREEN: `cargo test -p agentctl-core worktree::tests::` passed with 2 tests.
+- [x] GREEN: `cargo test -p agentctl-core create_run_preserves_slash_hierarchy_in_branch_and_worktree_path` passed with 1 test.
+- [x] Formatting: `cargo fmt --check` exited 0.
+- [x] Core tests: `cargo test -p agentctl-core` passed with 16 tests.
+- [x] Standard verification: `./init.sh` exited 0 with cargo tests passing; npm checks were skipped because `node_modules` is not installed.

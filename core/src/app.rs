@@ -324,8 +324,8 @@ where
     let repo_name = repo_name(&request.repo_path);
     let tag = sanitize_slug(&request.tag);
     let run_slug = sanitize_slug(&request.run_name);
-    let branch = default_branch_name(&run_slug);
-    let worktree_path = default_sibling_worktree_path(&request.repo_path, &run_slug);
+    let branch = default_branch_name(&request.run_name);
+    let worktree_path = default_sibling_worktree_path(&request.repo_path, &branch);
     let tmux_window = window_name(&repo_name, &tag, &run_slug, id);
     let agent_session_id = match request.agent {
         AgentKind::Codex => None,
@@ -619,7 +619,7 @@ mod tests {
 
     use crate::{agent::AgentKind, registry::SqliteRegistry};
 
-    use super::{create_run_with_registry, AppConfig, CommandRunner, NewRunRequest};
+    use super::{create_run_with_registry, path_str, AppConfig, CommandRunner, NewRunRequest};
 
     #[derive(Default)]
     struct RecordingRunner {
@@ -760,6 +760,49 @@ mod tests {
             .commands
             .iter()
             .any(|command| command_contains(command, "list-windows")));
+    }
+
+    #[test]
+    fn create_run_preserves_slash_hierarchy_in_branch_and_worktree_path() {
+        let registry = SqliteRegistry::in_memory().expect("registry");
+        let mut runner = RecordingRunner {
+            created_window_visible_after_list_calls: Some(1),
+            ..RecordingRunner::default()
+        };
+        let repo_root = tempfile::tempdir().expect("repo root");
+        let repo_path = repo_root.path().join("repo");
+
+        let run = create_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            NewRunRequest {
+                repo_path: repo_path.clone(),
+                base_ref: "HEAD".to_string(),
+                tag: "default".to_string(),
+                run_name: "feature/login".to_string(),
+                agent: AgentKind::Codex,
+            },
+        )
+        .expect("created run");
+
+        let expected_worktree_path = repo_root
+            .path()
+            .join("repo-worktrees")
+            .join("feature")
+            .join("login");
+        assert_eq!(run.branch, "feature/login");
+        assert_eq!(run.worktree_path, expected_worktree_path);
+
+        let add_worktree = runner
+            .commands
+            .iter()
+            .find(|command| {
+                command_contains(command, "worktree") && command_contains(command, "add")
+            })
+            .expect("git worktree add command");
+        assert!(add_worktree.contains(&"feature/login".to_string()));
+        assert!(add_worktree.contains(&path_str(&run.worktree_path).to_string()));
     }
 
     #[test]

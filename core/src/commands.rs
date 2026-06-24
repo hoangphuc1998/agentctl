@@ -135,6 +135,18 @@ impl GitCommandBuilder {
         ]
     }
 
+    pub fn nonignored_untracked_files(&self, repo_path: &str) -> Vec<String> {
+        vec![
+            "git".to_string(),
+            "-C".to_string(),
+            repo_path.to_string(),
+            "ls-files".to_string(),
+            "--others".to_string(),
+            "--exclude-standard".to_string(),
+            "-z".to_string(),
+        ]
+    }
+
     pub fn origin_head_ref(&self, repo_path: &str) -> Vec<String> {
         vec![
             "git".to_string(),
@@ -540,7 +552,25 @@ mod tests {
 
     use crate::agent::{AgentKind, LaunchPlan};
 
-    use super::AgentCommandBuilder;
+    use super::{AgentCommandBuilder, GitCommandBuilder};
+
+    #[test]
+    fn untracked_files_command_excludes_ignored_files_and_uses_null_output() {
+        let command = GitCommandBuilder::new().nonignored_untracked_files("/repo");
+
+        assert_eq!(
+            command,
+            vec![
+                "git".to_string(),
+                "-C".to_string(),
+                "/repo".to_string(),
+                "ls-files".to_string(),
+                "--others".to_string(),
+                "--exclude-standard".to_string(),
+                "-z".to_string(),
+            ]
+        );
+    }
 
     #[test]
     fn codex_restore_uses_exact_session_id_when_available() {

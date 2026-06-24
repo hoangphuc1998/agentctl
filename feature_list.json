@@ -276,6 +276,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-24 10:31 +07: Added red core tests proving feature/login was flattened to featurelogin in branch and worktree paths, then implemented slash-aware segment sanitization for branch/worktree naming while keeping tmux window slugs flat. cargo test -p agentctl-core worktree::tests:: and cargo test -p agentctl-core create_run_preserves_slash_hierarchy_in_branch_and_worktree_path failed red then passed; cargo fmt --check and cargo test -p agentctl-core exited 0; ./init.sh exited 0 with cargo tests passing and npm checks skipped because node_modules is not installed."
+    },
+    {
+      "id": "feat-027",
+      "name": "Copy Untracked Files Into Run Worktrees",
+      "description": "Copy non-ignored untracked repository files into new run worktrees and delete non-ignored untracked run files during end-run cleanup.",
+      "dependencies": [
+        "feat-026"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-24 16:30 +07: Added red core tests for the Git non-ignored untracked file listing command, preserving copied relative paths, skipping source symlinks, copying files before tmux launch, and deleting run worktree untracked files before worktree/branch cleanup. Implemented copy/delete helpers and create/end-run integration. cargo fmt --check and cargo test -p agentctl-core exited 0 with 22 tests passing; ./init.sh exited 0 with cargo tests passing and npm checks skipped because node_modules is not installed."
     }
   ]
 }

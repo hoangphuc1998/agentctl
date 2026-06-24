@@ -16,6 +16,7 @@ use crate::{
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
     registry::{RegistryResult, SqliteRegistry},
     tmux::window_list_contains,
+    untracked_files::{copy_untracked_files, delete_untracked_files},
     worktree::{default_branch_name, default_sibling_worktree_path, sanitize_slug},
 };
 
@@ -304,6 +305,9 @@ where
             let _ = runner.run(&command);
         }
         let git = GitCommandBuilder::new();
+        let untracked_files =
+            runner.output(&git.nonignored_untracked_files(path_str(&run.worktree_path)))?;
+        delete_untracked_files(&run.worktree_path, &untracked_files)?;
         runner.run(&git.remove_worktree(path_str(&run.repo_path), path_str(&run.worktree_path)))?;
         runner.run(&git.delete_branch(path_str(&run.repo_path), &run.branch))?;
     }
@@ -343,6 +347,36 @@ where
         &request.base_ref,
     );
     runner.run(&add_worktree)?;
+    let untracked_files =
+        match runner.output(&git.nonignored_untracked_files(path_str(&request.repo_path))) {
+            Ok(untracked_files) => untracked_files,
+            Err(err) => {
+                rollback_created_resources(
+                    runner,
+                    &tmux,
+                    &git,
+                    &request.repo_path,
+                    &worktree_path,
+                    &branch,
+                    &tmux_window,
+                    false,
+                );
+                return Err(err.into());
+            }
+        };
+    if let Err(err) = copy_untracked_files(&request.repo_path, &worktree_path, &untracked_files) {
+        rollback_created_resources(
+            runner,
+            &tmux,
+            &git,
+            &request.repo_path,
+            &worktree_path,
+            &branch,
+            &tmux_window,
+            false,
+        );
+        return Err(err.into());
+    }
 
     let agent_command = AgentCommandBuilder::new().launch(LaunchPlan {
         agent: request.agent,
@@ -619,7 +653,10 @@ mod tests {
 
     use crate::{agent::AgentKind, registry::SqliteRegistry};
 
-    use super::{create_run_with_registry, path_str, AppConfig, CommandRunner, NewRunRequest};
+    use super::{
+        close_and_delete_run_with_registry, create_run_with_registry, path_str, AppConfig,
+        CommandRunner, NewRunRequest,
+    };
 
     #[derive(Default)]
     struct RecordingRunner {
@@ -627,6 +664,7 @@ mod tests {
         created_window_visible_after_list_calls: Option<usize>,
         created_window: Option<String>,
         list_windows_calls: usize,
+        untracked_files_output: String,
     }
 
     impl CommandRunner for RecordingRunner {
@@ -645,6 +683,9 @@ mod tests {
 
         fn output(&mut self, command: &[String]) -> io::Result<String> {
             self.commands.push(command.to_vec());
+            if command_contains(command, "ls-files") {
+                return Ok(self.untracked_files_output.clone());
+            }
             if command_contains(command, "list-windows") {
                 self.list_windows_calls += 1;
                 if let (Some(window), Some(visible_after)) = (
@@ -803,6 +844,115 @@ mod tests {
             .expect("git worktree add command");
         assert!(add_worktree.contains(&"feature/login".to_string()));
         assert!(add_worktree.contains(&path_str(&run.worktree_path).to_string()));
+    }
+
+    #[test]
+    fn create_run_copies_nonignored_untracked_files_before_launching_agent() {
+        let registry = SqliteRegistry::in_memory().expect("registry");
+        let mut runner = RecordingRunner {
+            created_window_visible_after_list_calls: Some(1),
+            untracked_files_output: "notes/scratch.txt\0".to_string(),
+            ..RecordingRunner::default()
+        };
+        let repo_root = tempfile::tempdir().expect("repo root");
+        let repo_path = repo_root.path().join("repo");
+        let source_file = repo_path.join("notes").join("scratch.txt");
+        std::fs::create_dir_all(source_file.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&source_file, "draft").expect("write source");
+
+        let run = create_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            NewRunRequest {
+                repo_path: repo_path.clone(),
+                base_ref: "HEAD".to_string(),
+                tag: "default".to_string(),
+                run_name: "copy-files".to_string(),
+                agent: AgentKind::Codex,
+            },
+        )
+        .expect("created run");
+
+        assert_eq!(
+            std::fs::read_to_string(run.worktree_path.join("notes").join("scratch.txt"))
+                .expect("read copied file"),
+            "draft"
+        );
+
+        let list_untracked_index = runner
+            .commands
+            .iter()
+            .position(|command| command_contains(command, "ls-files"))
+            .expect("list untracked command");
+        let new_window_index = runner
+            .commands
+            .iter()
+            .position(|command| command_contains(command, "new-window"))
+            .expect("new-window command");
+        assert!(list_untracked_index < new_window_index);
+
+        let list_untracked = &runner.commands[list_untracked_index];
+        assert!(list_untracked.contains(&path_str(&repo_path).to_string()));
+        assert!(list_untracked.contains(&"--exclude-standard".to_string()));
+    }
+
+    #[test]
+    fn close_and_delete_run_deletes_nonignored_untracked_files_before_removing_worktree() {
+        let registry = SqliteRegistry::in_memory().expect("registry");
+        let mut runner = RecordingRunner {
+            created_window_visible_after_list_calls: Some(1),
+            untracked_files_output: "notes/scratch.txt\0".to_string(),
+            ..RecordingRunner::default()
+        };
+        let repo_root = tempfile::tempdir().expect("repo root");
+        let repo_path = repo_root.path().join("repo");
+        let source_file = repo_path.join("notes").join("scratch.txt");
+        std::fs::create_dir_all(source_file.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&source_file, "draft").expect("write source");
+        let run = create_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            NewRunRequest {
+                repo_path,
+                base_ref: "HEAD".to_string(),
+                tag: "default".to_string(),
+                run_name: "cleanup-files".to_string(),
+                agent: AgentKind::Codex,
+            },
+        )
+        .expect("created run");
+        let copied_file = run.worktree_path.join("notes").join("scratch.txt");
+        assert!(copied_file.exists());
+
+        close_and_delete_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            run.id,
+        )
+        .expect("ended run");
+
+        assert!(!copied_file.exists());
+        assert!(!run.worktree_path.join("notes").exists());
+
+        let list_worktree_untracked_index = runner
+            .commands
+            .iter()
+            .position(|command| {
+                command_contains(command, "ls-files")
+                    && command.contains(&path_str(&run.worktree_path).to_string())
+            })
+            .expect("list worktree untracked command");
+        let remove_worktree_index = runner
+            .commands
+            .iter()
+            .position(|command| {
+                command_contains(command, "worktree") && command_contains(command, "remove")
+            })
+            .expect("remove worktree command");
+        assert!(list_worktree_untracked_index < remove_worktree_index);
     }
 
     #[test]

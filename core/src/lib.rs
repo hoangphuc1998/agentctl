@@ -6,4 +6,5 @@ pub mod completion;
 pub mod domain;
 pub mod registry;
 pub mod tmux;
+pub mod untracked_files;
 pub mod worktree;

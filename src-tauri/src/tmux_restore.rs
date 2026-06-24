@@ -1,6 +1,8 @@
 use std::{
     collections::HashMap,
-    env, fs, io,
+    env,
+    ffi::OsStr,
+    fs, io,
     path::{Path, PathBuf},
     process::Command,
     thread,
@@ -160,6 +162,21 @@ pub fn registry_path_from_environment() -> PathBuf {
         .join("agentctl.sqlite3")
 }
 
+pub fn stable_agent_manager_executable(appimage: Option<&OsStr>, current_exe: &Path) -> PathBuf {
+    appimage
+        .filter(|path| !path.is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| current_exe.to_path_buf())
+}
+
+pub fn agent_manager_executable_from_environment() -> io::Result<PathBuf> {
+    let appimage = env::var_os("APPIMAGE");
+    Ok(stable_agent_manager_executable(
+        appimage.as_deref(),
+        &env::current_exe()?,
+    ))
+}
+
 pub fn enable_tmux_restore(
     paths: &TmuxRestorePaths,
     agent_manager_binary: &Path,
@@ -198,6 +215,28 @@ pub fn enable_tmux_restore(
     save_tmux_restore_snapshot(paths)
 }
 
+pub fn refresh_tmux_restore_hook(
+    paths: &TmuxRestorePaths,
+    agent_manager_binary: &Path,
+) -> io::Result<bool> {
+    let existing = fs::read_to_string(paths.config_path()).unwrap_or_default();
+    if !agent_manager_config_block_exists(&existing) {
+        return Ok(false);
+    }
+
+    let updated =
+        upsert_agent_manager_tmux_config(&existing, &agent_manager_binary.to_string_lossy());
+    if updated == existing {
+        return Ok(false);
+    }
+
+    if let Some(parent) = paths.config_path().parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(paths.config_path(), updated)?;
+    Ok(true)
+}
+
 pub fn save_tmux_restore_snapshot(paths: &TmuxRestorePaths) -> io::Result<()> {
     let save_script = paths.resurrect_save_script();
     if save_script.exists() {
@@ -234,7 +273,11 @@ pub fn restore_tmux_session_if_missing(
 }
 
 pub fn restore_tmux_session_best_effort(managed_session: &str) {
-    let _ = restore_tmux_session_if_missing(&TmuxRestorePaths::from_environment(), managed_session);
+    let paths = TmuxRestorePaths::from_environment();
+    if let Ok(executable) = agent_manager_executable_from_environment() {
+        let _ = refresh_tmux_restore_hook(&paths, &executable);
+    }
+    let _ = restore_tmux_session_if_missing(&paths, managed_session);
 }
 
 pub fn rewrite_saved_resurrect_state_from_environment(
@@ -313,6 +356,12 @@ fn remove_agent_manager_config_block(existing: &str) -> String {
         config.push('\n');
     }
     config
+}
+
+fn agent_manager_config_block_exists(existing: &str) -> bool {
+    existing
+        .lines()
+        .any(|line| line.trim() == CONFIG_BLOCK_START)
 }
 
 fn tmux_double_quoted(value: &str) -> String {

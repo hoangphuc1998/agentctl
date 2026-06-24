@@ -25,6 +25,7 @@ use crate::{
     },
     state::DesktopState,
     tmux_restore::{
+        agent_manager_executable_from_environment,
         enable_tmux_restore as enable_tmux_restore_setup, restore_tmux_session_best_effort,
         save_tmux_restore_snapshot_best_effort, tmux_restore_status as current_tmux_restore_status,
         TmuxRestorePaths, TmuxRestoreStatus,
@@ -190,7 +191,7 @@ pub fn tmux_restore_status() -> TmuxRestoreStatus {
 #[tauri::command]
 pub fn enable_tmux_restore() -> DesktopResult<TmuxRestoreStatus> {
     let paths = TmuxRestorePaths::from_environment();
-    let executable = std::env::current_exe()?;
+    let executable = agent_manager_executable_from_environment()?;
     enable_tmux_restore_setup(&paths, &executable)?;
     Ok(current_tmux_restore_status(&paths))
 }

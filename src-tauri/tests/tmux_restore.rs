@@ -1,12 +1,16 @@
 use agent_manager_desktop::tmux_restore::{
-    rewrite_resurrect_state, tmux_restore_status, upsert_agent_manager_tmux_config,
-    TmuxRestorePaths,
+    refresh_tmux_restore_hook, rewrite_resurrect_state, stable_agent_manager_executable,
+    tmux_restore_status, upsert_agent_manager_tmux_config, TmuxRestorePaths,
 };
 use agentctl_core::{
     agent::AgentKind,
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
 };
-use std::{fs, path::PathBuf};
+use std::{
+    ffi::OsStr,
+    fs,
+    path::{Path, PathBuf},
+};
 use uuid::Uuid;
 
 fn run(
@@ -149,6 +153,66 @@ set -g status-left '#S'
     assert!(config.contains("set -g @continuum-restore 'on'"));
     assert!(config.contains("set -g mouse on\n"));
     assert!(config.contains("set -g status-left '#S'\n"));
+}
+
+#[test]
+fn stable_agent_manager_executable_prefers_appimage_path_over_mount_binary() {
+    let current_exe = Path::new("/tmp/.mount_Agent EbnBbO/usr/bin/agent-manager");
+
+    let executable = stable_agent_manager_executable(
+        Some(OsStr::new(
+            "/home/me/Documents/target/release/bundle/appimage/Agent Manager_0.1.0_amd64.AppImage",
+        )),
+        current_exe,
+    );
+
+    assert_eq!(
+        executable,
+        PathBuf::from(
+            "/home/me/Documents/target/release/bundle/appimage/Agent Manager_0.1.0_amd64.AppImage"
+        )
+    );
+}
+
+#[test]
+fn stable_agent_manager_executable_falls_back_to_current_exe_without_appimage() {
+    let current_exe = Path::new("/usr/bin/agent-manager");
+
+    let executable = stable_agent_manager_executable(None, current_exe);
+
+    assert_eq!(executable, PathBuf::from("/usr/bin/agent-manager"));
+}
+
+#[test]
+fn refresh_tmux_restore_hook_rewrites_existing_stale_agent_manager_block() {
+    let temp = tempfile::tempdir().unwrap();
+    let paths = TmuxRestorePaths::for_home(temp.path());
+    fs::write(
+        paths.config_path(),
+        upsert_agent_manager_tmux_config("set -g mouse on\n", "/old/worktree/agent-manager"),
+    )
+    .unwrap();
+
+    let changed = refresh_tmux_restore_hook(&paths, Path::new("/usr/bin/agent-manager")).unwrap();
+    let config = fs::read_to_string(paths.config_path()).unwrap();
+
+    assert!(changed);
+    assert!(config.contains("set -g mouse on\n"));
+    assert!(!config.contains("/old/worktree/agent-manager"));
+    assert!(config.contains("/usr/bin/agent-manager __tmux-resurrect-rewrite"));
+}
+
+#[test]
+fn refresh_tmux_restore_hook_leaves_unmanaged_tmux_config_unchanged() {
+    let temp = tempfile::tempdir().unwrap();
+    let paths = TmuxRestorePaths::for_home(temp.path());
+    fs::write(paths.config_path(), "set -g mouse on\n").unwrap();
+
+    let changed = refresh_tmux_restore_hook(&paths, Path::new("/usr/bin/agent-manager")).unwrap();
+    let config = fs::read_to_string(paths.config_path()).unwrap();
+
+    assert!(!changed);
+    assert_eq!(config, "set -g mouse on\n");
 }
 
 #[test]

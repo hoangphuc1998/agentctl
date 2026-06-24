@@ -2,58 +2,64 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-23 22:47 +07
-**Session ID:** merge-fast-options-to-master
-**Active Feature:** feat-024 - Quick Create Run Prefill
+**Last Updated:** 2026-06-24 10:04 +07
+**Session ID:** favorite-toolbar-appimage-launch
+**Active Feature:** feat-025 - Favorite Toolbar AppImage Launch Repair
 
 ## Status
 
 ### What is Done
 
-- [x] Merged fast-options into master with a merge commit.
-- [x] Preserved master feature records for AppImage App Icon Repair and Reliable Startup Maximized Window.
-- [x] Added feat-024 for Quick Create Run Prefill after resolving tracker conflicts.
-- [x] Added contextual plus buttons to repo rows and run rows in the left workspace tree.
-- [x] New Run opens with editable defaults from the clicked repo or run while leaving run name blank.
+- [x] Reproduced the failing launch path from system state: GNOME favorites contains `Agent Manager.desktop`, which resolves to `/usr/share/applications/Agent Manager.desktop` with `Exec=agent-manager`.
+- [x] Confirmed direct AppImage launch differs from favorite launch because AppImage runtime sets bundle-specific environment and paths, while the favorite uses the installed desktop entry.
+- [x] Traced journal failures from favorite clicks to tmux restore startup work: `open terminal failed: not a terminal` and stale Agent Manager hook execution.
+- [x] Found the managed tmux restore hook in `~/.tmux.conf` pointed at an old worktree binary instead of the packaged executable.
+- [x] Added regression coverage for durable AppImage executable selection and stale managed tmux hook refresh.
+- [x] Implemented durable executable resolution: prefer `$APPIMAGE` for AppImage launches and fall back to `current_exe()` for installed binaries.
+- [x] Startup restore now refreshes an existing Agent Manager tmux restore block before attempting restore.
+- [x] `enable_tmux_restore` now writes the same durable executable path.
+- [x] Built and extracted the AppImage bundle; `.DirIcon` resolves to `Agent Manager.png` and the bundle desktop entry remains present.
 
 ### What is In Progress
 
-- [x] Merge conflict resolution is complete.
-- [x] Post-merge verification on master is complete.
+- [x] Implementation and verification are complete.
 
 ### What is Next
 
-1. Next session can run ./init.sh immediately from master.
+1. Install or run the new AppImage build and click the GNOME favorite once to confirm the live desktop launcher opens the app.
+2. Next session can run `./init.sh` immediately.
 
 ## Blockers / Risks
 
-- [x] No unresolved blockers.
-- [ ] Manual visual review in the packaged Tauri app was not run; automated React tests cover the modal defaults and row click behavior.
+- [x] No unresolved code blockers.
+- [ ] Manual GNOME favorite click was not performed from the live desktop in this session; verification covered journal root-cause tracing, automated regression tests, Tauri feature compile, full project verification, AppImage build, and extracted bundle inspection.
 
 ## Decisions Made
 
-- Backend unchanged: the existing create_run payload already supports the required prefilled values.
-- Run name stays blank: Quick Create copies source context but leaves runName empty so the user intentionally names the new run.
-- Feature id adjusted on merge: master already had feat-022 and feat-023, so Quick Create is recorded as feat-024.
+- Use `$APPIMAGE` for tmux restore hooks when available because `current_exe()` inside an AppImage points at a temporary `/tmp/.mount_*` binary that is invalid after unmount.
+- Do not add a tmux restore block during startup. Startup only refreshes an existing Agent Manager-managed block, keeping unmanaged tmux configs untouched.
+- Keep restore startup best-effort. If hook refresh or tmux restore fails, the desktop app should still launch.
 
 ## Files Modified This Session
 
-- feature_list.json - Preserves master feature records and adds completed feat-024.
-- progress.md - Records the merge session state and pending post-merge verification.
-- docs/superpowers/specs/2026-06-23-quick-create-run-prefill-design.md - Adds the approved design.
-- docs/superpowers/plans/2026-06-23-quick-create-run-prefill.md - Adds the implementation plan.
-- src/App.tsx - Owns create-run defaults and opens the modal from repo/run click sources.
-- src/App.test.tsx - Adds integration coverage for repo/run prefill and edited submit payloads.
-- src/components/CreateRunModal.tsx - Initializes editable fields from optional defaults.
-- src/components/CreateRunModal.test.tsx - Adds modal default coverage.
-- src/components/RepoRunTree.tsx - Adds contextual quick-create buttons and focusable run rows.
-- src/components/RepoRunTree.test.tsx - Adds repo/run callback and no-selection coverage.
-- src/styles.css - Styles compact tree quick-create buttons and focus states.
-- src/types.ts - Adds CreateRunDefaults.
+- feature_list.json - Adds completed feat-025 with verification evidence.
+- progress.md - Records launcher root cause, implementation, verification, and residual manual-check risk.
+- src-tauri/src/tmux_restore.rs - Adds durable executable path resolution and stale managed hook refresh before startup restore.
+- src-tauri/src/commands.rs - Uses durable executable path when enabling tmux restore.
+- src-tauri/tests/tmux_restore.rs - Adds regression tests for AppImage path selection and stale hook refresh.
 
 ## Evidence of Completion
 
-- [x] Pre-merge fast-options verification: npm test passed with 8 files and 39 tests.
-- [x] Pre-merge fast-options verification: npm run build exited 0.
-- [x] Pre-merge fast-options verification: ./init.sh exited 0 with npm test, npm run build, and cargo test.
-- [x] Post-merge master verification: ./init.sh exited 0 with npm test, npm run build, and cargo test. npm test covered 9 files and 44 tests.
+- [x] Baseline `./init.sh` exited 0 before changes, with npm checks skipped because `node_modules` was absent.
+- [x] RED: `cargo test -p agent-manager-desktop tmux_restore` failed because `stable_agent_manager_executable` and `refresh_tmux_restore_hook` did not exist yet.
+- [x] GREEN: `cargo test -p agent-manager-desktop stable_agent_manager_executable` exited 0.
+- [x] GREEN: `cargo test -p agent-manager-desktop refresh_tmux_restore_hook` exited 0.
+- [x] `cargo test -p agent-manager-desktop` exited 0.
+- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
+- [x] `cargo fmt --check` exited 0.
+- [x] `npm install` exited 0 after escalation for the esbuild postinstall binary.
+- [x] `npm test` exited 0 with 9 files and 44 tests passing.
+- [x] `npm run build` exited 0.
+- [x] `./init.sh` exited 0 with npm test, npm build, and cargo test.
+- [x] `npm run tauri:build:appimage` exited 0 after escalation for linuxdeploy, producing `target/release/bundle/appimage/Agent Manager_0.1.0_amd64.AppImage`.
+- [x] Extracted the built AppImage and confirmed `.DirIcon -> Agent Manager.png` plus the bundled `Agent Manager.desktop`.

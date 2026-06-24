@@ -256,6 +256,17 @@
       ],
       "status": "completed",
       "evidence": "2026-06-23 22:47 +07: Added red CreateRunModal, RepoRunTree, and App coverage for contextual New Run prefill from repo and run rows, then implemented editable create defaults and contextual plus buttons. Merged into master after resolving tracker conflicts with feat-024. Post-merge ./init.sh exited 0 with npm test covering 9 files and 44 tests, npm run build, and cargo test."
+    },
+    {
+      "id": "feat-025",
+      "name": "Favorite Toolbar AppImage Launch Repair",
+      "description": "Keep tmux restore hooks pointed at a durable packaged executable path so GNOME favorite launches do not run stale worktree binaries or temporary AppImage mount paths.",
+      "dependencies": [
+        "feat-020",
+        "feat-022"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-24 10:04 +07: Traced GNOME favorite failures in the user journal to tmux restore invoking stale Agent Manager hook commands and terminal-client restore errors, while direct target AppImage launch worked. Added red Rust coverage for durable APPIMAGE executable selection and stale tmux hook refresh, then used APPIMAGE for AppImage hooks, current_exe for installed binaries, and refreshed existing Agent Manager tmux restore blocks before startup restore. cargo test -p agent-manager-desktop tmux_restore failed red before implementation; cargo test -p agent-manager-desktop, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --check, npm test, npm run build, ./init.sh, npm run tauri:build:appimage, and extracted AppImage metadata inspection all exited 0."
     }
   ]
 }

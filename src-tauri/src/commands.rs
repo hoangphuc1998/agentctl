@@ -14,6 +14,7 @@ use uuid::Uuid;
 
 use crate::{
     error::{DesktopError, DesktopResult},
+    mobile_bridge::{BridgeBind, MobileBridgeStatus, PairingCode, PairingTime},
     models::{
         host_tool_statuses, ActionResult, CreateRunPayload, DashboardState, MergeActionResult,
         Suggestion, TerminalStarted,
@@ -213,6 +214,51 @@ pub fn base_ref_suggestions(repo_path: String, input: String) -> DesktopResult<V
     Ok(suggestions_from_candidates(base_ref_candidates(
         &input, &branches,
     )))
+}
+
+#[tauri::command]
+pub fn mobile_bridge_status(state: State<'_, DesktopState>) -> DesktopResult<MobileBridgeStatus> {
+    let pairing = state.mobile_pairing()?;
+    Ok(state.mobile_bridge()?.status(&pairing))
+}
+
+#[tauri::command]
+pub fn issue_mobile_pairing_code(state: State<'_, DesktopState>) -> DesktopResult<PairingCode> {
+    Ok(state.mobile_pairing()?.issue_code(PairingTime::now()))
+}
+
+#[tauri::command]
+pub fn revoke_mobile_device(
+    state: State<'_, DesktopState>,
+    device_id: String,
+) -> DesktopResult<MobileBridgeStatus> {
+    {
+        let mut pairing = state.mobile_pairing()?;
+        pairing.revoke_device(&device_id);
+    }
+    let pairing = state.mobile_pairing()?;
+    Ok(state.mobile_bridge()?.status(&pairing))
+}
+
+#[tauri::command]
+pub fn start_mobile_bridge(state: State<'_, DesktopState>) -> DesktopResult<MobileBridgeStatus> {
+    let bind = BridgeBind::default();
+    let bridge_state = state.bridge_server_state();
+    {
+        let mut runtime = state.mobile_bridge()?;
+        runtime
+            .start(bridge_state, bind)
+            .map_err(DesktopError::Message)?;
+    }
+    let pairing = state.mobile_pairing()?;
+    Ok(state.mobile_bridge()?.status(&pairing))
+}
+
+#[tauri::command]
+pub fn stop_mobile_bridge(state: State<'_, DesktopState>) -> DesktopResult<MobileBridgeStatus> {
+    state.mobile_bridge()?.stop();
+    let pairing = state.mobile_pairing()?;
+    Ok(state.mobile_bridge()?.status(&pairing))
 }
 
 #[tauri::command]

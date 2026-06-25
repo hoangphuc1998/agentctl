@@ -1,7 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { EventCallback, UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
-import type { AgentAttentionEvent, CreateRunPayload, DashboardState, RunView, TmuxRestoreStatus } from "./types";
+import type {
+  AgentAttentionEvent,
+  CreateRunPayload,
+  DashboardState,
+  MobileBridgeStatus,
+  MobilePairingCode,
+  RunView,
+  TmuxRestoreStatus
+} from "./types";
 
 export interface ActionResult {
   message: string;
@@ -73,6 +81,26 @@ export function tmuxRestoreStatus(): Promise<TmuxRestoreStatus> {
 
 export function enableTmuxRestore(): Promise<TmuxRestoreStatus> {
   return invoke("enable_tmux_restore");
+}
+
+export function mobileBridgeStatus(): Promise<MobileBridgeStatus> {
+  return invoke("mobile_bridge_status");
+}
+
+export function startMobileBridge(): Promise<MobileBridgeStatus> {
+  return invoke("start_mobile_bridge");
+}
+
+export function stopMobileBridge(): Promise<MobileBridgeStatus> {
+  return invoke("stop_mobile_bridge");
+}
+
+export function issueMobilePairingCode(): Promise<MobilePairingCode> {
+  return invoke("issue_mobile_pairing_code");
+}
+
+export function revokeMobileDevice(deviceId: string): Promise<MobileBridgeStatus> {
+  return invoke("revoke_mobile_device", { deviceId });
 }
 
 export function repoSuggestions(input: string): Promise<Suggestion[]> {

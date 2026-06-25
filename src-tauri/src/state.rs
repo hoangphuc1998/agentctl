@@ -1,15 +1,22 @@
 use std::{
     env,
     path::PathBuf,
-    sync::{Mutex, MutexGuard},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
-use crate::{error::DesktopError, terminal::TerminalManager};
+use crate::{
+    error::DesktopError,
+    mobile_bridge::PairingStore,
+    mobile_bridge_server::{BridgeServerState, MobileBridgeRuntime},
+    terminal::TerminalManager,
+};
 
 pub struct DesktopState {
     registry_path: PathBuf,
     selected_run_id: Mutex<Option<String>>,
     terminals: Mutex<TerminalManager>,
+    mobile_pairing: Arc<Mutex<PairingStore>>,
+    mobile_bridge: Mutex<MobileBridgeRuntime>,
 }
 
 impl DesktopState {
@@ -18,6 +25,8 @@ impl DesktopState {
             registry_path: registry_path(),
             selected_run_id: Mutex::new(None),
             terminals: Mutex::new(TerminalManager::default()),
+            mobile_pairing: Arc::new(Mutex::new(PairingStore::default())),
+            mobile_bridge: Mutex::new(MobileBridgeRuntime::default()),
         }
     }
 
@@ -38,6 +47,25 @@ impl DesktopState {
         self.terminals
             .lock()
             .map_err(|_| DesktopError::Message("terminal manager lock poisoned".to_string()))
+    }
+
+    pub fn mobile_pairing(&self) -> Result<MutexGuard<'_, PairingStore>, DesktopError> {
+        self.mobile_pairing
+            .lock()
+            .map_err(|_| DesktopError::Message("mobile pairing lock poisoned".to_string()))
+    }
+
+    pub fn mobile_bridge(&self) -> Result<MutexGuard<'_, MobileBridgeRuntime>, DesktopError> {
+        self.mobile_bridge
+            .lock()
+            .map_err(|_| DesktopError::Message("mobile bridge lock poisoned".to_string()))
+    }
+
+    pub fn bridge_server_state(&self) -> BridgeServerState {
+        BridgeServerState {
+            registry_path: self.registry_path.clone(),
+            pairing: Arc::clone(&self.mobile_pairing),
+        }
     }
 
     fn selected_guard(&self) -> Result<MutexGuard<'_, Option<String>>, DesktopError> {

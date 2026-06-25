@@ -2,24 +2,24 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-24 16:30 +07
-**Session ID:** copy-untracked-files
-**Active Feature:** feat-027 - Copy Untracked Files Into Run Worktrees
+**Last Updated:** 2026-06-25 15:54 +07
+**Session ID:** android-companion-app
+**Active Feature:** feat-028 - Android Companion App
 
 ## Status
 
 ### What is Done
 
-- [x] Added Git command support for `git ls-files --others --exclude-standard -z`.
-- [x] Added safe helper logic for copying and deleting non-ignored untracked file paths.
-- [x] Create-run now copies non-ignored untracked files from the source repo into the new worktree before launching the agent.
-- [x] End-run cleanup now deletes non-ignored untracked files from the run worktree before removing the worktree and branch.
-- [x] Git-ignored files are excluded by using Git's standard exclude rules.
+- [x] Added a desktop Mobile Bridge with loopback-only bind defaults, pairing codes, hashed device tokens, device revocation, bearer-token auth, dashboard HTTP API, resume endpoint, and WebSocket terminal streaming.
+- [x] Added desktop controls for starting/stopping the bridge, issuing Android pairing codes, showing paired devices, and showing the correct xTunnel command: `xtunnel.cmd linhmon start 17654`.
+- [x] Added a native Kotlin/Compose Android app in `android/`.
+- [x] Added Android xTunnel WebView login, encrypted credential storage, dashboard view, resume-only lifecycle control, in-app attention count, and xterm WebView terminal interaction over WebSocket.
+- [x] Documented Android/xTunnel setup in `README.md`.
 
 ### What is In Progress
 
 - [x] Feature implementation is complete.
-- [x] Core verification is complete.
+- [x] Desktop, backend, and Android verification is complete.
 - [x] Standard `./init.sh` verification is complete.
 
 ### What is Next
@@ -29,37 +29,42 @@
 ## Blockers / Risks
 
 - [x] No unresolved blockers.
-- [ ] `./init.sh` skipped npm checks because `node_modules` is not installed in this workspace; cargo verification ran and passed.
+- [ ] Android compilation emits deprecation warnings for `androidx.security.crypto.EncryptedSharedPreferences` and `MasterKey`; the implementation still builds and tests successfully.
 
 ## Decisions Made
 
-- Only non-ignored untracked files are copied; ignored files such as `node_modules`, build outputs, caches, and ignored `.env` files are excluded.
-- Git remains the file-selection source of truth through `git ls-files --others --exclude-standard -z`.
-- Source symlinks are skipped instead of followed; only regular files are copied.
-- Copying refuses to overwrite an existing destination path in the new worktree.
-- End-run cleanup deletes non-ignored untracked files in the run worktree before `git worktree remove --force` and branch deletion.
+- xTunnel remains the public entry point; the bridge binds to `127.0.0.1:17654` and is exposed with `xtunnel.cmd linhmon start 17654`.
+- Pairing uses one-time desktop-issued codes and stores only hashed device tokens on the desktop.
+- Android uses a WebView for xTunnel authentication so the same xTunnel auth cookies can be reused by OkHttp requests.
+- Mobile controls are intentionally limited to viewing runs, resuming restorable runs, and sending terminal instructions; destructive run operations stay on desktop.
+- Android terminal rendering uses bundled xterm assets loaded from app assets.
 
 ## Files Modified This Session
 
-- docs/superpowers/specs/2026-06-24-copy-untracked-files-design.md - Records the approved design.
-- docs/superpowers/plans/2026-06-24-copy-untracked-files.md - Records the implementation checklist.
-- core/src/commands.rs - Adds the non-ignored untracked file listing command.
-- core/src/lib.rs - Exposes the new untracked file helper module.
-- core/src/untracked_files.rs - Adds safe copy/delete helpers and tests.
-- core/src/app.rs - Wires copy-on-create and cleanup-on-end into run lifecycle behavior.
-- feature_list.json - Adds completed feat-027 with current verification evidence.
-- progress.md - Records this session status and verification evidence.
+- `README.md` - Documents Android companion and xTunnel setup.
+- `feature_list.json` - Adds completed feat-028 evidence.
+- `progress.md` - Records this session status and verification evidence.
+- `src-tauri/src/mobile_bridge.rs` - Adds pairing, auth, xTunnel config, and stream protocol domain logic.
+- `src-tauri/src/mobile_bridge_server.rs` - Adds the HTTP/WebSocket Mobile Bridge server.
+- `src-tauri/tests/mobile_bridge.rs` - Adds Mobile Bridge domain regression coverage.
+- `src-tauri/src/commands.rs`, `src-tauri/src/lib.rs`, `src-tauri/src/state.rs`, `src-tauri/Cargo.toml`, `Cargo.lock` - Wires bridge commands, runtime state, and dependencies.
+- `src/App.tsx`, `src/App.test.tsx`, `src/api.ts`, `src/types.ts`, `src/styles.css` - Adds desktop bridge controls and tests.
+- `android/` - Adds the native Android companion app, assets, tests, and Gradle project.
 
 ## Evidence of Completion
 
-- [x] RED: `cargo test -p agentctl-core untracked_files` failed because `copy_untracked_files`, `delete_untracked_files`, and `GitCommandBuilder::nonignored_untracked_files` did not exist.
-- [x] GREEN: `cargo test -p agentctl-core untracked_files` passed with 3 tests.
-- [x] RED: `cargo test -p agentctl-core create_run_copies_nonignored_untracked_files_before_launching_agent` failed because the copied file was missing.
-- [x] GREEN: `cargo test -p agentctl-core create_run_copies_nonignored_untracked_files_before_launching_agent` passed.
-- [x] RED: `cargo test -p agentctl-core close_and_delete_run_deletes_nonignored_untracked_files_before_removing_worktree` failed because the copied file was still present.
-- [x] GREEN: `cargo test -p agentctl-core close_and_delete_run_deletes_nonignored_untracked_files_before_removing_worktree` passed.
-- [x] RED: `cargo test -p agentctl-core copy_untracked_files_skips_symlinks` failed because source symlinks were followed.
-- [x] GREEN: `cargo test -p agentctl-core copy_untracked_files_skips_symlinks` passed.
+- [x] RED: `cargo test -p agent-manager-desktop --test mobile_bridge` initially failed because the Mobile Bridge domain module did not exist.
+- [x] GREEN: `cargo test -p agent-manager-desktop --test mobile_bridge` passed with 7 tests.
+- [x] RED: `npm test -- src/App.test.tsx -t 'starts the mobile bridge'` failed before desktop bridge controls existed.
+- [x] GREEN: `npm test -- src/App.test.tsx -t 'starts the mobile bridge'` passed after adding desktop controls.
+- [x] RED: `./gradlew testDebugUnitTest --tests com.example.agentmanagermobile.ui.main.MainScreenViewModelTest` failed before Android bridge/ViewModel implementation.
+- [x] GREEN: Android ViewModel tests passed after pairing, dashboard, terminal input, live output, and resume support were implemented.
 - [x] Formatting: `cargo fmt --check` exited 0.
-- [x] Core tests: `cargo test -p agentctl-core` passed with 22 tests.
-- [x] Standard verification: `./init.sh` exited 0 with cargo tests passing; npm checks were skipped because `node_modules` is not installed.
+- [x] Rust bridge tests: `cargo test -p agent-manager-desktop --test mobile_bridge` exited 0 with 7 tests passing.
+- [x] Tauri feature compile: `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
+- [x] Frontend tests: `npm test` exited 0 with 10 files and 51 tests passing.
+- [x] Frontend build: `npm run build` exited 0.
+- [x] Android unit tests: `./gradlew testDebugUnitTest` exited 0.
+- [x] Android instrumentation source compile: `./gradlew compileDebugAndroidTestKotlin` exited 0.
+- [x] Android APK build: `./gradlew assembleDebug` exited 0.
+- [x] Standard verification: `./init.sh` exited 0 with npm test, npm run build, and cargo test passing.

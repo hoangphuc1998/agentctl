@@ -286,6 +286,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-24 16:30 +07: Added red core tests for the Git non-ignored untracked file listing command, preserving copied relative paths, skipping source symlinks, copying files before tmux launch, and deleting run worktree untracked files before worktree/branch cleanup. Implemented copy/delete helpers and create/end-run integration. cargo fmt --check and cargo test -p agentctl-core exited 0 with 22 tests passing; ./init.sh exited 0 with cargo tests passing and npm checks skipped because node_modules is not installed."
+    },
+    {
+      "id": "feat-028",
+      "name": "Android Companion App",
+      "description": "Add a native Android app that connects through xTunnel to a local desktop Mobile Bridge, pairs securely, shows agent runs, resumes restorable runs, and sends instructions into tmux-backed agent panes.",
+      "dependencies": [
+        "feat-027"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-25 15:54 +07: Added Mobile Bridge pairing/auth/session domain tests, an axum bridge server exposed by desktop Tauri commands, xTunnel start guidance, desktop pairing controls, and a native Kotlin/Compose Android app with WebView xTunnel login, encrypted pairing storage, recent run dashboard, resume-only lifecycle control, and xterm WebView terminal input over WebSocket. RED tests failed before implementation for mobile bridge domain behavior, desktop bridge controls, Android pairing/dashboard/input, live terminal output, and resume behavior; they passed after implementation. Verification passed: cargo fmt --check, cargo test -p agent-manager-desktop --test mobile_bridge, cargo check -p agent-manager-desktop --features tauri-app, npm test, npm run build, android ./gradlew testDebugUnitTest, android ./gradlew compileDebugAndroidTestKotlin, android ./gradlew assembleDebug, and ./init.sh."
     }
   ]
 }

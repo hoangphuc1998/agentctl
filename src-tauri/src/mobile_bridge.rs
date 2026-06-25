@@ -206,6 +206,7 @@ impl fmt::Display for BridgeBind {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct XtunnelConfig {
     pub slug: String,
+    pub server_selected_domain: String,
     pub local_port: u16,
     pub auth_mail: Option<String>,
     pub auth_org: Option<String>,
@@ -226,6 +227,7 @@ impl XtunnelCommand {
 pub fn default_xtunnel_config(port: u16) -> XtunnelConfig {
     XtunnelConfig {
         slug: "linhmon".to_string(),
+        server_selected_domain: "linhmon.1vn.app".to_string(),
         local_port: port,
         auth_mail: None,
         auth_org: None,
@@ -340,7 +342,7 @@ pub fn build_xtunnel_start(config: &XtunnelConfig) -> XtunnelCommand {
 
     XtunnelCommand {
         argv,
-        public_url: format!("https://{}.1vn.app", config.slug),
+        public_url: format!("https://{}.{}", config.slug, config.server_selected_domain),
     }
 }
 

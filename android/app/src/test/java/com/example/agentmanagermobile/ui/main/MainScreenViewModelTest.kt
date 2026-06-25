@@ -20,11 +20,23 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainScreenViewModelTest {
   @Test
+  fun defaultsPairingToTheXtunnelBridgeUrlWhenNoCredentialsExist() = runTest {
+    val client = FakeBridgeClient()
+    val store = FakeCredentialStore(null)
+    val viewModel = MainScreenViewModel(client, store, StandardTestDispatcher(testScheduler))
+
+    advanceUntilIdle()
+
+    val state = viewModel.uiState.value as MainScreenUiState.Pairing
+    assertEquals("https://linhmon.linhmon.1vn.app", state.baseUrl)
+  }
+
+  @Test
   fun loadsDashboardWhenCredentialsExist() = runTest {
     val client = FakeBridgeClient()
     val store = FakeCredentialStore(
       BridgeCredentials(
-        baseUrl = "https://linhmon.1vn.app",
+        baseUrl = "https://linhmon.linhmon.1vn.app",
         deviceId = "device-1",
         deviceToken = "token-1",
       ),
@@ -36,7 +48,7 @@ class MainScreenViewModelTest {
 
     val state = viewModel.uiState.value as MainScreenUiState.Ready
     assertEquals("login-flow", state.selectedRun?.runName)
-    assertEquals("https://linhmon.1vn.app", state.baseUrl)
+    assertEquals("https://linhmon.linhmon.1vn.app", state.baseUrl)
   }
 
   @Test
@@ -45,7 +57,7 @@ class MainScreenViewModelTest {
     val store = FakeCredentialStore(null)
     val viewModel = MainScreenViewModel(client, store, StandardTestDispatcher(testScheduler))
 
-    viewModel.updatePairingBaseUrl("https://linhmon.1vn.app")
+    viewModel.updatePairingBaseUrl("https://linhmon.linhmon.1vn.app")
     viewModel.updatePairingCode("ABCD1234")
     viewModel.claimPairing("Pixel 9")
     advanceUntilIdle()
@@ -60,7 +72,7 @@ class MainScreenViewModelTest {
     val client = FakeBridgeClient()
     val store = FakeCredentialStore(
       BridgeCredentials(
-        baseUrl = "https://linhmon.1vn.app",
+        baseUrl = "https://linhmon.linhmon.1vn.app",
         deviceId = "device-1",
         deviceToken = "token-1",
       ),
@@ -80,7 +92,7 @@ class MainScreenViewModelTest {
     val client = FakeBridgeClient()
     val store = FakeCredentialStore(
       BridgeCredentials(
-        baseUrl = "https://linhmon.1vn.app",
+        baseUrl = "https://linhmon.linhmon.1vn.app",
         deviceId = "device-1",
         deviceToken = "token-1",
       ),
@@ -101,7 +113,7 @@ class MainScreenViewModelTest {
     val client = FakeBridgeClient(sampleDashboard(restorable = true))
     val store = FakeCredentialStore(
       BridgeCredentials(
-        baseUrl = "https://linhmon.1vn.app",
+        baseUrl = "https://linhmon.linhmon.1vn.app",
         deviceId = "device-1",
         deviceToken = "token-1",
       ),

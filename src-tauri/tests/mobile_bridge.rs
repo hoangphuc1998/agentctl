@@ -54,6 +54,7 @@ fn revoked_device_token_no_longer_authenticates() {
 fn xtunnel_start_command_targets_local_bridge_port_and_optional_auth_policy() {
     let command = build_xtunnel_start(&XtunnelConfig {
         slug: "linhmon".to_string(),
+        server_selected_domain: "linhmon.1vn.app".to_string(),
         local_port: 17654,
         auth_mail: Some("dev@1ai.tech".to_string()),
         auth_org: Some("1ai.tech".to_string()),
@@ -72,7 +73,7 @@ fn xtunnel_start_command_targets_local_bridge_port_and_optional_auth_policy() {
             "1ai.tech"
         ]
     );
-    assert_eq!(command.public_url, "https://linhmon.1vn.app");
+    assert_eq!(command.public_url, "https://linhmon.linhmon.1vn.app");
 }
 
 #[test]

@@ -528,7 +528,7 @@ function mobileStatus(enabled: boolean): MobileBridgeStatus {
   return {
     enabled,
     bind: "127.0.0.1:17654",
-    publicUrl: "https://linhmon.1vn.app",
+    publicUrl: "https://linhmon.linhmon.1vn.app",
     pairedDevices: [],
     xtunnelStartCommand: ["xtunnel.cmd", "linhmon", "start", "17654"]
   };

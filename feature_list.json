@@ -306,6 +306,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-25 16:55 +07: Reproduced the crash with cargo test -p agent-manager-desktop --features tauri-app --test mobile_bridge_runtime: starting the bridge from a sync context panicked at tokio::net::TcpListener::from_std with 'there is no reactor running'. Moved the Tokio listener conversion inside the spawned Tauri async runtime task. The regression test passed after the fix. Verification passed: cargo fmt --check, cargo test -p agent-manager-desktop --features tauri-app --test mobile_bridge_runtime, cargo test -p agent-manager-desktop --test mobile_bridge, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh."
+    },
+    {
+      "id": "feat-030",
+      "name": "Correct xTunnel Bridge URL",
+      "description": "Use https://linhmon.linhmon.1vn.app as the public Mobile Bridge URL while keeping the local xTunnel command on slug linhmon and port 17654.",
+      "dependencies": [
+        "feat-029"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-25 18:11 +07: Updated the xTunnel public URL generation to use slug linhmon plus server-selected domain linhmon.1vn.app, updated Android's default pairing URL, desktop/Android tests, and README bridge setup text. RED checks failed before implementation for the Rust xTunnel public URL and Android no-credentials default URL; they passed after implementation. Verification passed: ./init.sh baseline, cargo fmt --check, cargo test -p agent-manager-desktop --test mobile_bridge, npm test -- src/App.test.tsx -t 'starts the mobile bridge', android ./gradlew testDebugUnitTest --tests com.example.agentmanagermobile.ui.main.MainScreenViewModelTest, android ./gradlew assembleDebug, and final ./init.sh."
     }
   ]
 }

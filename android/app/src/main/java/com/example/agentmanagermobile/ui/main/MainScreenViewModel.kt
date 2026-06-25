@@ -175,7 +175,7 @@ class MainScreenViewModel(
   }
 
   companion object {
-    const val DEFAULT_BRIDGE_URL = "https://linhmon.1vn.app"
+    const val DEFAULT_BRIDGE_URL = "https://linhmon.linhmon.1vn.app"
   }
 }
 

@@ -57,7 +57,7 @@ xtunnel.cmd linhmon start 17654
 ```
 
 4. Tap `Pair Android` in the desktop panel and enter that one-time code in the
-   Android app at `https://linhmon.1vn.app`.
+   Android app at `https://linhmon.linhmon.1vn.app`.
 
 The Android app uses an in-app WebView for xTunnel authentication, stores the
 paired device token in encrypted preferences, shows recent run state, and sends

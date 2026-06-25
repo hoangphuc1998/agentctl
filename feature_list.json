@@ -296,6 +296,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-25 15:54 +07: Added Mobile Bridge pairing/auth/session domain tests, an axum bridge server exposed by desktop Tauri commands, xTunnel start guidance, desktop pairing controls, and a native Kotlin/Compose Android app with WebView xTunnel login, encrypted pairing storage, recent run dashboard, resume-only lifecycle control, and xterm WebView terminal input over WebSocket. RED tests failed before implementation for mobile bridge domain behavior, desktop bridge controls, Android pairing/dashboard/input, live terminal output, and resume behavior; they passed after implementation. Verification passed: cargo fmt --check, cargo test -p agent-manager-desktop --test mobile_bridge, cargo check -p agent-manager-desktop --features tauri-app, npm test, npm run build, android ./gradlew testDebugUnitTest, android ./gradlew compileDebugAndroidTestKotlin, android ./gradlew assembleDebug, and ./init.sh."
+    },
+    {
+      "id": "feat-029",
+      "name": "Mobile Bridge Startup Crash Fix",
+      "description": "Prevent the desktop app from crashing when Start mobile bridge is clicked from the sync Tauri command path.",
+      "dependencies": [
+        "feat-028"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-25 16:55 +07: Reproduced the crash with cargo test -p agent-manager-desktop --features tauri-app --test mobile_bridge_runtime: starting the bridge from a sync context panicked at tokio::net::TcpListener::from_std with 'there is no reactor running'. Moved the Tokio listener conversion inside the spawned Tauri async runtime task. The regression test passed after the fix. Verification passed: cargo fmt --check, cargo test -p agent-manager-desktop --features tauri-app --test mobile_bridge_runtime, cargo test -p agent-manager-desktop --test mobile_bridge, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh."
     }
   ]
 }

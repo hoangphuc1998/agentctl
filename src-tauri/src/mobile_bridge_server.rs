@@ -69,11 +69,16 @@ impl MobileBridgeRuntime {
         listener
             .set_nonblocking(true)
             .map_err(|err| err.to_string())?;
-        let listener =
-            tokio::net::TcpListener::from_std(listener).map_err(|err| err.to_string())?;
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
         let router = mobile_bridge_router(state);
         tauri::async_runtime::spawn(async move {
+            let listener = match tokio::net::TcpListener::from_std(listener) {
+                Ok(listener) => listener,
+                Err(err) => {
+                    eprintln!("mobile bridge listener failed to start: {err}");
+                    return;
+                }
+            };
             let server = axum::serve(listener, router).with_graceful_shutdown(async {
                 let _ = shutdown_rx.await;
             });

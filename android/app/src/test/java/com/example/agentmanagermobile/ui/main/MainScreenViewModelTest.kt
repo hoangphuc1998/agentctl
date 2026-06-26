@@ -20,6 +20,14 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainScreenViewModelTest {
   @Test
+  fun xtunnelLoginUrlTargetsBridgeHealthEndpoint() {
+    assertEquals(
+      "https://linhmon.linhmon.1vn.app/api/mobile/v1/health",
+      xtunnelLoginUrl("https://linhmon.linhmon.1vn.app"),
+    )
+  }
+
+  @Test
   fun defaultsPairingToTheXtunnelBridgeUrlWhenNoCredentialsExist() = runTest {
     val client = FakeBridgeClient()
     val store = FakeCredentialStore(null)

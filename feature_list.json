@@ -316,6 +316,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-25 18:11 +07: Updated the xTunnel public URL generation to use slug linhmon plus server-selected domain linhmon.1vn.app, updated Android's default pairing URL, desktop/Android tests, and README bridge setup text. RED checks failed before implementation for the Rust xTunnel public URL and Android no-credentials default URL; they passed after implementation. Verification passed: ./init.sh baseline, cargo fmt --check, cargo test -p agent-manager-desktop --test mobile_bridge, npm test -- src/App.test.tsx -t 'starts the mobile bridge', android ./gradlew testDebugUnitTest --tests com.example.agentmanagermobile.ui.main.MainScreenViewModelTest, android ./gradlew assembleDebug, and final ./init.sh."
+    },
+    {
+      "id": "feat-031",
+      "name": "Android xTunnel Sign-In Session",
+      "description": "Make the Android pairing WebView target the bridge health endpoint and persist xTunnel WebView cookies so the pairing POST can reuse the authenticated session.",
+      "dependencies": [
+        "feat-030"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 11:53 +07: Debugged the Android-only HTTP 403. The local bridge pairing route does not require device auth, so the 403 is from xTunnel before the request reaches the bridge. Updated the Android sign-in WebView to load /api/mobile/v1/health instead of tunnel root, enable DOM storage/cookies, accept third-party cookies, flush cookies after page finish, and avoid reloading during auth redirects. RED test failed before adding xtunnelLoginUrl; green after implementation. Verification passed: android ./gradlew testDebugUnitTest, android ./gradlew assembleDebug, APK installed on emulator, android ./gradlew compileDebugAndroidTestKotlin, and ./init.sh."
     }
   ]
 }

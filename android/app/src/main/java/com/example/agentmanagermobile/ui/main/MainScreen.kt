@@ -1,7 +1,9 @@
 package com.example.agentmanagermobile.ui.main
 
 import android.annotation.SuppressLint
+import android.webkit.CookieManager
 import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -263,18 +265,37 @@ private fun ErrorScreen(message: String, onRefresh: () -> Unit) {
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
 private fun XTunnelLoginWebView(url: String, modifier: Modifier = Modifier) {
+  val loginUrl = xtunnelLoginUrl(url)
   AndroidView(
     modifier = modifier,
     factory = { context ->
+      val cookieManager = CookieManager.getInstance()
       WebView(context).apply {
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(this, true)
         settings.javaScriptEnabled = true
-        loadUrl(url)
+        settings.domStorageEnabled = true
+        webViewClient =
+          object : WebViewClient() {
+            override fun onPageFinished(view: WebView, url: String) {
+              cookieManager.flush()
+            }
+          }
+        tag = loginUrl
+        loadUrl(loginUrl)
       }
     },
     update = { view ->
-      if (view.url != url) view.loadUrl(url)
+      if (view.tag != loginUrl) {
+        view.tag = loginUrl
+        view.loadUrl(loginUrl)
+      }
     },
   )
+}
+
+internal fun xtunnelLoginUrl(baseUrl: String): String {
+  return baseUrl.trimEnd('/') + "/api/mobile/v1/health"
 }
 
 @SuppressLint("SetJavaScriptEnabled")

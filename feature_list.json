@@ -376,6 +376,17 @@
       ],
       "status": "completed",
       "evidence": "2026-06-26 15:43 +07: Reproduced the panel-regression path with RED App tests showing the visible mobile bridge status was not a button and start failures had no in-dialog alert. Made the status chip an interactive button that opens Mobile Bridge controls, kept the icon launcher, and rendered bridge command errors inside the dialog. Verification passed: npm test -- src/App.test.tsx, npm test, npm run build, git diff --check, and ./init.sh with npm test, npm run build, and cargo test."
+    },
+    {
+      "id": "feat-037",
+      "name": "Create Run Repo Path Picker",
+      "description": "Make the Create Run repo path field easier to fill with autocomplete suggestions and a native folder chooser.",
+      "dependencies": [
+        "feat-024",
+        "feat-036"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 16:59 +07: Added RED CreateRunModal coverage for repo path suggestions, keyboard selection, blur dismissal, and native folder browsing. Wired the modal to existing repoSuggestions, added chooseDirectory through @tauri-apps/plugin-dialog and tauri-plugin-dialog, granted dialog:allow-open, and styled the compact suggestion list. Verification passed: npm test -- src/components/CreateRunModal.test.tsx with 7 tests, npm test with 59 tests, npm run build, cargo fmt --check, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, and ./init.sh with npm test, npm run build, and cargo test."
     }
   ]
 }

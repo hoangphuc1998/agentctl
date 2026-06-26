@@ -5,6 +5,7 @@ import {
   Bot,
   Code2,
   Command,
+  Copy,
   FolderGit2,
   GitBranch,
   GitMerge,
@@ -14,6 +15,8 @@ import {
   RefreshCw,
   RotateCcw,
   Search,
+  ShieldCheck,
+  Smartphone,
   Square,
   Tag,
   Terminal,
@@ -27,10 +30,14 @@ import {
   dashboardState,
   enableTmuxRestore,
   endRun,
+  issueMobilePairingCode,
   listenAgentAttention,
   mergeRun,
+  mobileBridgeStatus,
   openInVsCode,
+  startMobileBridge,
   restoreRun,
+  stopMobileBridge,
   stopRun,
   tmuxRestoreStatus
 } from "./api";
@@ -46,6 +53,8 @@ import type {
   CreateRunDefaults,
   DashboardState,
   HostToolStatus,
+  MobileBridgeStatus,
+  MobilePairingCode,
   RepoNode,
   RunView,
   TmuxRestoreStatus
@@ -78,6 +87,8 @@ export function App() {
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState<TmuxRestoreStatus | null>(null);
+  const [mobileStatus, setMobileStatus] = useState<MobileBridgeStatus | null>(null);
+  const [mobilePairingCode, setMobilePairingCode] = useState<MobilePairingCode | null>(null);
   const selectedRunIdRef = useRef<string | null>(null);
 
   const selectedRun = useMemo(
@@ -119,6 +130,14 @@ export function App() {
   const loadTmuxRestoreStatus = useCallback(async () => {
     try {
       setRestoreStatus(await tmuxRestoreStatus());
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }, []);
+
+  const loadMobileBridgeStatus = useCallback(async () => {
+    try {
+      setMobileStatus(await mobileBridgeStatus());
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -184,9 +203,10 @@ export function App() {
   useEffect(() => {
     void loadDashboard(null);
     void loadTmuxRestoreStatus();
+    void loadMobileBridgeStatus();
     const interval = window.setInterval(() => void loadDashboard(), 3000);
     return () => window.clearInterval(interval);
-  }, [loadDashboard, loadTmuxRestoreStatus]);
+  }, [loadDashboard, loadMobileBridgeStatus, loadTmuxRestoreStatus]);
 
   useEffect(() => {
     let active = true;
@@ -307,6 +327,36 @@ export function App() {
     }
   }
 
+  async function startBridge() {
+    try {
+      setMobileStatus(await startMobileBridge());
+      setError(null);
+    } catch (err) {
+      setError(errorMessage(err));
+      void loadMobileBridgeStatus();
+    }
+  }
+
+  async function stopBridge() {
+    try {
+      setMobileStatus(await stopMobileBridge());
+      setMobilePairingCode(null);
+      setError(null);
+    } catch (err) {
+      setError(errorMessage(err));
+      void loadMobileBridgeStatus();
+    }
+  }
+
+  async function pairAndroid() {
+    try {
+      setMobilePairingCode(await issueMobilePairingCode());
+      setError(null);
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  }
+
   function actionTitle(action: PendingAction) {
     if (action.kind === "cleanup-stale") return "Stop stale runs?";
     return `${action.kind === "end" ? "End" : action.kind === "merge" ? "Merge" : "Stop"} ${
@@ -357,6 +407,15 @@ export function App() {
               title={`${restoreStatus.detail} Config: ${restoreStatus.configPath}`}
             >
               {restoreStatus.configured ? "restart restore on" : "restart restore off"}
+            </Chip>
+          )}
+          {mobileStatus && (
+            <Chip
+              tone={mobileStatus.enabled ? "success" : "warning"}
+              icon={<Smartphone size={14} />}
+              title={`${mobileStatus.publicUrl} via ${mobileStatus.bind}`}
+            >
+              {mobileStatus.enabled ? "mobile bridge on" : "mobile bridge off"}
             </Chip>
           )}
           {dashboard.hostTools.map((tool) => (
@@ -414,6 +473,13 @@ export function App() {
             onSelectRun={selectRunAndLoad}
             onCreateRunFromRepo={openCreateRunFromRepo}
             onCreateRunFromRun={openCreateRunFromRun}
+          />
+          <MobileBridgePanel
+            status={mobileStatus}
+            pairingCode={mobilePairingCode}
+            onStart={startBridge}
+            onStop={stopBridge}
+            onPair={pairAndroid}
           />
         </aside>
 
@@ -550,6 +616,67 @@ export function App() {
         </button>
       )}
     </main>
+  );
+}
+
+interface MobileBridgePanelProps {
+  status: MobileBridgeStatus | null;
+  pairingCode: MobilePairingCode | null;
+  onStart: () => void;
+  onStop: () => void;
+  onPair: () => void;
+}
+
+function MobileBridgePanel({
+  status,
+  pairingCode,
+  onStart,
+  onStop,
+  onPair
+}: MobileBridgePanelProps) {
+  if (!status) return null;
+  const xtunnelCommand = status.xtunnelStartCommand.join(" ");
+  const mobileWebUrl = `${status.publicUrl.replace(/\/$/, "")}/mobile`;
+
+  return (
+    <section className="mobile-bridge-panel" aria-label="Mobile Bridge">
+      <div className="mobile-bridge-title">
+        <span>
+          <Smartphone size={15} />
+          <span>Mobile Bridge</span>
+        </span>
+        <Chip tone={status.enabled ? "success" : "warning"}>
+          {status.enabled ? "on" : "off"}
+        </Chip>
+      </div>
+      <div className="mobile-bridge-lines">
+        <span title={status.bind}>{status.bind}</span>
+        <span title={status.publicUrl}>{status.publicUrl}</span>
+        <span title="Open this URL in Android Chrome">{mobileWebUrl}</span>
+      </div>
+      <code className="mobile-bridge-command">{xtunnelCommand}</code>
+      {pairingCode && (
+        <div className="mobile-pairing-code" aria-label="Android pairing code">
+          <ShieldCheck size={15} />
+          <strong>{pairingCode.code}</strong>
+        </div>
+      )}
+      <div className="mobile-bridge-actions">
+        <button className="button secondary" onClick={status.enabled ? onStop : onStart}>
+          {status.enabled ? <Square size={16} /> : <Smartphone size={16} />}
+          {status.enabled ? "Stop mobile bridge" : "Start mobile bridge"}
+        </button>
+        <button
+          className="icon-button"
+          onClick={onPair}
+          title="Pair Android"
+          aria-label="Pair Android"
+          disabled={!status.enabled}
+        >
+          <Copy size={16} />
+        </button>
+      </div>
+    </section>
   );
 }
 

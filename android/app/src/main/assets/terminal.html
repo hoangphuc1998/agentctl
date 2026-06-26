@@ -1,0 +1,40 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="xterm/xterm.css" />
+    <style>
+      html, body, #terminal {
+        background: #030609;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="terminal"></div>
+    <script src="xterm/xterm.js"></script>
+    <script>
+      const terminal = new Terminal({
+        cursorBlink: true,
+        fontFamily: '"Ubuntu Mono", "Noto Sans Mono", monospace',
+        fontSize: 13,
+        lineHeight: 1.18,
+        theme: {
+          background: '#030609',
+          foreground: '#e6edf6',
+          cursor: '#50d890',
+          selectionBackground: '#24384f'
+        }
+      });
+      terminal.open(document.getElementById('terminal'));
+      window.agentTerminalSet = function (data) {
+        terminal.clear();
+        terminal.write(data || '');
+      };
+    </script>
+  </body>
+</html>

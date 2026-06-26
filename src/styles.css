@@ -338,6 +338,65 @@ h2 {
   background: rgba(11, 16, 22, 0.56);
 }
 
+.mobile-bridge-panel {
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  display: grid;
+  gap: 10px;
+  padding: 14px 14px 16px;
+}
+
+.mobile-bridge-title,
+.mobile-bridge-title > span,
+.mobile-bridge-actions,
+.mobile-pairing-code {
+  align-items: center;
+  display: flex;
+}
+
+.mobile-bridge-title {
+  justify-content: space-between;
+}
+
+.mobile-bridge-title > span,
+.mobile-bridge-actions {
+  gap: 8px;
+}
+
+.mobile-bridge-lines {
+  color: var(--muted);
+  display: grid;
+  font-size: 12px;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mobile-bridge-lines span,
+.mobile-bridge-command {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-bridge-command {
+  background: rgba(15, 23, 42, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
+  color: #dbeafe;
+  display: block;
+  font-size: 12px;
+  padding: 8px;
+}
+
+.mobile-pairing-code {
+  background: rgba(80, 216, 144, 0.1);
+  border: 1px solid rgba(80, 216, 144, 0.24);
+  border-radius: 6px;
+  color: #bbf7d0;
+  gap: 8px;
+  justify-content: center;
+  padding: 8px;
+}
+
 .panel-title {
   display: flex;
   align-items: center;

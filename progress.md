@@ -2,64 +2,62 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-24 16:30 +07
-**Session ID:** copy-untracked-files
-**Active Feature:** feat-027 - Copy Untracked Files Into Run Worktrees
+**Last Updated:** 2026-06-26 14:23 +07
+**Session ID:** mobile-pwa-terminal-stream-fix
+**Active Feature:** feat-034 - Mobile PWA Terminal Stream Attach Fix
 
 ## Status
 
 ### What is Done
 
-- [x] Added Git command support for `git ls-files --others --exclude-standard -z`.
-- [x] Added safe helper logic for copying and deleting non-ignored untracked file paths.
-- [x] Create-run now copies non-ignored untracked files from the source repo into the new worktree before launching the agent.
-- [x] End-run cleanup now deletes non-ignored untracked files from the run worktree before removing the worktree and branch.
-- [x] Git-ignored files are excluded by using Git's standard exclude rules.
+- [x] Investigated why the PWA terminal area could remain on `Waiting for terminal output...`.
+- [x] Traced the stream path from browser WebSocket open through `attachTerminal`, Rust stream auth, tmux snapshot, PTY attach, and browser message handling.
+- [x] Found the initial tmux snapshot path used `blocking_send` from inside the async WebSocket handler.
+- [x] Replaced that snapshot queue with non-blocking `try_send` via `queue_terminal_snapshot`.
+- [x] Added browser-side terminal stream states so the PWA now reports `Connecting terminal stream...`, `Terminal attached. Waiting for output...`, `Terminal stream error.`, or `Terminal stream closed before attach.` instead of staying on one generic placeholder.
 
 ### What is In Progress
 
-- [x] Feature implementation is complete.
-- [x] Core verification is complete.
-- [x] Standard `./init.sh` verification is complete.
+- [x] Fix implementation is complete.
+- [x] Focused verification is complete.
+- [x] Standard verification is complete.
 
 ### What is Next
 
-1. Commit the completed feature.
+1. Restart the desktop app or Mobile Bridge so the updated `/mobile/app.js` is served.
+2. In Android Chrome, hard refresh the PWA or close/reopen it.
+3. If it still shows an old state, clear the site data/service worker for `linhmon.linhmon.1vn.app` and reload `/mobile`.
 
 ## Blockers / Risks
 
-- [x] No unresolved blockers.
-- [ ] `./init.sh` skipped npm checks because `node_modules` is not installed in this workspace; cargo verification ran and passed.
+- [x] No code blockers.
+- [ ] If a selected run has no tmux window or no visible pane text, the PWA may show `Terminal attached. Waiting for output...`; selecting an active tmux-backed run should stream output.
+- [ ] The PWA service worker may cache older assets until the page is reloaded or site data is cleared.
 
 ## Decisions Made
 
-- Only non-ignored untracked files are copied; ignored files such as `node_modules`, build outputs, caches, and ignored `.env` files are excluded.
-- Git remains the file-selection source of truth through `git ls-files --others --exclude-standard -z`.
-- Source symlinks are skipped instead of followed; only regular files are copied.
-- Copying refuses to overwrite an existing destination path in the new worktree.
-- End-run cleanup deletes non-ignored untracked files in the run worktree before `git worktree remove --force` and branch deletion.
+- Use `try_send` for the initial snapshot because the channel is local, buffered, and called from async WebSocket handling.
+- Keep `blocking_send` in the PTY reader thread because that code runs on a regular OS thread, not inside the async runtime.
+- Surface stream close/error states in the PWA so future connection/auth failures are visible on the phone.
 
 ## Files Modified This Session
 
-- docs/superpowers/specs/2026-06-24-copy-untracked-files-design.md - Records the approved design.
-- docs/superpowers/plans/2026-06-24-copy-untracked-files.md - Records the implementation checklist.
-- core/src/commands.rs - Adds the non-ignored untracked file listing command.
-- core/src/lib.rs - Exposes the new untracked file helper module.
-- core/src/untracked_files.rs - Adds safe copy/delete helpers and tests.
-- core/src/app.rs - Wires copy-on-create and cleanup-on-end into run lifecycle behavior.
-- feature_list.json - Adds completed feat-027 with current verification evidence.
-- progress.md - Records this session status and verification evidence.
+- `src-tauri/src/mobile_bridge_server.rs` - Adds async-safe snapshot queuing and a regression test.
+- `src-tauri/src/mobile_pwa.rs` - Adds browser terminal stream status/error handling and asset tests.
+- `feature_list.json` - Adds completed feat-034 evidence.
+- `progress.md` - Records this debug session status and verification.
 
 ## Evidence of Completion
 
-- [x] RED: `cargo test -p agentctl-core untracked_files` failed because `copy_untracked_files`, `delete_untracked_files`, and `GitCommandBuilder::nonignored_untracked_files` did not exist.
-- [x] GREEN: `cargo test -p agentctl-core untracked_files` passed with 3 tests.
-- [x] RED: `cargo test -p agentctl-core create_run_copies_nonignored_untracked_files_before_launching_agent` failed because the copied file was missing.
-- [x] GREEN: `cargo test -p agentctl-core create_run_copies_nonignored_untracked_files_before_launching_agent` passed.
-- [x] RED: `cargo test -p agentctl-core close_and_delete_run_deletes_nonignored_untracked_files_before_removing_worktree` failed because the copied file was still present.
-- [x] GREEN: `cargo test -p agentctl-core close_and_delete_run_deletes_nonignored_untracked_files_before_removing_worktree` passed.
-- [x] RED: `cargo test -p agentctl-core copy_untracked_files_skips_symlinks` failed because source symlinks were followed.
-- [x] GREEN: `cargo test -p agentctl-core copy_untracked_files_skips_symlinks` passed.
-- [x] Formatting: `cargo fmt --check` exited 0.
-- [x] Core tests: `cargo test -p agentctl-core` passed with 22 tests.
-- [x] Standard verification: `./init.sh` exited 0 with cargo tests passing; npm checks were skipped because `node_modules` is not installed.
+- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app terminal_snapshot_queue_is_safe_inside_async_runtime` failed before `queue_terminal_snapshot` existed.
+- [x] GREEN: the same targeted test exited 0 after replacing the snapshot path with `try_send`.
+- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_script_reports_terminal_stream_connection_states` failed before the PWA exposed stream states.
+- [x] GREEN: the same targeted test exited 0 after adding stream states.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server` exited 0.
+- [x] `cargo fmt --check` exited 0.
+- [x] `npm test` exited 0 with 10 files and 51 tests passing.
+- [x] `npm run build` exited 0.
+- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app` exited 0 outside the sandbox.
+- [x] `./init.sh` exited 0 with npm test, npm run build, and cargo test passing.

@@ -286,6 +286,76 @@
       ],
       "status": "completed",
       "evidence": "2026-06-24 16:30 +07: Added red core tests for the Git non-ignored untracked file listing command, preserving copied relative paths, skipping source symlinks, copying files before tmux launch, and deleting run worktree untracked files before worktree/branch cleanup. Implemented copy/delete helpers and create/end-run integration. cargo fmt --check and cargo test -p agentctl-core exited 0 with 22 tests passing; ./init.sh exited 0 with cargo tests passing and npm checks skipped because node_modules is not installed."
+    },
+    {
+      "id": "feat-028",
+      "name": "Android Companion App",
+      "description": "Add a native Android app that connects through xTunnel to a local desktop Mobile Bridge, pairs securely, shows agent runs, resumes restorable runs, and sends instructions into tmux-backed agent panes.",
+      "dependencies": [
+        "feat-027"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-25 15:54 +07: Added Mobile Bridge pairing/auth/session domain tests, an axum bridge server exposed by desktop Tauri commands, xTunnel start guidance, desktop pairing controls, and a native Kotlin/Compose Android app with WebView xTunnel login, encrypted pairing storage, recent run dashboard, resume-only lifecycle control, and xterm WebView terminal input over WebSocket. RED tests failed before implementation for mobile bridge domain behavior, desktop bridge controls, Android pairing/dashboard/input, live terminal output, and resume behavior; they passed after implementation. Verification passed: cargo fmt --check, cargo test -p agent-manager-desktop --test mobile_bridge, cargo check -p agent-manager-desktop --features tauri-app, npm test, npm run build, android ./gradlew testDebugUnitTest, android ./gradlew compileDebugAndroidTestKotlin, android ./gradlew assembleDebug, and ./init.sh."
+    },
+    {
+      "id": "feat-029",
+      "name": "Mobile Bridge Startup Crash Fix",
+      "description": "Prevent the desktop app from crashing when Start mobile bridge is clicked from the sync Tauri command path.",
+      "dependencies": [
+        "feat-028"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-25 16:55 +07: Reproduced the crash with cargo test -p agent-manager-desktop --features tauri-app --test mobile_bridge_runtime: starting the bridge from a sync context panicked at tokio::net::TcpListener::from_std with 'there is no reactor running'. Moved the Tokio listener conversion inside the spawned Tauri async runtime task. The regression test passed after the fix. Verification passed: cargo fmt --check, cargo test -p agent-manager-desktop --features tauri-app --test mobile_bridge_runtime, cargo test -p agent-manager-desktop --test mobile_bridge, cargo check -p agent-manager-desktop --features tauri-app, and ./init.sh."
+    },
+    {
+      "id": "feat-030",
+      "name": "Correct xTunnel Bridge URL",
+      "description": "Use https://linhmon.linhmon.1vn.app as the public Mobile Bridge URL while keeping the local xTunnel command on slug linhmon and port 17654.",
+      "dependencies": [
+        "feat-029"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-25 18:11 +07: Updated the xTunnel public URL generation to use slug linhmon plus server-selected domain linhmon.1vn.app, updated Android's default pairing URL, desktop/Android tests, and README bridge setup text. RED checks failed before implementation for the Rust xTunnel public URL and Android no-credentials default URL; they passed after implementation. Verification passed: ./init.sh baseline, cargo fmt --check, cargo test -p agent-manager-desktop --test mobile_bridge, npm test -- src/App.test.tsx -t 'starts the mobile bridge', android ./gradlew testDebugUnitTest --tests com.example.agentmanagermobile.ui.main.MainScreenViewModelTest, android ./gradlew assembleDebug, and final ./init.sh."
+    },
+    {
+      "id": "feat-031",
+      "name": "Android xTunnel Sign-In Session",
+      "description": "Make the Android pairing WebView target the bridge health endpoint and persist xTunnel WebView cookies so the pairing POST can reuse the authenticated session.",
+      "dependencies": [
+        "feat-030"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 11:53 +07: Debugged the Android-only HTTP 403. The local bridge pairing route does not require device auth, so the 403 is from xTunnel before the request reaches the bridge. Updated the Android sign-in WebView to load /api/mobile/v1/health instead of tunnel root, enable DOM storage/cookies, accept third-party cookies, flush cookies after page finish, and avoid reloading during auth redirects. RED test failed before adding xtunnelLoginUrl; green after implementation. Verification passed: android ./gradlew testDebugUnitTest, android ./gradlew assembleDebug, APK installed on emulator, android ./gradlew compileDebugAndroidTestKotlin, and ./init.sh."
+    },
+    {
+      "id": "feat-032",
+      "name": "Android xTunnel Sign-In Guidance",
+      "description": "Make the Android xTunnel sign-in panel usable for completing AI Hay/xTunnel login and explain that HTTP 403 means sign-in is still required.",
+      "dependencies": [
+        "feat-031"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 12:34 +07: After installing the xTunnel session fix, the emulator showed the AI Hay sign-in page, proving the session had not reached bridge health JSON yet. Expanded the WebView to fill remaining pairing-screen space so social sign-in buttons are visible, added on-screen guidance that the panel must show bridge health JSON before pairing, and mapped pairing HTTP 403 to an xTunnel sign-in required message. RED test pairingHttp403ShowsXtunnelSignInGuidance failed before the mapper and passed after implementation. Verification passed: android ./gradlew testDebugUnitTest --tests com.example.agentmanagermobile.ui.main.MainScreenViewModelTest.pairingHttp403ShowsXtunnelSignInGuidance, android ./gradlew testDebugUnitTest, android ./gradlew assembleDebug, APK installed on emulator, android ./gradlew compileDebugAndroidTestKotlin, and ./init.sh."
+    },
+    {
+      "id": "feat-033",
+      "name": "Mobile Bridge Chrome PWA",
+      "description": "Serve a Chrome-friendly mobile PWA from the Mobile Bridge so Android users can pair and control agent runs without Google OAuth inside WebView.",
+      "dependencies": [
+        "feat-032"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 14:00 +07: Added a bridge-served /mobile PWA with manifest, service worker, pairing, dashboard, resume, terminal stream, and instruction input. Mounted /mobile asset routes on the Axum Mobile Bridge and added browser WebSocket query auth because browser WebSockets cannot set Authorization headers. Updated the desktop Mobile Bridge panel and README to point Android Chrome users to https://linhmon.linhmon.1vn.app/mobile. RED checks failed before implementation for missing mobile_pwa assets, missing stream query auth/route metadata, and missing desktop /mobile URL; each passed after implementation. Verification passed: cargo fmt --check, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, npm test -- src/App.test.tsx -t 'starts the mobile bridge', npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside the sandbox after sandbox bind denial, and ./init.sh."
+    },
+    {
+      "id": "feat-034",
+      "name": "Mobile PWA Terminal Stream Attach Fix",
+      "description": "Prevent the Mobile PWA terminal stream from silently staying on the waiting placeholder when the initial tmux snapshot is queued from the async WebSocket task.",
+      "dependencies": [
+        "feat-033"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 14:23 +07: Debugged the PWA terminal staying on 'Waiting for terminal output...'. Found the stream attach path queued the initial tmux snapshot with tokio mpsc blocking_send from inside the async WebSocket handler, which can panic/close the stream before the browser receives terminal messages. Added a RED regression for async-safe snapshot queuing, changed the snapshot path to non-blocking try_send, and added PWA connection-state text so browser stream errors/closes are visible instead of generic waiting. Verification passed: cargo test -p agent-manager-desktop --features tauri-app terminal_snapshot_queue_is_safe_inside_async_runtime, cargo test -p agent-manager-desktop --features tauri-app mobile_script_reports_terminal_stream_connection_states, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside the sandbox, and ./init.sh."
     }
   ]
 }

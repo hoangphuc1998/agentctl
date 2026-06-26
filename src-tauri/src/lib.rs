@@ -1,3 +1,4 @@
+pub mod mobile_bridge;
 pub mod models;
 pub mod run_classification;
 pub mod services;
@@ -83,6 +84,10 @@ pub mod commands;
 #[cfg(feature = "tauri-app")]
 pub mod error;
 #[cfg(feature = "tauri-app")]
+pub mod mobile_bridge_server;
+#[cfg(feature = "tauri-app")]
+pub mod mobile_pwa;
+#[cfg(feature = "tauri-app")]
 pub mod state;
 #[cfg(feature = "tauri-app")]
 pub mod terminal;
@@ -136,6 +141,11 @@ pub fn run() {
             commands::enable_tmux_restore,
             commands::repo_suggestions,
             commands::base_ref_suggestions,
+            commands::mobile_bridge_status,
+            commands::issue_mobile_pairing_code,
+            commands::revoke_mobile_device,
+            commands::start_mobile_bridge,
+            commands::stop_mobile_bridge,
             commands::start_terminal,
             commands::terminal_input,
             commands::resize_terminal,

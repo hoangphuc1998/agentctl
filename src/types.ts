@@ -85,3 +85,22 @@ export interface TmuxRestoreStatus {
   configPath: string;
   detail: string;
 }
+
+export interface PairedDevice {
+  id: string;
+  name: string;
+  pairedAt: number;
+}
+
+export interface MobileBridgeStatus {
+  enabled: boolean;
+  bind: string;
+  publicUrl: string;
+  pairedDevices: PairedDevice[];
+  xtunnelStartCommand: string[];
+}
+
+export interface MobilePairingCode {
+  code: string;
+  expiresAt: number;
+}

@@ -86,6 +86,8 @@ pub mod error;
 #[cfg(feature = "tauri-app")]
 pub mod mobile_bridge_server;
 #[cfg(feature = "tauri-app")]
+pub mod mobile_pwa;
+#[cfg(feature = "tauri-app")]
 pub mod state;
 #[cfg(feature = "tauri-app")]
 pub mod terminal;

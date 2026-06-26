@@ -428,6 +428,7 @@ describe("App", () => {
     await waitFor(() => expect(startMobileBridge).toHaveBeenCalledOnce());
     expect(await screen.findByText("mobile bridge on")).toBeInTheDocument();
     expect(screen.getByText("xtunnel.cmd linhmon start 17654")).toBeInTheDocument();
+    expect(screen.getByText("https://linhmon.linhmon.1vn.app/mobile")).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("button", { name: /pair android/i }));
 

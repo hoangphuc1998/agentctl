@@ -56,13 +56,23 @@ Desktop setup:
 xtunnel.cmd linhmon start 17654
 ```
 
-4. Tap `Pair Android` in the desktop panel and enter that one-time code in the
-   Android app at `https://linhmon.linhmon.1vn.app`.
+4. Open the Chrome/PWA mobile UI on Android:
 
-The Android app uses an in-app WebView for xTunnel authentication, stores the
-paired device token in encrypted preferences, shows recent run state, and sends
-instructions into the selected tmux-backed agent pane over the bridge WebSocket.
-It intentionally exposes only resume and terminal input controls on mobile.
+```text
+https://linhmon.linhmon.1vn.app/mobile
+```
+
+5. Complete xTunnel sign-in in Chrome, tap `Pair Android` in the desktop panel,
+   and enter that one-time code in the mobile page.
+
+The Chrome/PWA path is preferred when Google sign-in is required because Google
+blocks OAuth inside embedded Android WebView. The PWA stores the paired device
+token in browser storage, shows recent run state, and sends instructions into
+the selected tmux-backed agent pane over the bridge WebSocket. It intentionally
+exposes only resume and terminal input controls on mobile.
+
+The native Android app remains in `android/`, but xTunnel login with Google may
+not complete inside its WebView.
 
 Build the Android debug APK:
 

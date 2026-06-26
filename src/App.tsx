@@ -636,6 +636,7 @@ function MobileBridgePanel({
 }: MobileBridgePanelProps) {
   if (!status) return null;
   const xtunnelCommand = status.xtunnelStartCommand.join(" ");
+  const mobileWebUrl = `${status.publicUrl.replace(/\/$/, "")}/mobile`;
 
   return (
     <section className="mobile-bridge-panel" aria-label="Mobile Bridge">
@@ -651,6 +652,7 @@ function MobileBridgePanel({
       <div className="mobile-bridge-lines">
         <span title={status.bind}>{status.bind}</span>
         <span title={status.publicUrl}>{status.publicUrl}</span>
+        <span title="Open this URL in Android Chrome">{mobileWebUrl}</span>
       </div>
       <code className="mobile-bridge-command">{xtunnelCommand}</code>
       {pairingCode && (

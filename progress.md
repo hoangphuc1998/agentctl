@@ -2,58 +2,75 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-26 12:34 +07
-**Session ID:** android-xtunnel-sign-in-guidance
-**Active Feature:** feat-032 - Android xTunnel Sign-In Guidance
+**Last Updated:** 2026-06-26 14:00 +07
+**Session ID:** mobile-pwa-bridge
+**Active Feature:** feat-033 - Mobile Bridge Chrome PWA
 
 ## Status
 
 ### What is Done
 
-- [x] Investigated why pairing still returned HTTP 403 after the Android xTunnel session update.
-- [x] Confirmed the WebView was reaching the AI Hay/xTunnel sign-in page, not bridge health JSON.
-- [x] Expanded the sign-in WebView to fill remaining screen space so provider login buttons are visible.
-- [x] Added on-screen guidance that the panel must show bridge health JSON before pairing.
-- [x] Mapped pairing HTTP 403 to a clear xTunnel sign-in required error.
-- [x] Rebuilt and installed the debug APK on the connected emulator.
+- [x] Confirmed the browser path works at `https://linhmon.linhmon.1vn.app/api/mobile/v1/health`.
+- [x] Wrote and saved the approved PWA bridge design spec.
+- [x] Wrote and saved the implementation plan.
+- [x] Added a static `/mobile` PWA served directly by the Mobile Bridge.
+- [x] Added PWA manifest, icon, service worker, pairing UI, dashboard UI, run selection, resume, terminal stream output, and instruction input.
+- [x] Mounted `/mobile` assets on the Axum bridge router.
+- [x] Added browser-compatible WebSocket auth using `deviceId` and `token` query parameters for `/api/mobile/v1/stream`.
+- [x] Updated the desktop Mobile Bridge panel to show `https://linhmon.linhmon.1vn.app/mobile`.
+- [x] Updated README setup instructions to prefer Android Chrome/PWA when Google auth is required.
 
 ### What is In Progress
 
-- [x] Bugfix implementation is complete.
-- [x] Android focused verification is complete.
-- [x] Standard post-change `./init.sh` verification is complete.
+- [x] Implementation is complete.
+- [x] Focused verification is complete.
+- [x] Standard `./init.sh` verification is complete.
 
 ### What is Next
 
-1. On the phone or emulator, complete xTunnel sign-in in the panel until bridge health JSON appears, then generate a fresh desktop pairing code and pair.
+1. Start Mobile Bridge from desktop.
+2. Run `xtunnel.cmd linhmon start 17654`.
+3. Open `https://linhmon.linhmon.1vn.app/mobile` in Android Chrome.
+4. Complete xTunnel/Google sign-in in Chrome.
+5. Generate a fresh desktop pairing code and pair the browser page.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
-- [ ] If the panel still shows AI Hay after selecting a provider, the remaining blocker is xTunnel account/policy authorization; the pairing code request will keep returning 403 until the panel reaches bridge health JSON.
+- [ ] The native Android WebView path can still be blocked by Google `disallowed_useragent`; use the Chrome/PWA path for Google-backed xTunnel login.
+- [ ] WebSocket auth uses query parameters only for browser compatibility because browser WebSocket APIs do not support custom auth headers.
 
 ## Decisions Made
 
-- Treat HTTP 403 from pairing as xTunnel sign-in required because local `/pair/claim` does not enforce paired-device auth.
-- Pairing should be attempted only after the WebView reaches bridge health JSON.
-- Keep pairing in native OkHttp, but make the WebView sign-in step clear and usable.
+- Serve the PWA from Rust static strings so it is available whenever the bridge runs and does not depend on Tauri desktop asset packaging.
+- Keep xTunnel as the outer access gate and bridge pairing tokens as the app authorization layer.
+- Keep normal HTTP APIs on headers; add query auth only to the browser WebSocket stream endpoint.
 
 ## Files Modified This Session
 
-- `android/app/src/main/java/com/example/agentmanagermobile/ui/main/MainScreen.kt` - Enlarges sign-in WebView and adds readiness guidance.
-- `android/app/src/main/java/com/example/agentmanagermobile/ui/main/MainScreenViewModel.kt` - Maps pairing HTTP 403 to xTunnel sign-in guidance.
-- `android/app/src/test/java/com/example/agentmanagermobile/ui/main/MainScreenViewModelTest.kt` - Adds 403 guidance regression coverage.
-- `feature_list.json` - Adds completed feat-032 evidence.
-- `progress.md` - Records this debug session status and verification.
+- `src-tauri/src/mobile_pwa.rs` - Adds the static PWA assets and asset tests.
+- `src-tauri/src/mobile_bridge_server.rs` - Mounts `/mobile` routes and adds browser WebSocket query auth.
+- `src-tauri/src/lib.rs` - Exposes the PWA module under the Tauri app feature.
+- `src/App.tsx` - Shows the Chrome/PWA URL in the Mobile Bridge panel.
+- `src/App.test.tsx` - Covers the new `/mobile` URL guidance.
+- `README.md` - Documents the Chrome/PWA Android flow.
+- `docs/superpowers/specs/2026-06-26-mobile-pwa-bridge-design.md` - Records the approved design.
+- `docs/superpowers/plans/2026-06-26-mobile-pwa-bridge.md` - Records the implementation plan.
+- `feature_list.json` - Adds completed feat-033 evidence.
+- `progress.md` - Records this session status and verification.
 
 ## Evidence of Completion
 
-- [x] RED: `./gradlew testDebugUnitTest --tests com.example.agentmanagermobile.ui.main.MainScreenViewModelTest.pairingHttp403ShowsXtunnelSignInGuidance` failed before the 403 mapper.
-- [x] GREEN: the same targeted test exited 0 after the mapper.
-- [x] Android unit tests: `./gradlew testDebugUnitTest` exited 0.
-- [x] Android APK build: `./gradlew assembleDebug` exited 0.
-- [x] Emulator install: `adb install -r android/app/build/outputs/apk/debug/app-debug.apk` exited 0.
-- [x] Android instrumentation source compile: `./gradlew compileDebugAndroidTestKotlin` exited 0.
-- [x] Standard verification: `./init.sh` exited 0 with npm test, npm run build, and cargo test passing.
-- [x] Final verification repeat: `./init.sh`, Android `./gradlew testDebugUnitTest`, Android `./gradlew assembleDebug`, Android `./gradlew compileDebugAndroidTestKotlin`, and `adb install -r android/app/build/outputs/apk/debug/app-debug.apk` exited 0.
-- [x] Manual evidence: emulator screenshot after install shows the larger WebView with AI Hay provider sign-in buttons visible and guidance text above it.
+- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` failed before `asset_for_path` existed.
+- [x] GREEN: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0.
+- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server` failed before `StreamAuthQuery`, `stream_auth_headers`, and route metadata existed.
+- [x] GREEN: `cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server` exited 0.
+- [x] RED: `npm test -- src/App.test.tsx -t "starts the mobile bridge"` failed before the panel rendered the `/mobile` URL.
+- [x] GREEN: `npm test -- src/App.test.tsx -t "starts the mobile bridge"` exited 0.
+- [x] `cargo fmt --check` exited 0 after formatting.
+- [x] `npm test` exited 0 with 10 files and 51 tests passing.
+- [x] `npm run build` exited 0.
+- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app --test mobile_bridge_runtime` exited 0 when rerun outside the sandbox after sandbox listener bind denial.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app` exited 0 when rerun outside the sandbox after sandbox listener bind denial.
+- [x] `./init.sh` exited 0 with npm test, npm run build, and cargo test passing.

@@ -15,7 +15,7 @@ use agentctl_core::{
 use axum::{
     extract::{
         ws::{Message, WebSocket, WebSocketUpgrade},
-        Path, State,
+        Path, Query, State,
     },
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
@@ -35,6 +35,7 @@ use crate::{
         MobileAuthHeaders, MobileBridgeStatus, PairedDevice, PairingStore, PairingTime,
         StreamClientMessage, StreamServerMessage,
     },
+    mobile_pwa,
     models::{host_tool_statuses, ActionResult, DashboardState},
     services::build_dashboard_state,
     terminal_plan::tmux_attach_command,
@@ -42,6 +43,16 @@ use crate::{
 
 const TMUX_SESSION: &str = "agentctl";
 const DEVICE_ID_HEADER: &str = "x-agent-manager-device";
+#[cfg(test)]
+const MOBILE_PWA_ROUTE_PATHS: &[&str] = &[
+    "/mobile",
+    "/mobile/",
+    "/mobile/app.js",
+    "/mobile/styles.css",
+    "/mobile/manifest.webmanifest",
+    "/mobile/sw.js",
+    "/mobile/icon.svg",
+];
 
 #[derive(Clone)]
 pub struct BridgeServerState {
@@ -111,6 +122,13 @@ impl MobileBridgeRuntime {
 
 pub fn mobile_bridge_router(state: BridgeServerState) -> Router {
     Router::new()
+        .route("/mobile", get(mobile_pwa::index))
+        .route("/mobile/", get(mobile_pwa::index))
+        .route("/mobile/app.js", get(mobile_pwa::app_js))
+        .route("/mobile/styles.css", get(mobile_pwa::styles_css))
+        .route("/mobile/manifest.webmanifest", get(mobile_pwa::manifest))
+        .route("/mobile/sw.js", get(mobile_pwa::service_worker))
+        .route("/mobile/icon.svg", get(mobile_pwa::icon_svg))
         .route("/api/mobile/v1/health", get(health))
         .route("/api/mobile/v1/pair/claim", post(claim_pairing_code))
         .route("/api/mobile/v1/dashboard", get(dashboard))
@@ -174,9 +192,10 @@ async fn resume_run(
 async fn stream(
     State(state): State<BridgeServerState>,
     headers: HeaderMap,
+    Query(query): Query<StreamAuthQuery>,
     websocket: WebSocketUpgrade,
 ) -> Response {
-    match authorize(&state, &headers) {
+    match authorize_stream(&state, &headers, &query) {
         Ok(_) => websocket
             .on_upgrade(move |socket| handle_stream(socket, state))
             .into_response(),
@@ -439,6 +458,38 @@ fn authorize(state: &BridgeServerState, headers: &HeaderMap) -> Result<String, B
     authenticated_device_id(&store, &auth).map_err(|_| BridgeApiError::unauthorized())
 }
 
+fn authorize_stream(
+    state: &BridgeServerState,
+    headers: &HeaderMap,
+    query: &StreamAuthQuery,
+) -> Result<String, BridgeApiError> {
+    let auth = stream_auth_headers(headers, query);
+    let store = state
+        .pairing
+        .lock()
+        .map_err(|_| BridgeApiError::internal("pairing lock poisoned"))?;
+    authenticated_device_id(&store, &auth).map_err(|_| BridgeApiError::unauthorized())
+}
+
+fn stream_auth_headers(headers: &HeaderMap, query: &StreamAuthQuery) -> MobileAuthHeaders {
+    MobileAuthHeaders {
+        device_id: header_value(headers, DEVICE_ID_HEADER).or_else(|| {
+            query
+                .device_id
+                .as_ref()
+                .filter(|value| !value.is_empty())
+                .cloned()
+        }),
+        authorization: header_value(headers, "authorization").or_else(|| {
+            query
+                .token
+                .as_ref()
+                .filter(|value| !value.is_empty())
+                .map(|token| format!("Bearer {token}"))
+        }),
+    }
+}
+
 fn header_value(headers: &HeaderMap, name: &str) -> Option<String> {
     headers
         .get(name)
@@ -491,6 +542,18 @@ struct PairClaimRequest {
     device_name: String,
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct StreamAuthQuery {
+    device_id: Option<String>,
+    token: Option<String>,
+}
+
+#[cfg(test)]
+fn mobile_pwa_route_paths() -> &'static [&'static str] {
+    MOBILE_PWA_ROUTE_PATHS
+}
+
 struct BridgeApiError {
     status: StatusCode,
     message: String,
@@ -540,5 +603,47 @@ impl IntoResponse for BridgeApiError {
 impl From<BridgeApiError> for DesktopError {
     fn from(value: BridgeApiError) -> Self {
         Self::Message(value.message)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stream_query_auth_can_authenticate_browser_websocket_clients() {
+        let mut store = PairingStore::default();
+        let code = store.issue_code(PairingTime::from_epoch_seconds(100));
+        let device = store
+            .claim_code(
+                &code.code,
+                "Chrome PWA",
+                PairingTime::from_epoch_seconds(120),
+            )
+            .unwrap();
+        let query = StreamAuthQuery {
+            device_id: Some(device.id.clone()),
+            token: Some(device.token),
+        };
+
+        let auth = stream_auth_headers(&HeaderMap::new(), &query);
+
+        assert_eq!(authenticated_device_id(&store, &auth).unwrap(), device.id);
+    }
+
+    #[test]
+    fn bridge_declares_mobile_pwa_asset_routes() {
+        assert_eq!(
+            mobile_pwa_route_paths(),
+            &[
+                "/mobile",
+                "/mobile/",
+                "/mobile/app.js",
+                "/mobile/styles.css",
+                "/mobile/manifest.webmanifest",
+                "/mobile/sw.js",
+                "/mobile/icon.svg",
+            ],
+        );
     }
 }

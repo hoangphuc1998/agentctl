@@ -336,6 +336,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-26 12:34 +07: After installing the xTunnel session fix, the emulator showed the AI Hay sign-in page, proving the session had not reached bridge health JSON yet. Expanded the WebView to fill remaining pairing-screen space so social sign-in buttons are visible, added on-screen guidance that the panel must show bridge health JSON before pairing, and mapped pairing HTTP 403 to an xTunnel sign-in required message. RED test pairingHttp403ShowsXtunnelSignInGuidance failed before the mapper and passed after implementation. Verification passed: android ./gradlew testDebugUnitTest --tests com.example.agentmanagermobile.ui.main.MainScreenViewModelTest.pairingHttp403ShowsXtunnelSignInGuidance, android ./gradlew testDebugUnitTest, android ./gradlew assembleDebug, APK installed on emulator, android ./gradlew compileDebugAndroidTestKotlin, and ./init.sh."
+    },
+    {
+      "id": "feat-033",
+      "name": "Mobile Bridge Chrome PWA",
+      "description": "Serve a Chrome-friendly mobile PWA from the Mobile Bridge so Android users can pair and control agent runs without Google OAuth inside WebView.",
+      "dependencies": [
+        "feat-032"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 14:00 +07: Added a bridge-served /mobile PWA with manifest, service worker, pairing, dashboard, resume, terminal stream, and instruction input. Mounted /mobile asset routes on the Axum Mobile Bridge and added browser WebSocket query auth because browser WebSockets cannot set Authorization headers. Updated the desktop Mobile Bridge panel and README to point Android Chrome users to https://linhmon.linhmon.1vn.app/mobile. RED checks failed before implementation for missing mobile_pwa assets, missing stream query auth/route metadata, and missing desktop /mobile URL; each passed after implementation. Verification passed: cargo fmt --check, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, npm test -- src/App.test.tsx -t 'starts the mobile bridge', npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside the sandbox after sandbox bind denial, and ./init.sh."
     }
   ]
 }

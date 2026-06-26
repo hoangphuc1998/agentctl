@@ -3,6 +3,5 @@
   "identifier": "default",
   "description": "Default desktop capability for Agent Manager",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "dialog:allow-open"]
 }
-

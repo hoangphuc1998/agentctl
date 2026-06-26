@@ -376,6 +376,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-26 15:43 +07: Reproduced the panel-regression path with RED App tests showing the visible mobile bridge status was not a button and start failures had no in-dialog alert. Made the status chip an interactive button that opens Mobile Bridge controls, kept the icon launcher, and rendered bridge command errors inside the dialog. Verification passed: npm test -- src/App.test.tsx, npm test, npm run build, git diff --check, and ./init.sh with npm test, npm run build, and cargo test."
+    },
+    {
+      "id": "feat-037",
+      "name": "Mobile PWA Terminal-First Drawer UI",
+      "description": "Make the Chrome PWA responsive on small screens by showing the tmux terminal as the primary full-screen surface and moving run navigation into a collapsible drawer.",
+      "dependencies": [
+        "feat-036"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 17:00 +07: Added RED mobile_pwa asset tests for terminal-first phone CSS, accessible drawer markup, and closing the drawer when a run is selected; they failed before implementation. Reworked the /mobile PWA embedded CSS and browser templates so small screens show the terminal panel full-height with a Runs drawer, while wide screens keep a persistent run column. Verification passed: npm install outside sandbox after esbuild postinstall was blocked by sandbox EPERM, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo fmt --check, npm test, npm run build, and ./init.sh with npm test, npm run build, and cargo test."
     }
   ]
 }

@@ -396,6 +396,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-26 17:59 +07: Added RED mobile_pwa asset tests for no same-run reattach on dashboard refresh, direct terminal DOM output updates, follow-tail-unless-scrolled behavior, terminalClosed handling, and replacing placeholders on first output. Implemented stable attachedRunId state, direct terminal text updates, tail-lock scroll anchoring, and touch scroll containment in the embedded /mobile PWA. Verification passed: cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo fmt --check, git diff --check, npm install outside sandbox after esbuild EPERM, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside sandbox after listener bind denial, and ./init.sh with npm test, npm run build, and cargo test."
+    },
+    {
+      "id": "feat-039",
+      "name": "Mobile PWA Performance and UI Polish",
+      "description": "Improve the Chrome PWA mobile experience with batched terminal rendering, scroll-preserving structural refreshes, and a more compact operator-console UI.",
+      "dependencies": [
+        "feat-038"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 18:10 +07: Used the frontend-design skill to move the /mobile PWA toward a cooler operator-console aesthetic, added RED mobile_pwa asset tests for requestAnimationFrame terminal output batching, structural render scroll preservation, stream status UI, composer focus controls, and CSS containment/focus styling. Implemented queued terminal output flushing, render scroll capture/restore, a live stream status pill, compact Input focus control, terminal/composer polish, and a less beige-heavy color system. Verification passed: ./init.sh baseline, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo fmt --check, git diff --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside sandbox after listener bind denial, and final ./init.sh."
     }
   ]
 }

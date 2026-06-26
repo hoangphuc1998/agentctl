@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { EventCallback, UnlistenFn } from "@tauri-apps/api/event";
 import { listen } from "@tauri-apps/api/event";
+import { open } from "@tauri-apps/plugin-dialog";
 import type {
   AgentAttentionEvent,
   CreateRunPayload,
@@ -109,6 +110,15 @@ export function repoSuggestions(input: string): Promise<Suggestion[]> {
 
 export function baseRefSuggestions(repoPath: string, input: string): Promise<Suggestion[]> {
   return invoke("base_ref_suggestions", { repoPath, input });
+}
+
+export async function chooseDirectory(): Promise<string | null> {
+  const selected = await open({
+    directory: true,
+    multiple: false
+  });
+
+  return typeof selected === "string" ? selected : null;
 }
 
 export function startTerminal(runId: string, cols: number, rows: number): Promise<TerminalStarted> {

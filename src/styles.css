@@ -818,6 +818,84 @@ textarea:focus,
   box-shadow: none;
 }
 
+.repo-path-picker {
+  position: relative;
+  min-width: 0;
+}
+
+.repo-path-input {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding-right: 3px;
+}
+
+.repo-browse-button {
+  width: 30px;
+  height: 30px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.repo-browse-button:hover {
+  background: rgba(27, 38, 51, 0.82);
+  color: var(--text);
+}
+
+.repo-path-suggestions {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 25;
+  display: grid;
+  gap: 2px;
+  max-height: 178px;
+  overflow: auto;
+  padding: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: #0b1016;
+  box-shadow: var(--shadow);
+}
+
+.repo-path-suggestion {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.repo-path-suggestion:hover,
+.repo-path-suggestion.active {
+  border-color: rgba(115, 183, 255, 0.36);
+  background: var(--info-bg);
+}
+
+.repo-path-suggestion-value {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.repo-path-suggestion-detail {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
 .agent-segment-field {
   align-self: stretch;
 }

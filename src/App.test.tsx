@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
+  chooseDirectory,
   createRun,
   dashboardState,
   enableTmuxRestore,
@@ -11,6 +12,7 @@ import {
   listenAgentAttention,
   mergeRun,
   mobileBridgeStatus,
+  repoSuggestions,
   startMobileBridge,
   restoreRun,
   stopMobileBridge,
@@ -23,6 +25,7 @@ const tauriWindowMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("./api", () => ({
+  chooseDirectory: vi.fn(),
   cleanupStaleRuns: vi.fn(),
   createRun: vi.fn(),
   dashboardState: vi.fn(),
@@ -33,6 +36,7 @@ vi.mock("./api", () => ({
   mergeRun: vi.fn(),
   mobileBridgeStatus: vi.fn(),
   openInVsCode: vi.fn(),
+  repoSuggestions: vi.fn(),
   restoreRun: vi.fn(),
   startMobileBridge: vi.fn(),
   stopRun: vi.fn(),
@@ -56,6 +60,8 @@ describe("App", () => {
     vi.mocked(listenAgentAttention).mockResolvedValue(vi.fn());
     vi.mocked(tmuxRestoreStatus).mockResolvedValue(restoreStatus(true));
     vi.mocked(enableTmuxRestore).mockResolvedValue(restoreStatus(true));
+    vi.mocked(chooseDirectory).mockResolvedValue(null);
+    vi.mocked(repoSuggestions).mockResolvedValue([]);
     vi.mocked(mobileBridgeStatus).mockResolvedValue(mobileStatus(false));
     vi.mocked(startMobileBridge).mockResolvedValue(mobileStatus(true));
     vi.mocked(stopMobileBridge).mockResolvedValue(mobileStatus(false));

@@ -379,14 +379,13 @@
     },
     {
       "id": "feat-037",
-      "name": "Create Run Repo Path Picker",
-      "description": "Make the Create Run repo path field easier to fill with autocomplete suggestions and a native folder chooser.",
+      "name": "Mobile PWA Terminal-First Drawer UI",
+      "description": "Make the Chrome PWA responsive on small screens by showing the tmux terminal as the primary full-screen surface and moving run navigation into a collapsible drawer.",
       "dependencies": [
-        "feat-024",
         "feat-036"
       ],
       "status": "completed",
-      "evidence": "2026-06-26 16:59 +07: Added RED CreateRunModal coverage for repo path suggestions, keyboard selection, blur dismissal, and native folder browsing. Wired the modal to existing repoSuggestions, added chooseDirectory through @tauri-apps/plugin-dialog and tauri-plugin-dialog, granted dialog:allow-open, and styled the compact suggestion list. Verification passed: npm test -- src/components/CreateRunModal.test.tsx with 7 tests, npm test with 59 tests, npm run build, cargo fmt --check, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, and ./init.sh with npm test, npm run build, and cargo test."
+      "evidence": "2026-06-26 17:00 +07: Added RED mobile_pwa asset tests for terminal-first phone CSS, accessible drawer markup, and closing the drawer when a run is selected; they failed before implementation. Reworked the /mobile PWA embedded CSS and browser templates so small screens show the terminal panel full-height with a Runs drawer, while wide screens keep a persistent run column. Verification passed: npm install outside sandbox after esbuild postinstall was blocked by sandbox EPERM, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo fmt --check, npm test, npm run build, and ./init.sh with npm test, npm run build, and cargo test."
     }
   ]
 }

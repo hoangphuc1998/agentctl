@@ -2,67 +2,60 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-26 16:59 +07
-**Session ID:** create-run-repo-path-picker
-**Active Feature:** feat-037 - Create Run Repo Path Picker
+**Last Updated:** 2026-06-26 17:00 +07
+**Session ID:** mobile-pwa-terminal-first-drawer-ui
+**Active Feature:** feat-037 - Mobile PWA Terminal-First Drawer UI
 
 ## Status
 
 ### What is Done
 
-- [x] Reproduced the create-run repo path usability gap with failing modal tests.
-- [x] Added repo path autocomplete in the Create Run modal using the existing `repoSuggestions` API.
-- [x] Added mouse and keyboard selection for suggested repo paths.
-- [x] Added blur dismissal so suggestions do not remain open after leaving the repo path field.
-- [x] Added a native directory picker button using Tauri's dialog plugin.
-- [x] Registered the Rust dialog plugin and granted `dialog:allow-open`.
-- [x] Added compact dropdown styling that matches the current modal design.
+- [x] Confirmed the repo is already an isolated worktree on `feat/mobile-ui`.
+- [x] Reproduced the responsive PWA gap with RED `mobile_pwa` asset tests for terminal-first CSS, drawer markup, and drawer-close-on-run-select behavior.
+- [x] Reworked the `/mobile` PWA to show the tmux terminal as the primary small-screen surface.
+- [x] Moved metrics and run selection into a collapsible `Runs` drawer on phone-width screens.
+- [x] Kept wide screens usable with a persistent run column and terminal panel.
+- [x] Prevented the closed mobile drawer from leaving offscreen run buttons focusable.
+- [x] Preserved existing pairing, dashboard, resume, stream, and instruction-send APIs.
 
 ### What is In Progress
 
 - [x] Implementation is complete.
 - [x] Focused verification is complete.
-- [x] Full verification is complete.
+- [x] Full npm and cargo verification is complete.
 - [x] Feature tracker is updated.
 
 ### What is Next
 
-1. Open New Run and type in Repo path to see matching directories and recent repositories.
-2. Use the folder button inside the Repo path field to select a repository directory from the native picker.
+1. Open `https://linhmon.linhmon.1vn.app/mobile` from Android Chrome after starting the Mobile Bridge.
+2. On small screens, use the `Runs` button to open the drawer and switch runs; the drawer closes after selection.
+3. Use the full-height tmux terminal and bottom instruction composer as the main mobile workflow.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
-- [ ] The native directory dialog was verified by Tauri feature compilation and mocked React coverage, not by a live desktop click.
+- [ ] Live Android Chrome visual verification was not performed in this session; behavior is covered by embedded PWA asset tests and build verification.
+- [ ] `npm install` reports existing audit findings: 3 moderate, 1 high, and 1 critical. Dependency audit remediation was not part of this UI feature.
 
 ## Decisions Made
 
-- Keep the repo path input editable and enhance it rather than replacing it.
-- Use the existing backend repo suggestion command for autocomplete.
-- Keep suggestion and cancelled folder-picker errors quiet so create-run validation remains the source of visible errors.
-- Add the scoped `dialog:allow-open` capability instead of broader dialog permissions.
+- Treat small screens as terminal-first instead of trying to fit the run list beside the tmux screen.
+- Use an overlay drawer for run navigation on phone-width screens.
+- Keep the drawer persistent on wide screens so tablet/desktop browser use remains efficient.
+- Keep API and WebSocket behavior unchanged; this is only a PWA asset/UI change.
 
 ## Files Modified This Session
 
-- `src/components/CreateRunModal.tsx` - Adds repo path suggestions, keyboard handling, and browse button behavior.
-- `src/components/CreateRunModal.test.tsx` - Adds regression coverage for autocomplete, keyboard selection, blur dismissal, and folder browsing.
-- `src/App.test.tsx` - Updates API mocks for the expanded modal dependencies.
-- `src/api.ts` - Adds `chooseDirectory` wrapper around Tauri's dialog plugin.
-- `src/styles.css` - Styles the compact repo path suggestion list and browse button.
-- `src-tauri/src/lib.rs` - Registers the dialog plugin.
-- `src-tauri/Cargo.toml` - Adds the optional dialog plugin to the Tauri app feature.
-- `src-tauri/capabilities/default.json` - Grants `dialog:allow-open`.
-- `package.json`, `package-lock.json`, `Cargo.lock` - Add dialog plugin dependencies.
+- `src-tauri/src/mobile_pwa.rs` - Updates embedded PWA CSS, JS templates, drawer state, and regression tests.
 - `feature_list.json` - Adds completed feat-037 evidence.
 - `progress.md` - Records this session status and verification.
 
 ## Evidence of Completion
 
-- [x] RED: `npm test -- src/components/CreateRunModal.test.tsx` failed with missing repo suggestion options and missing `Browse repo folder` button.
-- [x] GREEN: `npm test -- src/components/CreateRunModal.test.tsx` exited 0 with 7 tests passing.
-- [x] `npm test` exited 0 with 10 files and 59 tests passing.
+- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` failed for missing `.ready-shell`, missing `drawerOpen: false`, and missing drawer-close-on-select behavior.
+- [x] GREEN: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0 with 7 matching tests passing after implementation.
+- [x] `npm install` initially failed in the sandbox with esbuild postinstall `EPERM`, then exited 0 outside the sandbox.
+- [x] `cargo fmt --check` exited 0 after formatting.
+- [x] `npm test` exited 0 with 10 files and 55 tests passing.
 - [x] `npm run build` exited 0.
-- [x] `cargo fmt --check` exited 0.
-- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
-- [x] `git diff --check` exited 0.
 - [x] `./init.sh` exited 0 with npm test, npm run build, and cargo test passing.

@@ -443,6 +443,35 @@ describe("App", () => {
     await waitFor(() => expect(issueMobilePairingCode).toHaveBeenCalledOnce());
     expect(within(dialog).getByText("ABCD1234")).toBeInTheDocument();
   });
+
+  it("opens mobile bridge controls from the visible status chip", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("button", { name: /mobile bridge off/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /mobile bridge/i });
+    await userEvent.click(within(dialog).getByRole("button", { name: /start mobile bridge/i }));
+
+    await waitFor(() => expect(startMobileBridge).toHaveBeenCalledOnce());
+    expect(await screen.findByText("mobile bridge on")).toBeInTheDocument();
+  });
+
+  it("shows mobile bridge start failures inside the bridge dialog", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+    vi.mocked(startMobileBridge).mockRejectedValue("Address already in use");
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("button", { name: /^mobile bridge$/i }));
+    const dialog = screen.getByRole("dialog", { name: /mobile bridge/i });
+    await userEvent.click(within(dialog).getByRole("button", { name: /start mobile bridge/i }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Address already in use");
+  });
 });
 
 function dashboard(selectedRunId: string, runs: RunView[] = [run("run-1", "login-flow"), run("run-2", "api-cleanup")]): DashboardState {

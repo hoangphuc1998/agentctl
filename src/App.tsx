@@ -91,6 +91,7 @@ export function App() {
   const [mobileStatus, setMobileStatus] = useState<MobileBridgeStatus | null>(null);
   const [mobilePairingCode, setMobilePairingCode] = useState<MobilePairingCode | null>(null);
   const [mobileBridgeOpen, setMobileBridgeOpen] = useState(false);
+  const [mobileBridgeError, setMobileBridgeError] = useState<string | null>(null);
   const selectedRunIdRef = useRef<string | null>(null);
 
   const selectedRun = useMemo(
@@ -160,6 +161,11 @@ export function App() {
 
   const closeCreateRun = useCallback(() => {
     setCreateOpen(false);
+  }, []);
+
+  const openMobileBridge = useCallback(() => {
+    setMobileBridgeError(null);
+    setMobileBridgeOpen(true);
   }, []);
 
   const openCreateRunFromRepo = useCallback(
@@ -340,9 +346,12 @@ export function App() {
   async function startBridge() {
     try {
       setMobileStatus(await startMobileBridge());
+      setMobileBridgeError(null);
       setError(null);
     } catch (err) {
-      setError(errorMessage(err));
+      const message = errorMessage(err);
+      setMobileBridgeError(message);
+      setError(message);
       void loadMobileBridgeStatus();
     }
   }
@@ -351,9 +360,12 @@ export function App() {
     try {
       setMobileStatus(await stopMobileBridge());
       setMobilePairingCode(null);
+      setMobileBridgeError(null);
       setError(null);
     } catch (err) {
-      setError(errorMessage(err));
+      const message = errorMessage(err);
+      setMobileBridgeError(message);
+      setError(message);
       void loadMobileBridgeStatus();
     }
   }
@@ -361,9 +373,12 @@ export function App() {
   async function pairAndroid() {
     try {
       setMobilePairingCode(await issueMobilePairingCode());
+      setMobileBridgeError(null);
       setError(null);
     } catch (err) {
-      setError(errorMessage(err));
+      const message = errorMessage(err);
+      setMobileBridgeError(message);
+      setError(message);
     }
   }
 
@@ -420,13 +435,17 @@ export function App() {
             </Chip>
           )}
           {mobileStatus && (
-            <Chip
-              tone={mobileStatus.enabled ? "success" : "warning"}
-              icon={<Smartphone size={14} />}
+            <button
+              type="button"
+              className={`chip mobile-status-chip chip-${mobileStatus.enabled ? "success" : "warning"}`}
               title={`${mobileStatus.publicUrl} via ${mobileStatus.bind}`}
+              onClick={openMobileBridge}
             >
-              {mobileStatus.enabled ? "mobile bridge on" : "mobile bridge off"}
-            </Chip>
+              <span className="chip-icon" aria-hidden="true">
+                <Smartphone size={14} />
+              </span>
+              <span className="chip-label">{mobileStatus.enabled ? "mobile bridge on" : "mobile bridge off"}</span>
+            </button>
           )}
           {dashboard.hostTools.map((tool) => (
             <Chip tone={hostToolTone(tool)} icon={hostToolIcon(tool.name)} title={tool.detail || tool.name} key={tool.name}>
@@ -448,7 +467,7 @@ export function App() {
           <button
             className="icon-button"
             aria-label="Mobile Bridge"
-            onClick={() => setMobileBridgeOpen(true)}
+            onClick={openMobileBridge}
             title="Mobile Bridge"
           >
             <Smartphone size={18} />
@@ -632,6 +651,7 @@ export function App() {
             <MobileBridgePanel
               status={mobileStatus}
               pairingCode={mobilePairingCode}
+              error={mobileBridgeError}
               onStart={startBridge}
               onStop={stopBridge}
               onPair={pairAndroid}
@@ -664,6 +684,7 @@ export function App() {
 interface MobileBridgePanelProps {
   status: MobileBridgeStatus | null;
   pairingCode: MobilePairingCode | null;
+  error?: string | null;
   onStart: () => void;
   onStop: () => void;
   onPair: () => void;
@@ -672,6 +693,7 @@ interface MobileBridgePanelProps {
 function MobileBridgePanel({
   status,
   pairingCode,
+  error,
   onStart,
   onStop,
   onPair
@@ -697,6 +719,11 @@ function MobileBridgePanel({
         <span title="Open this URL in Android Chrome">{mobileWebUrl}</span>
       </div>
       <code className="mobile-bridge-command">{xtunnelCommand}</code>
+      {error && (
+        <div className="mobile-bridge-error" role="alert">
+          {error}
+        </div>
+      )}
       {pairingCode && (
         <div className="mobile-pairing-code" aria-label="Android pairing code">
           <ShieldCheck size={15} />

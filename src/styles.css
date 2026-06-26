@@ -272,6 +272,14 @@ h2 {
   color: #ffd0d0;
 }
 
+.mobile-status-chip {
+  cursor: pointer;
+}
+
+.mobile-status-chip:hover {
+  border-color: #4a6079;
+}
+
 .status-badge {
   min-height: 22px;
   display: inline-flex;
@@ -406,6 +414,17 @@ h2 {
   color: #bbf7d0;
   gap: 8px;
   justify-content: center;
+  padding: 8px;
+}
+
+.mobile-bridge-error {
+  border: 1px solid rgba(255, 133, 133, 0.34);
+  border-radius: 6px;
+  background: rgba(49, 25, 31, 0.7);
+  color: #ffd0d0;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
   padding: 8px;
 }
 

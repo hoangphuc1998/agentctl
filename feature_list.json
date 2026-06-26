@@ -366,6 +366,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-26 15:16 +07: Added RED React/CSS coverage for repository collapse/expand behavior, fixed left-panel scrolling, and Mobile Bridge controls being launched from the header instead of living in the workspace panel. Implemented repo collapse state, a bounded repo tree scroll container, and a header-launched Mobile Bridge dialog. Verification passed: npm test -- src/components/RepoRunTree.test.tsx src/App.test.tsx src/styles.test.ts, npm test, npm run build, git diff --check, and ./init.sh with npm test, npm run build, and cargo test."
+    },
+    {
+      "id": "feat-036",
+      "name": "Mobile Bridge Start Control Repair",
+      "description": "Make the visible Mobile Bridge status open the bridge controls and surface start failures inside the dialog.",
+      "dependencies": [
+        "feat-035"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 15:43 +07: Reproduced the panel-regression path with RED App tests showing the visible mobile bridge status was not a button and start failures had no in-dialog alert. Made the status chip an interactive button that opens Mobile Bridge controls, kept the icon launcher, and rendered bridge command errors inside the dialog. Verification passed: npm test -- src/App.test.tsx, npm test, npm run build, git diff --check, and ./init.sh with npm test, npm run build, and cargo test."
     }
   ]
 }

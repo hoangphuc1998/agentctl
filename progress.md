@@ -2,21 +2,22 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-26 17:00 +07
-**Session ID:** mobile-pwa-terminal-first-drawer-ui
-**Active Feature:** feat-037 - Mobile PWA Terminal-First Drawer UI
+**Last Updated:** 2026-06-26 18:10 +07
+**Session ID:** mobile-pwa-performance-ui-polish
+**Active Feature:** feat-039 - Mobile PWA Performance and UI Polish
 
 ## Status
 
 ### What is Done
 
-- [x] Confirmed the repo is already an isolated worktree on `feat/mobile-ui`.
-- [x] Reproduced the responsive PWA gap with RED `mobile_pwa` asset tests for terminal-first CSS, drawer markup, and drawer-close-on-run-select behavior.
-- [x] Reworked the `/mobile` PWA to show the tmux terminal as the primary small-screen surface.
-- [x] Moved metrics and run selection into a collapsible `Runs` drawer on phone-width screens.
-- [x] Kept wide screens usable with a persistent run column and terminal panel.
-- [x] Prevented the closed mobile drawer from leaving offscreen run buttons focusable.
-- [x] Preserved existing pairing, dashboard, resume, stream, and instruction-send APIs.
+- [x] Confirmed the repo is clean and still on the linked worktree `feat/mobile-render`.
+- [x] Used the frontend-design skill to steer the `/mobile` PWA toward a compact operator-console mobile experience.
+- [x] Added RED `mobile_pwa` asset tests for output batching, scroll-preserving structural renders, stream status UI, and composer focus controls.
+- [x] Batched live terminal output with `requestAnimationFrame` before touching the terminal DOM.
+- [x] Preserved terminal scroll position through structural renders such as dashboard refresh, attach, close, and stream errors.
+- [x] Added a live stream status pill and compact `Input` control in the terminal header.
+- [x] Improved mobile UI styling with cooler dashboard colors, terminal panel containment, selection styling, and composer focus feedback.
+- [x] Updated `feature_list.json` with completed feat-039 evidence.
 
 ### What is In Progress
 
@@ -28,34 +29,40 @@
 ### What is Next
 
 1. Open `https://linhmon.linhmon.1vn.app/mobile` from Android Chrome after starting the Mobile Bridge.
-2. On small screens, use the `Runs` button to open the drawer and switch runs; the drawer closes after selection.
-3. Use the full-height tmux terminal and bottom instruction composer as the main mobile workflow.
+2. Select a noisy running agent and confirm the terminal remains smooth while output streams.
+3. Confirm the stream status pill, `Input` focus control, and composer focus state feel usable on a phone viewport.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
 - [ ] Live Android Chrome visual verification was not performed in this session; behavior is covered by embedded PWA asset tests and build verification.
-- [ ] `npm install` reports existing audit findings: 3 moderate, 1 high, and 1 critical. Dependency audit remediation was not part of this UI feature.
+- [ ] `npm install` still reports existing audit findings from prior sessions: 3 moderate, 1 high, and 1 critical. Dependency audit remediation was not part of this UI feature.
+- [ ] The sandbox blocks the Mobile Bridge listener bind used by `mobile_bridge_runtime`; the feature-enabled cargo suite was rerun outside the sandbox.
 
 ## Decisions Made
 
-- Treat small screens as terminal-first instead of trying to fit the run list beside the tmux screen.
-- Use an overlay drawer for run navigation on phone-width screens.
-- Keep the drawer persistent on wide screens so tablet/desktop browser use remains efficient.
-- Keep API and WebSocket behavior unchanged; this is only a PWA asset/UI change.
+- Keep the existing Mobile Bridge stream protocol unchanged.
+- Batch terminal output on animation frames instead of appending every WebSocket chunk immediately.
+- Preserve terminal scroll through page-level renders so refreshes do not reset scrollback.
+- Use a restrained operator-console aesthetic rather than a decorative landing-page style.
+- Keep the mobile PWA dependency-free and embedded in `mobile_pwa.rs`.
 
 ## Files Modified This Session
 
-- `src-tauri/src/mobile_pwa.rs` - Updates embedded PWA CSS, JS templates, drawer state, and regression tests.
-- `feature_list.json` - Adds completed feat-037 evidence.
+- `src-tauri/src/mobile_pwa.rs` - Updates embedded PWA CSS, JS render behavior, terminal batching, scroll preservation, status UI, and regression tests.
+- `feature_list.json` - Adds completed feat-039 evidence.
 - `progress.md` - Records this session status and verification.
 
 ## Evidence of Completion
 
-- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` failed for missing `.ready-shell`, missing `drawerOpen: false`, and missing drawer-close-on-select behavior.
-- [x] GREEN: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0 with 7 matching tests passing after implementation.
-- [x] `npm install` initially failed in the sandbox with esbuild postinstall `EPERM`, then exited 0 outside the sandbox.
-- [x] `cargo fmt --check` exited 0 after formatting.
-- [x] `npm test` exited 0 with 10 files and 55 tests passing.
+- [x] Baseline `./init.sh` exited 0 before edits with npm test, npm run build, and cargo test.
+- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` failed for missing terminal output batching, scroll-preserving render helpers, and stream status/operator controls.
+- [x] GREEN: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0 with 14 matching tests passing.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server` exited 0.
+- [x] `cargo fmt --check` exited 0.
+- [x] `git diff --check` exited 0.
+- [x] `npm test` exited 0 with 10 files and 59 tests passing.
 - [x] `npm run build` exited 0.
-- [x] `./init.sh` exited 0 with npm test, npm run build, and cargo test passing.
+- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app` initially failed in the sandbox because listener bind was denied, then exited 0 outside the sandbox.
+- [x] Final `./init.sh` exited 0 with npm test, npm run build, and cargo test passing.

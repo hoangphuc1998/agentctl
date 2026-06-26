@@ -154,19 +154,21 @@ const STYLES_CSS: &str = r#"* {
 :root {
   color-scheme: light;
   font-family: "Aptos", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #ede7dc;
+  background: #e7eceb;
   color: #101418;
-  --bg: #ede7dc;
-  --paper: #fffaf1;
-  --paper-strong: #f7efe2;
+  --bg: #e7eceb;
+  --paper: #fbf8f1;
+  --paper-strong: #eaf0ed;
   --ink: #101418;
-  --muted: #5f6b62;
-  --line: #d2c7b7;
-  --line-strong: #b8ad9d;
+  --muted: #59666c;
+  --line: #c4cfcb;
+  --line-strong: #a9b7b2;
   --terminal: #070b0e;
   --terminal-text: #ddf2df;
-  --accent: #137a52;
-  --accent-soft: #dff5eb;
+  --accent: #0f766e;
+  --accent-soft: #d9f3ee;
+  --accent-cool: #2f5d9f;
+  --accent-warm: #b26b2d;
   --danger: #b42318;
   --shadow: 0 16px 44px rgba(16, 20, 24, 0.14);
 }
@@ -180,8 +182,9 @@ body {
   margin: 0;
   min-height: 100dvh;
   background:
-    linear-gradient(135deg, rgba(19, 122, 82, 0.11), transparent 32rem),
-    linear-gradient(315deg, rgba(178, 124, 34, 0.12), transparent 30rem),
+    linear-gradient(135deg, rgba(15, 118, 110, 0.13), transparent 32rem),
+    linear-gradient(315deg, rgba(47, 93, 159, 0.11), transparent 30rem),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.62), transparent 18rem),
     var(--bg);
 }
 
@@ -203,7 +206,7 @@ button {
 }
 
 button.secondary {
-  background: #e3dacb;
+  background: #dbe5e2;
   color: var(--ink);
 }
 
@@ -383,7 +386,8 @@ h2 {
   overflow: hidden;
   border: 1px solid rgba(16, 20, 24, 0.14);
   border-radius: 8px;
-  background: var(--paper);
+  background: linear-gradient(180deg, #fbf8f1, #eef3ef);
+  contain: layout paint style;
   box-shadow: var(--shadow);
 }
 
@@ -404,11 +408,63 @@ h2 {
   white-space: nowrap;
 }
 
+.terminal-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.stream-status {
+  min-height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(15, 118, 110, 0.3);
+  border-radius: 999px;
+  background: rgba(217, 243, 238, 0.9);
+  color: #075f58;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+  font-weight: 820;
+  white-space: nowrap;
+}
+
+.stream-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.13);
+}
+
+.stream-status.idle,
+.stream-status.closed {
+  border-color: rgba(89, 102, 108, 0.32);
+  background: rgba(234, 240, 237, 0.92);
+  color: var(--muted);
+}
+
+.mini-button {
+  min-width: 54px;
+  min-height: 38px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(16, 20, 24, 0.12);
+  background: #f5f1e8;
+  color: var(--ink);
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
 .terminal {
   min-width: 0;
   min-height: 0;
   height: 100%;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -421,14 +477,24 @@ h2 {
   word-break: break-word;
 }
 
+.terminal::selection {
+  background: rgba(76, 154, 255, 0.32);
+  color: #f7fffb;
+}
+
 .composer-bar {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
   gap: 8px;
   border-top: 1px solid var(--line);
-  background: rgba(247, 239, 226, 0.96);
+  background: rgba(234, 240, 237, 0.96);
   padding: 10px;
+}
+
+.composer-bar:focus-within {
+  border-top-color: rgba(15, 118, 110, 0.55);
+  box-shadow: 0 -1px 0 rgba(15, 118, 110, 0.2);
 }
 
 .composer-bar label {
@@ -621,6 +687,7 @@ h2 {
 "#;
 
 const APP_JS: &str = r#"const STORAGE_KEY = "agent-manager-mobile-credentials";
+const TAIL_LOCK_THRESHOLD = 48;
 const app = document.getElementById("app");
 
 const state = {
@@ -629,7 +696,11 @@ const state = {
   selectedRunId: null,
   terminalOutput: "",
   terminalId: null,
+  attachedRunId: null,
   terminalStatus: "idle",
+  pendingTerminalOutput: "",
+  pendingTerminalReplace: false,
+  terminalFlushScheduled: false,
   socket: null,
   drawerOpen: false,
   busy: false,
@@ -666,6 +737,10 @@ function clearCredentials() {
   state.selectedRunId = null;
   state.terminalOutput = "";
   state.terminalId = null;
+  state.attachedRunId = null;
+  state.pendingTerminalOutput = "";
+  state.pendingTerminalReplace = false;
+  state.terminalFlushScheduled = false;
   state.terminalStatus = "idle";
   state.drawerOpen = false;
   state.error = "";
@@ -727,7 +802,7 @@ async function loadDashboard(preferredRunId = state.selectedRunId) {
   if (!state.credentials) return;
   state.busy = true;
   state.error = "";
-  render();
+  render({ preserveTerminalScroll: true });
   try {
     const dashboard = await api("/api/mobile/v1/dashboard");
     state.dashboard = dashboard;
@@ -740,7 +815,7 @@ async function loadDashboard(preferredRunId = state.selectedRunId) {
     state.error = errorMessage(error);
   } finally {
     state.busy = false;
-    render();
+    render({ preserveTerminalScroll: true });
   }
 }
 
@@ -763,13 +838,18 @@ async function resumeSelectedRun() {
 
 function attachSelectedRun() {
   const run = selectedRun();
+  if (selectedRunAlreadyAttached(run)) return;
   closeStream();
   state.terminalOutput = "";
   state.terminalId = null;
+  state.attachedRunId = null;
+  state.pendingTerminalOutput = "";
+  state.pendingTerminalReplace = false;
   if (!run || !state.credentials) {
     state.terminalStatus = "idle";
     return;
   }
+  state.attachedRunId = run.id;
   state.terminalStatus = "connecting";
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const query = new URLSearchParams({
@@ -801,24 +881,40 @@ function attachSelectedRun() {
   });
 }
 
+function selectedRunAlreadyAttached(run) {
+  if (!run || !state.socket) return false;
+  if (state.attachedRunId !== run.id) return false;
+  return state.socket.readyState === WebSocket.CONNECTING || state.socket.readyState === WebSocket.OPEN;
+}
+
 function handleStreamMessage(text) {
   const message = JSON.parse(text);
   if (message.type === "terminalAttached") {
     state.terminalId = message.terminalId;
     state.terminalStatus = "attached";
+    render({ preserveTerminalScroll: true });
+    return;
   }
   if (message.type === "terminalSnapshot") {
-    state.terminalOutput = message.data || "";
     state.terminalStatus = "attached";
+    setTerminalOutput(message.data || "");
+    return;
   }
   if (message.type === "terminalOutput") {
-    state.terminalOutput += message.data || "";
     state.terminalStatus = "attached";
+    queueTerminalOutput(message.data || "");
+    return;
+  }
+  if (message.type === "terminalClosed") {
+    state.terminalId = null;
+    state.terminalStatus = "closed";
+    render({ preserveTerminalScroll: true });
+    return;
   }
   if (message.type === "error") {
     state.error = message.message || "Stream error";
+    render({ preserveTerminalScroll: true });
   }
-  render();
 }
 
 function sendInstruction(event) {
@@ -841,7 +937,89 @@ function closeStream() {
     }
     socket.close();
   }
+  state.attachedRunId = null;
   state.terminalStatus = "idle";
+}
+
+function terminalOutputElement() {
+  return app.querySelector("[data-terminal-output]");
+}
+
+function setTerminalOutput(data) {
+  state.pendingTerminalOutput = "";
+  state.pendingTerminalReplace = false;
+  state.terminalOutput = data;
+  const terminal = terminalOutputElement();
+  if (!terminal) {
+    render({ preserveTerminalScroll: true });
+    return;
+  }
+  const shouldFollow = shouldFollowTerminalTail(terminal);
+  terminal.textContent = terminalText();
+  updateTerminalScroll(terminal, shouldFollow);
+  updateSendButton();
+}
+
+function appendTerminalOutput(data) {
+  if (!data) return;
+  const hadOutput = Boolean(state.terminalOutput);
+  state.terminalOutput += data;
+  const terminal = terminalOutputElement();
+  if (!terminal) {
+    render({ preserveTerminalScroll: true });
+    return;
+  }
+  const shouldFollow = shouldFollowTerminalTail(terminal);
+  if (!hadOutput) terminal.textContent = "";
+  terminal.append(document.createTextNode(data));
+  updateTerminalScroll(terminal, shouldFollow);
+  updateSendButton();
+}
+
+function queueTerminalOutput(data) {
+  if (!data) return;
+  const hadOutput = Boolean(state.terminalOutput);
+  state.terminalOutput += data;
+  state.pendingTerminalOutput += data;
+  state.pendingTerminalReplace = state.pendingTerminalReplace || !hadOutput;
+  if (!state.terminalFlushScheduled) {
+    state.terminalFlushScheduled = true;
+    requestAnimationFrame(flushTerminalOutput);
+  }
+}
+
+function flushTerminalOutput() {
+  state.terminalFlushScheduled = false;
+  const data = state.pendingTerminalOutput;
+  const replace = state.pendingTerminalReplace;
+  state.pendingTerminalOutput = "";
+  state.pendingTerminalReplace = false;
+  if (!data) return;
+  const terminal = terminalOutputElement();
+  if (!terminal) {
+    render({ preserveTerminalScroll: true });
+    return;
+  }
+  const shouldFollow = shouldFollowTerminalTail(terminal);
+  if (replace) terminal.textContent = "";
+  terminal.append(document.createTextNode(data));
+  updateTerminalScroll(terminal, shouldFollow);
+  updateSendButton();
+}
+
+function shouldFollowTerminalTail(terminal) {
+  return terminal.scrollHeight - terminal.clientHeight - terminal.scrollTop <= TAIL_LOCK_THRESHOLD;
+}
+
+function updateTerminalScroll(terminal, shouldFollow) {
+  if (shouldFollow) {
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+}
+
+function updateSendButton() {
+  const sendButton = app.querySelector("[data-send-instruction]");
+  if (sendButton) sendButton.disabled = !state.terminalId;
 }
 
 function allRuns() {
@@ -873,9 +1051,31 @@ function errorMessage(error) {
   return error && error.message ? error.message : String(error || "Unexpected error");
 }
 
-function render() {
+function captureTerminalScroll() {
+  const terminal = terminalOutputElement();
+  if (!terminal) return null;
+  return {
+    runId: state.selectedRunId,
+    top: terminal.scrollTop,
+    shouldFollow: shouldFollowTerminalTail(terminal)
+  };
+}
+
+function restoreTerminalScroll(snapshot) {
+  if (!snapshot || snapshot.runId !== state.selectedRunId) return;
+  const terminal = terminalOutputElement();
+  if (!terminal) return;
+  updateTerminalScroll(terminal, snapshot.shouldFollow);
+  if (!snapshot.shouldFollow) {
+    terminal.scrollTop = snapshot.top;
+  }
+}
+
+function render(options = {}) {
+  const terminalScroll = options.preserveTerminalScroll ? captureTerminalScroll() : null;
   app.innerHTML = state.credentials ? readyTemplate() : pairingTemplate();
   bindEvents();
+  restoreTerminalScroll(terminalScroll);
 }
 
 function pairingTemplate() {
@@ -946,7 +1146,7 @@ function readyTemplate() {
           </div>
         </aside>
         <section class="terminal-panel">
-          ${run ? selectedRunTemplate(run) : `<div class="terminal-header"><div><h2>No run selected</h2><p class="muted">Create or resume a run from desktop.</p></div></div><pre class="terminal" aria-label="Terminal output">Waiting for terminal output...</pre>`}
+          ${run ? selectedRunTemplate(run) : `<div class="terminal-header"><div><h2>No run selected</h2><p class="muted">Create or resume a run from desktop.</p></div></div><pre class="terminal" data-terminal-output aria-label="Terminal output">Waiting for terminal output...</pre>`}
         </section>
       </div>
       <div class="drawer-backdrop${state.drawerOpen ? " open" : ""}" data-action="close-drawer" aria-hidden="true"></div>
@@ -986,17 +1186,27 @@ function selectedRunTemplate(run) {
         <h2>${escapeHtml(run.runName)}</h2>
         <p class="muted">${escapeHtml(run.repoName)} / ${escapeHtml(run.branch)}</p>
       </div>
-      ${run.restorable ? `<button data-action="resume" ${state.busy ? "disabled" : ""}>Resume</button>` : ""}
+      <div class="terminal-status-row">
+        ${statusPillTemplate()}
+        <button class="secondary mini-button" data-action="focus-composer" aria-label="Focus instruction composer" title="Focus instruction composer">Input</button>
+        ${run.restorable ? `<button data-action="resume" ${state.busy ? "disabled" : ""}>Resume</button>` : ""}
+      </div>
     </div>
-    <pre class="terminal" aria-label="Terminal output">${escapeHtml(terminalText())}</pre>
+    <pre class="terminal" data-terminal-output aria-label="Terminal output">${escapeHtml(terminalText())}</pre>
     <form class="composer-bar" data-form="instruction">
       <label>
         <span class="muted">Instruction</span>
         <textarea name="instruction" placeholder="Send instructions to the selected agent"></textarea>
       </label>
-      <button ${state.terminalId ? "" : "disabled"}>Send</button>
+      <button data-send-instruction ${state.terminalId ? "" : "disabled"}>Send</button>
     </form>
   `;
+}
+
+function statusPillTemplate() {
+  const status = state.terminalId ? "live" : state.terminalStatus;
+  const label = status === "attached" ? "live" : status;
+  return `<span class="stream-status ${escapeHtml(status)}" aria-live="polite">${escapeHtml(label)}</span>`;
 }
 
 function terminalText() {
@@ -1013,6 +1223,9 @@ function bindEvents() {
   app.querySelector('[data-action="refresh"]')?.addEventListener("click", () => loadDashboard());
   app.querySelector('[data-action="disconnect"]')?.addEventListener("click", clearCredentials);
   app.querySelector('[data-action="resume"]')?.addEventListener("click", resumeSelectedRun);
+  app.querySelector('[data-action="focus-composer"]')?.addEventListener("click", () => {
+    app.querySelector('[name="instruction"]')?.focus();
+  });
   app.querySelector('[data-action="toggle-drawer"]')?.addEventListener("click", toggleDrawer);
   app.querySelectorAll('[data-action="close-drawer"]').forEach((element) => {
     element.addEventListener("click", closeDrawer);
@@ -1122,5 +1335,104 @@ mod tests {
         assert!(script.body.contains("state.drawerOpen = false;"));
         assert!(script.body.contains("attachSelectedRun();"));
         assert!(script.body.contains("function toggleDrawer()"));
+    }
+
+    #[test]
+    fn mobile_script_does_not_reattach_same_running_terminal_on_dashboard_refresh() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("attachedRunId: null"));
+        assert!(script
+            .body
+            .contains("function selectedRunAlreadyAttached(run)"));
+        assert!(script
+            .body
+            .contains("if (selectedRunAlreadyAttached(run)) return;"));
+    }
+
+    #[test]
+    fn mobile_script_updates_terminal_output_without_full_page_render() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains(r#"data-terminal-output"#));
+        assert!(script.body.contains("function setTerminalOutput(data)"));
+        assert!(script.body.contains("function appendTerminalOutput(data)"));
+        assert!(script
+            .body
+            .contains("const hadOutput = Boolean(state.terminalOutput);"));
+        assert!(script
+            .body
+            .contains("if (!hadOutput) terminal.textContent = \"\";"));
+        assert!(script
+            .body
+            .contains("queueTerminalOutput(message.data || \"\");"));
+    }
+
+    #[test]
+    fn mobile_script_follows_tail_unless_user_scrolled_up() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("const TAIL_LOCK_THRESHOLD = 48;"));
+        assert!(script
+            .body
+            .contains("function shouldFollowTerminalTail(terminal)"));
+        assert!(script
+            .body
+            .contains("function updateTerminalScroll(terminal, shouldFollow)"));
+        assert!(script
+            .body
+            .contains("terminal.scrollTop = terminal.scrollHeight;"));
+    }
+
+    #[test]
+    fn mobile_script_handles_terminal_closed_without_clearing_output() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("message.type === \"terminalClosed\""));
+        assert!(script.body.contains("state.terminalId = null;"));
+        assert!(script.body.contains("state.terminalStatus = \"closed\";"));
+    }
+
+    #[test]
+    fn mobile_script_batches_live_terminal_output_before_touching_dom() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("pendingTerminalOutput: \"\""));
+        assert!(script.body.contains("function queueTerminalOutput(data)"));
+        assert!(script
+            .body
+            .contains("requestAnimationFrame(flushTerminalOutput)"));
+        assert!(script
+            .body
+            .contains("queueTerminalOutput(message.data || \"\");"));
+    }
+
+    #[test]
+    fn mobile_script_preserves_terminal_scroll_across_structural_renders() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("function render(options = {})"));
+        assert!(script.body.contains("function captureTerminalScroll()"));
+        assert!(script
+            .body
+            .contains("function restoreTerminalScroll(snapshot)"));
+        assert!(script
+            .body
+            .contains("render({ preserveTerminalScroll: true });"));
+    }
+
+    #[test]
+    fn mobile_ui_surfaces_stream_status_and_operator_controls() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+        let styles = asset_for_path("/mobile/styles.css").expect("mobile styles should be served");
+
+        assert!(script.body.contains("function statusPillTemplate()"));
+        assert!(script.body.contains(r#"class="stream-status"#));
+        assert!(script.body.contains(r#"aria-live="polite""#));
+        assert!(script.body.contains(r#"data-action="focus-composer""#));
+        assert!(styles.body.contains(".stream-status"));
+        assert!(styles.body.contains(".terminal-panel"));
+        assert!(styles.body.contains("contain: layout paint style;"));
+        assert!(styles.body.contains(".composer-bar:focus-within"));
     }
 }

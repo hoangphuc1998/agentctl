@@ -28,4 +28,10 @@ describe("app shell layout CSS", () => {
     expect(css).toContain(".agent-segmented-control {");
     expect(css).toContain(".agent-segment.active {");
   });
+
+  it("keeps the workspace header fixed while the run tree scrolls inside the left panel", () => {
+    expect(css).toContain(".left-panel {\n  min-width: 0;\n  min-height: 0;\n  display: grid;");
+    expect(css).toContain("grid-template-rows: auto minmax(0, 1fr);");
+    expect(css).toContain(".repo-run-tree-scroll {\n  min-width: 0;\n  min-height: 0;\n  overflow: auto;");
+  });
 });

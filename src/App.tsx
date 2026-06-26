@@ -21,7 +21,8 @@ import {
   Tag,
   Terminal,
   Trash2,
-  Wrench
+  Wrench,
+  X
 } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -89,6 +90,7 @@ export function App() {
   const [restoreStatus, setRestoreStatus] = useState<TmuxRestoreStatus | null>(null);
   const [mobileStatus, setMobileStatus] = useState<MobileBridgeStatus | null>(null);
   const [mobilePairingCode, setMobilePairingCode] = useState<MobilePairingCode | null>(null);
+  const [mobileBridgeOpen, setMobileBridgeOpen] = useState(false);
   const selectedRunIdRef = useRef<string | null>(null);
 
   const selectedRun = useMemo(
@@ -242,7 +244,7 @@ export function App() {
   useEffect(() => {
     function handleGlobalShortcut(event: KeyboardEvent) {
       const shortcut = appShortcutFromEvent(event);
-      if (!shortcut || createOpen || paletteOpen || pendingAction) return;
+      if (!shortcut || createOpen || paletteOpen || pendingAction || mobileBridgeOpen) return;
 
       let handled = true;
       if (shortcut === "open-palette") {
@@ -267,7 +269,15 @@ export function App() {
 
     window.addEventListener("keydown", handleGlobalShortcut, true);
     return () => window.removeEventListener("keydown", handleGlobalShortcut, true);
-  }, [createOpen, openCreateRun, paletteOpen, pendingAction, selectAdjacentRun, selectedRun]);
+  }, [
+    createOpen,
+    mobileBridgeOpen,
+    openCreateRun,
+    paletteOpen,
+    pendingAction,
+    selectAdjacentRun,
+    selectedRun
+  ]);
 
   async function runAction(action: PendingAction) {
     try {
@@ -436,6 +446,14 @@ export function App() {
             <RefreshCw size={18} className={refreshing ? "spin" : ""} />
           </button>
           <button
+            className="icon-button"
+            aria-label="Mobile Bridge"
+            onClick={() => setMobileBridgeOpen(true)}
+            title="Mobile Bridge"
+          >
+            <Smartphone size={18} />
+          </button>
+          <button
             className="button secondary"
             aria-keyshortcuts="Control+K Meta+K"
             onClick={() => setPaletteOpen(true)}
@@ -459,7 +477,7 @@ export function App() {
       {error && <section className="notice error">{error}</section>}
 
       <section className="workspace">
-        <aside className="left-panel">
+        <aside className="left-panel" aria-label="Workspaces">
           <div className="panel-title">
             <span className="panel-title-label">
               <Search size={16} />
@@ -467,20 +485,15 @@ export function App() {
             </span>
             <Chip tone="neutral">{dashboard.repos.length} repos</Chip>
           </div>
-          <RepoRunTree
-            repos={dashboard.repos}
-            selectedRunId={selectedRunId}
-            onSelectRun={selectRunAndLoad}
-            onCreateRunFromRepo={openCreateRunFromRepo}
-            onCreateRunFromRun={openCreateRunFromRun}
-          />
-          <MobileBridgePanel
-            status={mobileStatus}
-            pairingCode={mobilePairingCode}
-            onStart={startBridge}
-            onStop={stopBridge}
-            onPair={pairAndroid}
-          />
+          <div className="repo-run-tree-scroll">
+            <RepoRunTree
+              repos={dashboard.repos}
+              selectedRunId={selectedRunId}
+              onSelectRun={selectRunAndLoad}
+              onCreateRunFromRepo={openCreateRunFromRepo}
+              onCreateRunFromRun={openCreateRunFromRun}
+            />
+          </div>
         </aside>
 
         <section className="run-surface">
@@ -597,6 +610,35 @@ export function App() {
           setPendingAction({ kind: "cleanup-stale" });
         }}
       />
+
+      {mobileBridgeOpen && mobileStatus && (
+        <div className="modal-backdrop">
+          <section className="modal mobile-bridge-dialog" role="dialog" aria-modal="true" aria-label="Mobile Bridge">
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Mobile Bridge</p>
+                <h2>Android access</h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Close Mobile Bridge"
+                title="Close Mobile Bridge"
+                onClick={() => setMobileBridgeOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <MobileBridgePanel
+              status={mobileStatus}
+              pairingCode={mobilePairingCode}
+              onStart={startBridge}
+              onStop={stopBridge}
+              onPair={pairAndroid}
+            />
+          </section>
+        </div>
+      )}
 
       {pendingAction && (
         <ConfirmDialog

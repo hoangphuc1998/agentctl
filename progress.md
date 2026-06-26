@@ -2,62 +2,59 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-26 14:23 +07
-**Session ID:** mobile-pwa-terminal-stream-fix
-**Active Feature:** feat-034 - Mobile PWA Terminal Stream Attach Fix
+**Last Updated:** 2026-06-26 15:16 +07
+**Session ID:** panel-ui-scroll-collapse-bridge
+**Active Feature:** feat-035 - Scrollable Collapsible Panel UI
 
 ## Status
 
 ### What is Done
 
-- [x] Investigated why the PWA terminal area could remain on `Waiting for terminal output...`.
-- [x] Traced the stream path from browser WebSocket open through `attachTerminal`, Rust stream auth, tmux snapshot, PTY attach, and browser message handling.
-- [x] Found the initial tmux snapshot path used `blocking_send` from inside the async WebSocket handler.
-- [x] Replaced that snapshot queue with non-blocking `try_send` via `queue_terminal_snapshot`.
-- [x] Added browser-side terminal stream states so the PWA now reports `Connecting terminal stream...`, `Terminal attached. Waiting for output...`, `Terminal stream error.`, or `Terminal stream closed before attach.` instead of staying on one generic placeholder.
+- [x] Investigated the left panel layout and found it was inside an overflow-hidden app shell without its own bounded scroll region.
+- [x] Confirmed repository rows advertised `aria-expanded="true"` with a chevron but had no collapse state or toggle handler.
+- [x] Moved full Mobile Bridge controls out of the workspace panel and into a header-launched dialog.
+- [x] Added a fixed workspace panel title plus a scrollable repo tree area.
+- [x] Added accessible repo collapse/expand controls that preserve run selection and create-run actions.
 
 ### What is In Progress
 
 - [x] Fix implementation is complete.
 - [x] Focused verification is complete.
 - [x] Standard verification is complete.
+- [x] Feature tracker is updated.
 
 ### What is Next
 
-1. Restart the desktop app or Mobile Bridge so the updated `/mobile/app.js` is served.
-2. In Android Chrome, hard refresh the PWA or close/reopen it.
-3. If it still shows an old state, clear the site data/service worker for `linhmon.linhmon.1vn.app` and reload `/mobile`.
+1. Open the desktop app and use the header Mobile Bridge icon to start/stop bridge or generate a pairing code.
+2. Use the Workspaces panel collapse buttons to fold large repositories while the run tree scrolls inside the left panel.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
-- [ ] If a selected run has no tmux window or no visible pane text, the PWA may show `Terminal attached. Waiting for output...`; selecting an active tmux-backed run should stream output.
-- [ ] The PWA service worker may cache older assets until the page is reloaded or site data is cleared.
+- [ ] This session did not run a live Tauri UI screenshot check; behavior is covered by React tests, CSS checks, build, and the standard verifier.
 
 ## Decisions Made
 
-- Use `try_send` for the initial snapshot because the channel is local, buffered, and called from async WebSocket handling.
-- Keep `blocking_send` in the PTY reader thread because that code runs on a regular OS thread, not inside the async runtime.
-- Surface stream close/error states in the PWA so future connection/auth failures are visible on the phone.
+- Keep Mobile Bridge status visible as the existing top-bar chip, but move bridge controls into a dialog opened from a header icon button.
+- Keep page-level overflow hidden so the terminal remains bounded, and give only the left repo tree its own scroll area.
+- Collapse repository groups locally in `RepoRunTree` because this is display state and does not need backend persistence.
 
 ## Files Modified This Session
 
-- `src-tauri/src/mobile_bridge_server.rs` - Adds async-safe snapshot queuing and a regression test.
-- `src-tauri/src/mobile_pwa.rs` - Adds browser terminal stream status/error handling and asset tests.
-- `feature_list.json` - Adds completed feat-034 evidence.
-- `progress.md` - Records this debug session status and verification.
+- `src/App.tsx` - Moves Mobile Bridge controls to a header-launched dialog and wraps the run tree in a scroll container.
+- `src/components/RepoRunTree.tsx` - Adds repository collapse/expand state and accessible toggle buttons.
+- `src/styles.css` - Adds left-panel scroll containment, collapse button styling, and Mobile Bridge dialog sizing.
+- `src/App.test.tsx` - Covers Mobile Bridge control relocation.
+- `src/components/RepoRunTree.test.tsx` - Covers repo collapse/expand behavior.
+- `src/styles.test.ts` - Covers the left-panel scroll layout contract.
+- `feature_list.json` - Adds completed feat-035 evidence.
+- `progress.md` - Records this session status and verification.
 
 ## Evidence of Completion
 
-- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app terminal_snapshot_queue_is_safe_inside_async_runtime` failed before `queue_terminal_snapshot` existed.
-- [x] GREEN: the same targeted test exited 0 after replacing the snapshot path with `try_send`.
-- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_script_reports_terminal_stream_connection_states` failed before the PWA exposed stream states.
-- [x] GREEN: the same targeted test exited 0 after adding stream states.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server` exited 0.
-- [x] `cargo fmt --check` exited 0.
-- [x] `npm test` exited 0 with 10 files and 51 tests passing.
+- [x] RED: `npm test -- src/components/RepoRunTree.test.tsx src/App.test.tsx src/styles.test.ts` failed before implementation for missing collapse controls, missing workspace panel name/header bridge launcher, and missing left-panel scroll CSS.
+- [x] GREEN: the same targeted command exited 0 after implementation with 3 files and 30 tests passing.
+- [x] `npm test` exited 0 with 10 files and 53 tests passing.
 - [x] `npm run build` exited 0.
-- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app` exited 0 outside the sandbox.
+- [x] `git diff --check` exited 0.
 - [x] `./init.sh` exited 0 with npm test, npm run build, and cargo test passing.

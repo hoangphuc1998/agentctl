@@ -415,25 +415,33 @@ describe("App", () => {
     expect(screen.queryByText("1 attention")).not.toBeInTheDocument();
   });
 
-  it("starts the mobile bridge and shows pairing plus xtunnel guidance", async () => {
+  it("opens mobile bridge controls from the header instead of the workspace panel", async () => {
     vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
 
     render(<App />);
 
     await screen.findByRole("heading", { name: "login-flow" });
     expect(screen.getByText("mobile bridge off")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("complementary", { name: /workspaces/i })).queryByRole("region", {
+        name: /mobile bridge/i
+      })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /start mobile bridge/i })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /start mobile bridge/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^mobile bridge$/i }));
+    const dialog = screen.getByRole("dialog", { name: /mobile bridge/i });
+    await userEvent.click(within(dialog).getByRole("button", { name: /start mobile bridge/i }));
 
     await waitFor(() => expect(startMobileBridge).toHaveBeenCalledOnce());
     expect(await screen.findByText("mobile bridge on")).toBeInTheDocument();
-    expect(screen.getByText("xtunnel.cmd linhmon start 17654")).toBeInTheDocument();
-    expect(screen.getByText("https://linhmon.linhmon.1vn.app/mobile")).toBeInTheDocument();
+    expect(within(dialog).getByText("xtunnel.cmd linhmon start 17654")).toBeInTheDocument();
+    expect(within(dialog).getByText("https://linhmon.linhmon.1vn.app/mobile")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: /pair android/i }));
+    await userEvent.click(within(dialog).getByRole("button", { name: /pair android/i }));
 
     await waitFor(() => expect(issueMobilePairingCode).toHaveBeenCalledOnce());
-    expect(screen.getByText("ABCD1234")).toBeInTheDocument();
+    expect(within(dialog).getByText("ABCD1234")).toBeInTheDocument();
   });
 });
 

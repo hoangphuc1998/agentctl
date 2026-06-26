@@ -68,6 +68,24 @@ describe("RepoRunTree", () => {
     expect(onSelectRun).toHaveBeenCalledWith("run-2");
   });
 
+  it("collapses and expands repository groups from the repo header", async () => {
+    render(<RepoRunTree repos={repos} selectedRunId={null} onSelectRun={() => {}} />);
+
+    await userEvent.click(screen.getByRole("button", { name: /collapse agent-manager/i }));
+
+    expect(screen.queryByRole("treeitem", { name: /login-flow/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("treeitem", { name: /api-cleanup/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /expand agent-manager/i })).toHaveAttribute(
+      "aria-expanded",
+      "false"
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /expand agent-manager/i }));
+
+    expect(screen.getByRole("treeitem", { name: /login-flow/i })).toBeInTheDocument();
+    expect(screen.getByRole("treeitem", { name: /api-cleanup/i })).toBeInTheDocument();
+  });
+
   it("requests a new run from a repo row", async () => {
     const onCreateRunFromRepo = vi.fn();
     render(

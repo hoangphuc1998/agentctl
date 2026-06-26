@@ -356,6 +356,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-26 14:23 +07: Debugged the PWA terminal staying on 'Waiting for terminal output...'. Found the stream attach path queued the initial tmux snapshot with tokio mpsc blocking_send from inside the async WebSocket handler, which can panic/close the stream before the browser receives terminal messages. Added a RED regression for async-safe snapshot queuing, changed the snapshot path to non-blocking try_send, and added PWA connection-state text so browser stream errors/closes are visible instead of generic waiting. Verification passed: cargo test -p agent-manager-desktop --features tauri-app terminal_snapshot_queue_is_safe_inside_async_runtime, cargo test -p agent-manager-desktop --features tauri-app mobile_script_reports_terminal_stream_connection_states, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside the sandbox, and ./init.sh."
+    },
+    {
+      "id": "feat-035",
+      "name": "Scrollable Collapsible Panel UI",
+      "description": "Make the workspace panel scroll independently, implement repository collapse controls, and move Mobile Bridge controls out of the left workspace panel.",
+      "dependencies": [
+        "feat-034"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 15:16 +07: Added RED React/CSS coverage for repository collapse/expand behavior, fixed left-panel scrolling, and Mobile Bridge controls being launched from the header instead of living in the workspace panel. Implemented repo collapse state, a bounded repo tree scroll container, and a header-launched Mobile Bridge dialog. Verification passed: npm test -- src/components/RepoRunTree.test.tsx src/App.test.tsx src/styles.test.ts, npm test, npm run build, git diff --check, and ./init.sh with npm test, npm run build, and cargo test."
     }
   ]
 }

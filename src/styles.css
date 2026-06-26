@@ -333,9 +333,21 @@ h2 {
 
 .left-panel {
   min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 9px;
+  overflow: hidden;
   padding: 10px;
   border-right: 1px solid var(--line);
   background: rgba(11, 16, 22, 0.56);
+}
+
+.repo-run-tree-scroll {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 4px;
 }
 
 .mobile-bridge-panel {
@@ -403,7 +415,6 @@ h2 {
   justify-content: space-between;
   gap: 10px;
   min-height: 28px;
-  margin-bottom: 9px;
 }
 
 .panel-title-label,
@@ -425,7 +436,7 @@ h2 {
 .repo-row {
   height: 28px;
   display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  grid-template-columns: 26px minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 4px;
   color: #f4f8fc;
@@ -482,7 +493,8 @@ h2 {
 }
 
 .run-row:focus-visible,
-.tree-create-button:focus-visible {
+.tree-create-button:focus-visible,
+.tree-collapse-button:focus-visible {
   outline: 2px solid rgba(115, 183, 255, 0.72);
   outline-offset: 2px;
 }
@@ -533,7 +545,8 @@ h2 {
   max-width: 190px;
 }
 
-.tree-create-button {
+.tree-create-button,
+.tree-collapse-button {
   width: 26px;
   height: 26px;
   display: inline-grid;
@@ -545,10 +558,15 @@ h2 {
   cursor: pointer;
 }
 
-.tree-create-button:hover {
+.tree-create-button:hover,
+.tree-collapse-button:hover {
   border-color: rgba(94, 225, 140, 0.42);
   background: rgba(30, 100, 73, 0.32);
   color: #c8f8dc;
+}
+
+.tree-collapse-button {
+  color: #b9c8d8;
 }
 
 .run-surface {
@@ -675,6 +693,15 @@ h2 {
 .modal {
   display: grid;
   gap: 10px;
+}
+
+.mobile-bridge-dialog {
+  width: min(520px, calc(100vw - 48px));
+}
+
+.mobile-bridge-dialog .mobile-bridge-panel {
+  border-top: 0;
+  padding: 0;
 }
 
 .modal-header {

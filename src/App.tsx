@@ -21,7 +21,8 @@ import {
   Tag,
   Terminal,
   Trash2,
-  Wrench
+  Wrench,
+  X
 } from "lucide-react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -89,6 +90,8 @@ export function App() {
   const [restoreStatus, setRestoreStatus] = useState<TmuxRestoreStatus | null>(null);
   const [mobileStatus, setMobileStatus] = useState<MobileBridgeStatus | null>(null);
   const [mobilePairingCode, setMobilePairingCode] = useState<MobilePairingCode | null>(null);
+  const [mobileBridgeOpen, setMobileBridgeOpen] = useState(false);
+  const [mobileBridgeError, setMobileBridgeError] = useState<string | null>(null);
   const selectedRunIdRef = useRef<string | null>(null);
 
   const selectedRun = useMemo(
@@ -158,6 +161,11 @@ export function App() {
 
   const closeCreateRun = useCallback(() => {
     setCreateOpen(false);
+  }, []);
+
+  const openMobileBridge = useCallback(() => {
+    setMobileBridgeError(null);
+    setMobileBridgeOpen(true);
   }, []);
 
   const openCreateRunFromRepo = useCallback(
@@ -242,7 +250,7 @@ export function App() {
   useEffect(() => {
     function handleGlobalShortcut(event: KeyboardEvent) {
       const shortcut = appShortcutFromEvent(event);
-      if (!shortcut || createOpen || paletteOpen || pendingAction) return;
+      if (!shortcut || createOpen || paletteOpen || pendingAction || mobileBridgeOpen) return;
 
       let handled = true;
       if (shortcut === "open-palette") {
@@ -267,7 +275,15 @@ export function App() {
 
     window.addEventListener("keydown", handleGlobalShortcut, true);
     return () => window.removeEventListener("keydown", handleGlobalShortcut, true);
-  }, [createOpen, openCreateRun, paletteOpen, pendingAction, selectAdjacentRun, selectedRun]);
+  }, [
+    createOpen,
+    mobileBridgeOpen,
+    openCreateRun,
+    paletteOpen,
+    pendingAction,
+    selectAdjacentRun,
+    selectedRun
+  ]);
 
   async function runAction(action: PendingAction) {
     try {
@@ -330,9 +346,12 @@ export function App() {
   async function startBridge() {
     try {
       setMobileStatus(await startMobileBridge());
+      setMobileBridgeError(null);
       setError(null);
     } catch (err) {
-      setError(errorMessage(err));
+      const message = errorMessage(err);
+      setMobileBridgeError(message);
+      setError(message);
       void loadMobileBridgeStatus();
     }
   }
@@ -341,9 +360,12 @@ export function App() {
     try {
       setMobileStatus(await stopMobileBridge());
       setMobilePairingCode(null);
+      setMobileBridgeError(null);
       setError(null);
     } catch (err) {
-      setError(errorMessage(err));
+      const message = errorMessage(err);
+      setMobileBridgeError(message);
+      setError(message);
       void loadMobileBridgeStatus();
     }
   }
@@ -351,9 +373,12 @@ export function App() {
   async function pairAndroid() {
     try {
       setMobilePairingCode(await issueMobilePairingCode());
+      setMobileBridgeError(null);
       setError(null);
     } catch (err) {
-      setError(errorMessage(err));
+      const message = errorMessage(err);
+      setMobileBridgeError(message);
+      setError(message);
     }
   }
 
@@ -410,13 +435,17 @@ export function App() {
             </Chip>
           )}
           {mobileStatus && (
-            <Chip
-              tone={mobileStatus.enabled ? "success" : "warning"}
-              icon={<Smartphone size={14} />}
+            <button
+              type="button"
+              className={`chip mobile-status-chip chip-${mobileStatus.enabled ? "success" : "warning"}`}
               title={`${mobileStatus.publicUrl} via ${mobileStatus.bind}`}
+              onClick={openMobileBridge}
             >
-              {mobileStatus.enabled ? "mobile bridge on" : "mobile bridge off"}
-            </Chip>
+              <span className="chip-icon" aria-hidden="true">
+                <Smartphone size={14} />
+              </span>
+              <span className="chip-label">{mobileStatus.enabled ? "mobile bridge on" : "mobile bridge off"}</span>
+            </button>
           )}
           {dashboard.hostTools.map((tool) => (
             <Chip tone={hostToolTone(tool)} icon={hostToolIcon(tool.name)} title={tool.detail || tool.name} key={tool.name}>
@@ -434,6 +463,14 @@ export function App() {
           )}
           <button className="icon-button" onClick={() => void loadDashboard()} title="Refresh">
             <RefreshCw size={18} className={refreshing ? "spin" : ""} />
+          </button>
+          <button
+            className="icon-button"
+            aria-label="Mobile Bridge"
+            onClick={openMobileBridge}
+            title="Mobile Bridge"
+          >
+            <Smartphone size={18} />
           </button>
           <button
             className="button secondary"
@@ -459,7 +496,7 @@ export function App() {
       {error && <section className="notice error">{error}</section>}
 
       <section className="workspace">
-        <aside className="left-panel">
+        <aside className="left-panel" aria-label="Workspaces">
           <div className="panel-title">
             <span className="panel-title-label">
               <Search size={16} />
@@ -467,20 +504,15 @@ export function App() {
             </span>
             <Chip tone="neutral">{dashboard.repos.length} repos</Chip>
           </div>
-          <RepoRunTree
-            repos={dashboard.repos}
-            selectedRunId={selectedRunId}
-            onSelectRun={selectRunAndLoad}
-            onCreateRunFromRepo={openCreateRunFromRepo}
-            onCreateRunFromRun={openCreateRunFromRun}
-          />
-          <MobileBridgePanel
-            status={mobileStatus}
-            pairingCode={mobilePairingCode}
-            onStart={startBridge}
-            onStop={stopBridge}
-            onPair={pairAndroid}
-          />
+          <div className="repo-run-tree-scroll">
+            <RepoRunTree
+              repos={dashboard.repos}
+              selectedRunId={selectedRunId}
+              onSelectRun={selectRunAndLoad}
+              onCreateRunFromRepo={openCreateRunFromRepo}
+              onCreateRunFromRun={openCreateRunFromRun}
+            />
+          </div>
         </aside>
 
         <section className="run-surface">
@@ -598,6 +630,36 @@ export function App() {
         }}
       />
 
+      {mobileBridgeOpen && mobileStatus && (
+        <div className="modal-backdrop">
+          <section className="modal mobile-bridge-dialog" role="dialog" aria-modal="true" aria-label="Mobile Bridge">
+            <div className="modal-header">
+              <div>
+                <p className="eyebrow">Mobile Bridge</p>
+                <h2>Android access</h2>
+              </div>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label="Close Mobile Bridge"
+                title="Close Mobile Bridge"
+                onClick={() => setMobileBridgeOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <MobileBridgePanel
+              status={mobileStatus}
+              pairingCode={mobilePairingCode}
+              error={mobileBridgeError}
+              onStart={startBridge}
+              onStop={stopBridge}
+              onPair={pairAndroid}
+            />
+          </section>
+        </div>
+      )}
+
       {pendingAction && (
         <ConfirmDialog
           title={actionTitle(pendingAction)}
@@ -622,6 +684,7 @@ export function App() {
 interface MobileBridgePanelProps {
   status: MobileBridgeStatus | null;
   pairingCode: MobilePairingCode | null;
+  error?: string | null;
   onStart: () => void;
   onStop: () => void;
   onPair: () => void;
@@ -630,6 +693,7 @@ interface MobileBridgePanelProps {
 function MobileBridgePanel({
   status,
   pairingCode,
+  error,
   onStart,
   onStop,
   onPair
@@ -655,6 +719,11 @@ function MobileBridgePanel({
         <span title="Open this URL in Android Chrome">{mobileWebUrl}</span>
       </div>
       <code className="mobile-bridge-command">{xtunnelCommand}</code>
+      {error && (
+        <div className="mobile-bridge-error" role="alert">
+          {error}
+        </div>
+      )}
       {pairingCode && (
         <div className="mobile-pairing-code" aria-label="Android pairing code">
           <ShieldCheck size={15} />

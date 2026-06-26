@@ -2,62 +2,56 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-26 14:23 +07
-**Session ID:** mobile-pwa-terminal-stream-fix
-**Active Feature:** feat-034 - Mobile PWA Terminal Stream Attach Fix
+**Last Updated:** 2026-06-26 15:43 +07
+**Session ID:** mobile-bridge-start-control-repair
+**Active Feature:** feat-036 - Mobile Bridge Start Control Repair
 
 ## Status
 
 ### What is Done
 
-- [x] Investigated why the PWA terminal area could remain on `Waiting for terminal output...`.
-- [x] Traced the stream path from browser WebSocket open through `attachTerminal`, Rust stream auth, tmux snapshot, PTY attach, and browser message handling.
-- [x] Found the initial tmux snapshot path used `blocking_send` from inside the async WebSocket handler.
-- [x] Replaced that snapshot queue with non-blocking `try_send` via `queue_terminal_snapshot`.
-- [x] Added browser-side terminal stream states so the PWA now reports `Connecting terminal stream...`, `Terminal attached. Waiting for output...`, `Terminal stream error.`, or `Terminal stream closed before attach.` instead of staying on one generic placeholder.
+- [x] Reproduced the reported Mobile Bridge control regression with focused App tests.
+- [x] Found the visible top-bar `mobile bridge off` status was still a passive chip after the panel refactor.
+- [x] Found Mobile Bridge command failures were written to the global notice, which is hidden behind the open dialog.
+- [x] Made the visible Mobile Bridge status an interactive button that opens the bridge controls.
+- [x] Added an in-dialog alert for start/stop/pairing failures.
 
 ### What is In Progress
 
 - [x] Fix implementation is complete.
 - [x] Focused verification is complete.
-- [x] Standard verification is complete.
+- [x] Frontend verification is complete.
+- [x] Feature tracker is updated.
 
 ### What is Next
 
-1. Restart the desktop app or Mobile Bridge so the updated `/mobile/app.js` is served.
-2. In Android Chrome, hard refresh the PWA or close/reopen it.
-3. If it still shows an old state, clear the site data/service worker for `linhmon.linhmon.1vn.app` and reload `/mobile`.
+1. Use either the visible `mobile bridge off/on` status chip or the header phone icon to open Mobile Bridge controls.
+2. If Start fails, read the dialog alert for the backend error, such as a port already in use.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
-- [ ] If a selected run has no tmux window or no visible pane text, the PWA may show `Terminal attached. Waiting for output...`; selecting an active tmux-backed run should stream output.
-- [ ] The PWA service worker may cache older assets until the page is reloaded or site data is cleared.
+- [ ] Live Tauri UI was not manually clicked in this session; behavior is covered by React regression tests and build verification.
 
 ## Decisions Made
 
-- Use `try_send` for the initial snapshot because the channel is local, buffered, and called from async WebSocket handling.
-- Keep `blocking_send` in the PTY reader thread because that code runs on a regular OS thread, not inside the async runtime.
-- Surface stream close/error states in the PWA so future connection/auth failures are visible on the phone.
+- Keep the full Mobile Bridge panel outside the Workspaces list, but make the visible status chip itself open the dialog.
+- Keep global error propagation for consistency, while also rendering bridge errors inside the dialog so they are visible during the workflow.
+- Clear stale bridge errors when reopening the dialog or after successful start/stop/pair actions.
 
 ## Files Modified This Session
 
-- `src-tauri/src/mobile_bridge_server.rs` - Adds async-safe snapshot queuing and a regression test.
-- `src-tauri/src/mobile_pwa.rs` - Adds browser terminal stream status/error handling and asset tests.
-- `feature_list.json` - Adds completed feat-034 evidence.
-- `progress.md` - Records this debug session status and verification.
+- `src/App.tsx` - Makes Mobile Bridge status interactive and adds in-dialog bridge errors.
+- `src/App.test.tsx` - Adds regression coverage for the status-chip path and dialog-visible start failures.
+- `src/styles.css` - Styles the clickable status chip and dialog error alert.
+- `feature_list.json` - Adds completed feat-036 evidence.
+- `progress.md` - Records this session status and verification.
 
 ## Evidence of Completion
 
-- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app terminal_snapshot_queue_is_safe_inside_async_runtime` failed before `queue_terminal_snapshot` existed.
-- [x] GREEN: the same targeted test exited 0 after replacing the snapshot path with `try_send`.
-- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_script_reports_terminal_stream_connection_states` failed before the PWA exposed stream states.
-- [x] GREEN: the same targeted test exited 0 after adding stream states.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server` exited 0.
-- [x] `cargo fmt --check` exited 0.
-- [x] `npm test` exited 0 with 10 files and 51 tests passing.
+- [x] RED: `npm test -- src/App.test.tsx` failed for missing `button` named `mobile bridge off` and missing dialog `role="alert"` on start failure.
+- [x] GREEN: `npm test -- src/App.test.tsx` exited 0 with 21 tests passing after the fix.
+- [x] `npm test` exited 0 with 10 files and 55 tests passing.
 - [x] `npm run build` exited 0.
-- [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app` exited 0 outside the sandbox.
+- [x] `git diff --check` exited 0.
 - [x] `./init.sh` exited 0 with npm test, npm run build, and cargo test passing.

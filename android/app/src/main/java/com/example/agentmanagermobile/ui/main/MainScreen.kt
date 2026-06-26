@@ -131,6 +131,11 @@ private fun PairingScreen(
   ) {
     Text("Agent Manager", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
     Text("Sign in through xTunnel, then enter the pairing code from the desktop Mobile Bridge panel.")
+    Text(
+      "The sign-in panel must show bridge health JSON before pairing. If it shows the AI Hay landing page, finish xTunnel sign-in there first.",
+      style = MaterialTheme.typography.bodySmall,
+      color = MaterialTheme.colorScheme.secondary,
+    )
     OutlinedTextField(
       value = state.baseUrl,
       onValueChange = onBaseUrlChange,
@@ -138,7 +143,7 @@ private fun PairingScreen(
       singleLine = true,
       modifier = Modifier.fillMaxWidth(),
     )
-    XTunnelLoginWebView(state.baseUrl, Modifier.fillMaxWidth().height(220.dp))
+    XTunnelLoginWebView(state.baseUrl, Modifier.fillMaxWidth().weight(1f))
     OutlinedTextField(
       value = state.code,
       onValueChange = onCodeChange,

@@ -8,6 +8,7 @@ import com.example.agentmanagermobile.bridge.PairedDeviceCredentials
 import com.example.agentmanagermobile.bridge.RepoNode
 import com.example.agentmanagermobile.bridge.RunView
 import com.example.agentmanagermobile.bridge.TerminalStream
+import java.io.IOException
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -76,6 +77,23 @@ class MainScreenViewModelTest {
   }
 
   @Test
+  fun pairingHttp403ShowsXtunnelSignInGuidance() = runTest {
+    val client = FakeBridgeClient(pairingError = IOException("Bridge request failed: HTTP 403"))
+    val store = FakeCredentialStore(null)
+    val viewModel = MainScreenViewModel(client, store, StandardTestDispatcher(testScheduler))
+
+    viewModel.updatePairingCode("ABCD1234")
+    viewModel.claimPairing("Pixel 9")
+    advanceUntilIdle()
+
+    val state = viewModel.uiState.value as MainScreenUiState.Pairing
+    assertEquals(
+      "xTunnel sign-in is required. Finish sign-in in the panel, then try Pair Android again.",
+      state.error,
+    )
+  }
+
+  @Test
   fun sendInstructionWritesTextAndEnterToTerminalStream() = runTest {
     val client = FakeBridgeClient()
     val store = FakeCredentialStore(
@@ -140,11 +158,15 @@ class MainScreenViewModelTest {
   }
 }
 
-private class FakeBridgeClient(private val dashboard: DashboardState = sampleDashboard()) : BridgeClient {
+private class FakeBridgeClient(
+  private val dashboard: DashboardState = sampleDashboard(),
+  private val pairingError: Throwable? = null,
+) : BridgeClient {
   val stream = FakeTerminalStream()
   val resumedRunIds = mutableListOf<String>()
 
   override suspend fun claimPairing(baseUrl: String, code: String, deviceName: String): PairedDeviceCredentials {
+    pairingError?.let { throw it }
     return PairedDeviceCredentials(
       baseUrl = baseUrl,
       deviceId = "device-2",

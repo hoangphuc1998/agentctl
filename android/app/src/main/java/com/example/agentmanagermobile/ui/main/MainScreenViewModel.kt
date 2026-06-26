@@ -79,7 +79,7 @@ class MainScreenViewModel(
           loadDashboard(next)
         }
         .onFailure { err ->
-          _uiState.value = state.copy(working = false, error = err.message ?: "Pairing failed")
+          _uiState.value = state.copy(working = false, error = pairingErrorMessage(err))
         }
     }
   }
@@ -176,6 +176,15 @@ class MainScreenViewModel(
 
   companion object {
     const val DEFAULT_BRIDGE_URL = "https://linhmon.linhmon.1vn.app"
+  }
+}
+
+private fun pairingErrorMessage(error: Throwable): String {
+  val message = error.message.orEmpty()
+  return if ("HTTP 403" in message) {
+    "xTunnel sign-in is required. Finish sign-in in the panel, then try Pair Android again."
+  } else {
+    message.ifBlank { "Pairing failed" }
   }
 }
 

@@ -326,6 +326,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-26 11:53 +07: Debugged the Android-only HTTP 403. The local bridge pairing route does not require device auth, so the 403 is from xTunnel before the request reaches the bridge. Updated the Android sign-in WebView to load /api/mobile/v1/health instead of tunnel root, enable DOM storage/cookies, accept third-party cookies, flush cookies after page finish, and avoid reloading during auth redirects. RED test failed before adding xtunnelLoginUrl; green after implementation. Verification passed: android ./gradlew testDebugUnitTest, android ./gradlew assembleDebug, APK installed on emulator, android ./gradlew compileDebugAndroidTestKotlin, and ./init.sh."
+    },
+    {
+      "id": "feat-032",
+      "name": "Android xTunnel Sign-In Guidance",
+      "description": "Make the Android xTunnel sign-in panel usable for completing AI Hay/xTunnel login and explain that HTTP 403 means sign-in is still required.",
+      "dependencies": [
+        "feat-031"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 12:34 +07: After installing the xTunnel session fix, the emulator showed the AI Hay sign-in page, proving the session had not reached bridge health JSON yet. Expanded the WebView to fill remaining pairing-screen space so social sign-in buttons are visible, added on-screen guidance that the panel must show bridge health JSON before pairing, and mapped pairing HTTP 403 to an xTunnel sign-in required message. RED test pairingHttp403ShowsXtunnelSignInGuidance failed before the mapper and passed after implementation. Verification passed: android ./gradlew testDebugUnitTest --tests com.example.agentmanagermobile.ui.main.MainScreenViewModelTest.pairingHttp403ShowsXtunnelSignInGuidance, android ./gradlew testDebugUnitTest, android ./gradlew assembleDebug, APK installed on emulator, android ./gradlew compileDebugAndroidTestKotlin, and ./init.sh."
     }
   ]
 }

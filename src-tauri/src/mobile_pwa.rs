@@ -409,6 +409,8 @@ h2 {
   min-height: 0;
   height: 100%;
   overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -621,6 +623,7 @@ h2 {
 "#;
 
 const APP_JS: &str = r#"const STORAGE_KEY = "agent-manager-mobile-credentials";
+const TAIL_LOCK_THRESHOLD = 48;
 const app = document.getElementById("app");
 
 const state = {
@@ -629,6 +632,7 @@ const state = {
   selectedRunId: null,
   terminalOutput: "",
   terminalId: null,
+  attachedRunId: null,
   terminalStatus: "idle",
   socket: null,
   drawerOpen: false,
@@ -666,6 +670,7 @@ function clearCredentials() {
   state.selectedRunId = null;
   state.terminalOutput = "";
   state.terminalId = null;
+  state.attachedRunId = null;
   state.terminalStatus = "idle";
   state.drawerOpen = false;
   state.error = "";
@@ -763,13 +768,16 @@ async function resumeSelectedRun() {
 
 function attachSelectedRun() {
   const run = selectedRun();
+  if (selectedRunAlreadyAttached(run)) return;
   closeStream();
   state.terminalOutput = "";
   state.terminalId = null;
+  state.attachedRunId = null;
   if (!run || !state.credentials) {
     state.terminalStatus = "idle";
     return;
   }
+  state.attachedRunId = run.id;
   state.terminalStatus = "connecting";
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const query = new URLSearchParams({
@@ -801,24 +809,40 @@ function attachSelectedRun() {
   });
 }
 
+function selectedRunAlreadyAttached(run) {
+  if (!run || !state.socket) return false;
+  if (state.attachedRunId !== run.id) return false;
+  return state.socket.readyState === WebSocket.CONNECTING || state.socket.readyState === WebSocket.OPEN;
+}
+
 function handleStreamMessage(text) {
   const message = JSON.parse(text);
   if (message.type === "terminalAttached") {
     state.terminalId = message.terminalId;
     state.terminalStatus = "attached";
+    render();
+    return;
   }
   if (message.type === "terminalSnapshot") {
-    state.terminalOutput = message.data || "";
     state.terminalStatus = "attached";
+    setTerminalOutput(message.data || "");
+    return;
   }
   if (message.type === "terminalOutput") {
-    state.terminalOutput += message.data || "";
     state.terminalStatus = "attached";
+    appendTerminalOutput(message.data || "");
+    return;
+  }
+  if (message.type === "terminalClosed") {
+    state.terminalId = null;
+    state.terminalStatus = "closed";
+    render();
+    return;
   }
   if (message.type === "error") {
     state.error = message.message || "Stream error";
+    render();
   }
-  render();
 }
 
 function sendInstruction(event) {
@@ -841,7 +865,56 @@ function closeStream() {
     }
     socket.close();
   }
+  state.attachedRunId = null;
   state.terminalStatus = "idle";
+}
+
+function terminalOutputElement() {
+  return app.querySelector("[data-terminal-output]");
+}
+
+function setTerminalOutput(data) {
+  state.terminalOutput = data;
+  const terminal = terminalOutputElement();
+  if (!terminal) {
+    render();
+    return;
+  }
+  const shouldFollow = shouldFollowTerminalTail(terminal);
+  terminal.textContent = terminalText();
+  updateTerminalScroll(terminal, shouldFollow);
+  updateSendButton();
+}
+
+function appendTerminalOutput(data) {
+  if (!data) return;
+  const hadOutput = Boolean(state.terminalOutput);
+  state.terminalOutput += data;
+  const terminal = terminalOutputElement();
+  if (!terminal) {
+    render();
+    return;
+  }
+  const shouldFollow = shouldFollowTerminalTail(terminal);
+  if (!hadOutput) terminal.textContent = "";
+  terminal.append(document.createTextNode(data));
+  updateTerminalScroll(terminal, shouldFollow);
+  updateSendButton();
+}
+
+function shouldFollowTerminalTail(terminal) {
+  return terminal.scrollHeight - terminal.clientHeight - terminal.scrollTop <= TAIL_LOCK_THRESHOLD;
+}
+
+function updateTerminalScroll(terminal, shouldFollow) {
+  if (shouldFollow) {
+    terminal.scrollTop = terminal.scrollHeight;
+  }
+}
+
+function updateSendButton() {
+  const sendButton = app.querySelector("[data-send-instruction]");
+  if (sendButton) sendButton.disabled = !state.terminalId;
 }
 
 function allRuns() {
@@ -946,7 +1019,7 @@ function readyTemplate() {
           </div>
         </aside>
         <section class="terminal-panel">
-          ${run ? selectedRunTemplate(run) : `<div class="terminal-header"><div><h2>No run selected</h2><p class="muted">Create or resume a run from desktop.</p></div></div><pre class="terminal" aria-label="Terminal output">Waiting for terminal output...</pre>`}
+          ${run ? selectedRunTemplate(run) : `<div class="terminal-header"><div><h2>No run selected</h2><p class="muted">Create or resume a run from desktop.</p></div></div><pre class="terminal" data-terminal-output aria-label="Terminal output">Waiting for terminal output...</pre>`}
         </section>
       </div>
       <div class="drawer-backdrop${state.drawerOpen ? " open" : ""}" data-action="close-drawer" aria-hidden="true"></div>
@@ -988,13 +1061,13 @@ function selectedRunTemplate(run) {
       </div>
       ${run.restorable ? `<button data-action="resume" ${state.busy ? "disabled" : ""}>Resume</button>` : ""}
     </div>
-    <pre class="terminal" aria-label="Terminal output">${escapeHtml(terminalText())}</pre>
+    <pre class="terminal" data-terminal-output aria-label="Terminal output">${escapeHtml(terminalText())}</pre>
     <form class="composer-bar" data-form="instruction">
       <label>
         <span class="muted">Instruction</span>
         <textarea name="instruction" placeholder="Send instructions to the selected agent"></textarea>
       </label>
-      <button ${state.terminalId ? "" : "disabled"}>Send</button>
+      <button data-send-instruction ${state.terminalId ? "" : "disabled"}>Send</button>
     </form>
   `;
 }
@@ -1122,5 +1195,61 @@ mod tests {
         assert!(script.body.contains("state.drawerOpen = false;"));
         assert!(script.body.contains("attachSelectedRun();"));
         assert!(script.body.contains("function toggleDrawer()"));
+    }
+
+    #[test]
+    fn mobile_script_does_not_reattach_same_running_terminal_on_dashboard_refresh() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("attachedRunId: null"));
+        assert!(script
+            .body
+            .contains("function selectedRunAlreadyAttached(run)"));
+        assert!(script
+            .body
+            .contains("if (selectedRunAlreadyAttached(run)) return;"));
+    }
+
+    #[test]
+    fn mobile_script_updates_terminal_output_without_full_page_render() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains(r#"data-terminal-output"#));
+        assert!(script.body.contains("function setTerminalOutput(data)"));
+        assert!(script.body.contains("function appendTerminalOutput(data)"));
+        assert!(script
+            .body
+            .contains("const hadOutput = Boolean(state.terminalOutput);"));
+        assert!(script
+            .body
+            .contains("if (!hadOutput) terminal.textContent = \"\";"));
+        assert!(script
+            .body
+            .contains("appendTerminalOutput(message.data || \"\");"));
+    }
+
+    #[test]
+    fn mobile_script_follows_tail_unless_user_scrolled_up() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("const TAIL_LOCK_THRESHOLD = 48;"));
+        assert!(script
+            .body
+            .contains("function shouldFollowTerminalTail(terminal)"));
+        assert!(script
+            .body
+            .contains("function updateTerminalScroll(terminal, shouldFollow)"));
+        assert!(script
+            .body
+            .contains("terminal.scrollTop = terminal.scrollHeight;"));
+    }
+
+    #[test]
+    fn mobile_script_handles_terminal_closed_without_clearing_output() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("message.type === \"terminalClosed\""));
+        assert!(script.body.contains("state.terminalId = null;"));
+        assert!(script.body.contains("state.terminalStatus = \"closed\";"));
     }
 }

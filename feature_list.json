@@ -386,6 +386,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-26 17:00 +07: Added RED mobile_pwa asset tests for terminal-first phone CSS, accessible drawer markup, and closing the drawer when a run is selected; they failed before implementation. Reworked the /mobile PWA embedded CSS and browser templates so small screens show the terminal panel full-height with a Runs drawer, while wide screens keep a persistent run column. Verification passed: npm install outside sandbox after esbuild postinstall was blocked by sandbox EPERM, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo fmt --check, npm test, npm run build, and ./init.sh with npm test, npm run build, and cargo test."
+    },
+    {
+      "id": "feat-038",
+      "name": "Mobile PWA Stable Terminal Render",
+      "description": "Stop the Chrome PWA tmux terminal from re-rendering the page on live output, preserve scrollback while following the tail by default, and avoid reattaching the same selected run on dashboard refresh.",
+      "dependencies": [
+        "feat-037"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 17:59 +07: Added RED mobile_pwa asset tests for no same-run reattach on dashboard refresh, direct terminal DOM output updates, follow-tail-unless-scrolled behavior, terminalClosed handling, and replacing placeholders on first output. Implemented stable attachedRunId state, direct terminal text updates, tail-lock scroll anchoring, and touch scroll containment in the embedded /mobile PWA. Verification passed: cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo fmt --check, git diff --check, npm install outside sandbox after esbuild EPERM, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside sandbox after listener bind denial, and ./init.sh with npm test, npm run build, and cargo test."
     }
   ]
 }

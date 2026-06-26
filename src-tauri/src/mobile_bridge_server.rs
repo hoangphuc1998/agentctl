@@ -324,10 +324,7 @@ fn attach_terminal(
     if let Some(window) = run.tmux_window.as_deref() {
         let session = run.tmux_session.as_deref().unwrap_or(TMUX_SESSION);
         if let Ok(snapshot) = Tmux::new(session).snapshot_window(window) {
-            let _ = pty_tx.blocking_send(StreamServerMessage::TerminalSnapshot {
-                run_id: run_id.clone(),
-                data: snapshot.visible_text,
-            });
+            let _ = queue_terminal_snapshot(&pty_tx, run_id.clone(), snapshot.visible_text);
         }
     }
     match MobilePtySession::start(&run, cols, rows, pty_tx) {
@@ -341,6 +338,14 @@ fn attach_terminal(
         }
         Err(err) => Some(StreamServerMessage::Error { message: err }),
     }
+}
+
+fn queue_terminal_snapshot(
+    output: &mpsc::Sender<StreamServerMessage>,
+    run_id: String,
+    data: String,
+) -> Result<(), mpsc::error::TrySendError<StreamServerMessage>> {
+    output.try_send(StreamServerMessage::TerminalSnapshot { run_id, data })
 }
 
 struct MobilePtySession {
@@ -645,5 +650,27 @@ mod tests {
                 "/mobile/icon.svg",
             ],
         );
+    }
+
+    #[test]
+    fn terminal_snapshot_queue_is_safe_inside_async_runtime() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        runtime.block_on(async {
+            let (tx, mut rx) = mpsc::channel(1);
+
+            queue_terminal_snapshot(&tx, "run-1".to_string(), "pane text".to_string()).unwrap();
+
+            assert_eq!(
+                rx.recv().await.unwrap(),
+                StreamServerMessage::TerminalSnapshot {
+                    run_id: "run-1".to_string(),
+                    data: "pane text".to_string(),
+                }
+            );
+        });
     }
 }

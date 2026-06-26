@@ -346,6 +346,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-26 14:00 +07: Added a bridge-served /mobile PWA with manifest, service worker, pairing, dashboard, resume, terminal stream, and instruction input. Mounted /mobile asset routes on the Axum Mobile Bridge and added browser WebSocket query auth because browser WebSockets cannot set Authorization headers. Updated the desktop Mobile Bridge panel and README to point Android Chrome users to https://linhmon.linhmon.1vn.app/mobile. RED checks failed before implementation for missing mobile_pwa assets, missing stream query auth/route metadata, and missing desktop /mobile URL; each passed after implementation. Verification passed: cargo fmt --check, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, npm test -- src/App.test.tsx -t 'starts the mobile bridge', npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside the sandbox after sandbox bind denial, and ./init.sh."
+    },
+    {
+      "id": "feat-034",
+      "name": "Mobile PWA Terminal Stream Attach Fix",
+      "description": "Prevent the Mobile PWA terminal stream from silently staying on the waiting placeholder when the initial tmux snapshot is queued from the async WebSocket task.",
+      "dependencies": [
+        "feat-033"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-26 14:23 +07: Debugged the PWA terminal staying on 'Waiting for terminal output...'. Found the stream attach path queued the initial tmux snapshot with tokio mpsc blocking_send from inside the async WebSocket handler, which can panic/close the stream before the browser receives terminal messages. Added a RED regression for async-safe snapshot queuing, changed the snapshot path to non-blocking try_send, and added PWA connection-state text so browser stream errors/closes are visible instead of generic waiting. Verification passed: cargo test -p agent-manager-desktop --features tauri-app terminal_snapshot_queue_is_safe_inside_async_runtime, cargo test -p agent-manager-desktop --features tauri-app mobile_script_reports_terminal_stream_connection_states, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside the sandbox, and ./init.sh."
     }
   ]
 }

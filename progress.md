@@ -2,75 +2,62 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-26 14:00 +07
-**Session ID:** mobile-pwa-bridge
-**Active Feature:** feat-033 - Mobile Bridge Chrome PWA
+**Last Updated:** 2026-06-26 14:23 +07
+**Session ID:** mobile-pwa-terminal-stream-fix
+**Active Feature:** feat-034 - Mobile PWA Terminal Stream Attach Fix
 
 ## Status
 
 ### What is Done
 
-- [x] Confirmed the browser path works at `https://linhmon.linhmon.1vn.app/api/mobile/v1/health`.
-- [x] Wrote and saved the approved PWA bridge design spec.
-- [x] Wrote and saved the implementation plan.
-- [x] Added a static `/mobile` PWA served directly by the Mobile Bridge.
-- [x] Added PWA manifest, icon, service worker, pairing UI, dashboard UI, run selection, resume, terminal stream output, and instruction input.
-- [x] Mounted `/mobile` assets on the Axum bridge router.
-- [x] Added browser-compatible WebSocket auth using `deviceId` and `token` query parameters for `/api/mobile/v1/stream`.
-- [x] Updated the desktop Mobile Bridge panel to show `https://linhmon.linhmon.1vn.app/mobile`.
-- [x] Updated README setup instructions to prefer Android Chrome/PWA when Google auth is required.
+- [x] Investigated why the PWA terminal area could remain on `Waiting for terminal output...`.
+- [x] Traced the stream path from browser WebSocket open through `attachTerminal`, Rust stream auth, tmux snapshot, PTY attach, and browser message handling.
+- [x] Found the initial tmux snapshot path used `blocking_send` from inside the async WebSocket handler.
+- [x] Replaced that snapshot queue with non-blocking `try_send` via `queue_terminal_snapshot`.
+- [x] Added browser-side terminal stream states so the PWA now reports `Connecting terminal stream...`, `Terminal attached. Waiting for output...`, `Terminal stream error.`, or `Terminal stream closed before attach.` instead of staying on one generic placeholder.
 
 ### What is In Progress
 
-- [x] Implementation is complete.
+- [x] Fix implementation is complete.
 - [x] Focused verification is complete.
-- [x] Standard `./init.sh` verification is complete.
+- [x] Standard verification is complete.
 
 ### What is Next
 
-1. Start Mobile Bridge from desktop.
-2. Run `xtunnel.cmd linhmon start 17654`.
-3. Open `https://linhmon.linhmon.1vn.app/mobile` in Android Chrome.
-4. Complete xTunnel/Google sign-in in Chrome.
-5. Generate a fresh desktop pairing code and pair the browser page.
+1. Restart the desktop app or Mobile Bridge so the updated `/mobile/app.js` is served.
+2. In Android Chrome, hard refresh the PWA or close/reopen it.
+3. If it still shows an old state, clear the site data/service worker for `linhmon.linhmon.1vn.app` and reload `/mobile`.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
-- [ ] The native Android WebView path can still be blocked by Google `disallowed_useragent`; use the Chrome/PWA path for Google-backed xTunnel login.
-- [ ] WebSocket auth uses query parameters only for browser compatibility because browser WebSocket APIs do not support custom auth headers.
+- [ ] If a selected run has no tmux window or no visible pane text, the PWA may show `Terminal attached. Waiting for output...`; selecting an active tmux-backed run should stream output.
+- [ ] The PWA service worker may cache older assets until the page is reloaded or site data is cleared.
 
 ## Decisions Made
 
-- Serve the PWA from Rust static strings so it is available whenever the bridge runs and does not depend on Tauri desktop asset packaging.
-- Keep xTunnel as the outer access gate and bridge pairing tokens as the app authorization layer.
-- Keep normal HTTP APIs on headers; add query auth only to the browser WebSocket stream endpoint.
+- Use `try_send` for the initial snapshot because the channel is local, buffered, and called from async WebSocket handling.
+- Keep `blocking_send` in the PTY reader thread because that code runs on a regular OS thread, not inside the async runtime.
+- Surface stream close/error states in the PWA so future connection/auth failures are visible on the phone.
 
 ## Files Modified This Session
 
-- `src-tauri/src/mobile_pwa.rs` - Adds the static PWA assets and asset tests.
-- `src-tauri/src/mobile_bridge_server.rs` - Mounts `/mobile` routes and adds browser WebSocket query auth.
-- `src-tauri/src/lib.rs` - Exposes the PWA module under the Tauri app feature.
-- `src/App.tsx` - Shows the Chrome/PWA URL in the Mobile Bridge panel.
-- `src/App.test.tsx` - Covers the new `/mobile` URL guidance.
-- `README.md` - Documents the Chrome/PWA Android flow.
-- `docs/superpowers/specs/2026-06-26-mobile-pwa-bridge-design.md` - Records the approved design.
-- `docs/superpowers/plans/2026-06-26-mobile-pwa-bridge.md` - Records the implementation plan.
-- `feature_list.json` - Adds completed feat-033 evidence.
-- `progress.md` - Records this session status and verification.
+- `src-tauri/src/mobile_bridge_server.rs` - Adds async-safe snapshot queuing and a regression test.
+- `src-tauri/src/mobile_pwa.rs` - Adds browser terminal stream status/error handling and asset tests.
+- `feature_list.json` - Adds completed feat-034 evidence.
+- `progress.md` - Records this debug session status and verification.
 
 ## Evidence of Completion
 
-- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` failed before `asset_for_path` existed.
-- [x] GREEN: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0.
-- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server` failed before `StreamAuthQuery`, `stream_auth_headers`, and route metadata existed.
-- [x] GREEN: `cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server` exited 0.
-- [x] RED: `npm test -- src/App.test.tsx -t "starts the mobile bridge"` failed before the panel rendered the `/mobile` URL.
-- [x] GREEN: `npm test -- src/App.test.tsx -t "starts the mobile bridge"` exited 0.
-- [x] `cargo fmt --check` exited 0 after formatting.
+- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app terminal_snapshot_queue_is_safe_inside_async_runtime` failed before `queue_terminal_snapshot` existed.
+- [x] GREEN: the same targeted test exited 0 after replacing the snapshot path with `try_send`.
+- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_script_reports_terminal_stream_connection_states` failed before the PWA exposed stream states.
+- [x] GREEN: the same targeted test exited 0 after adding stream states.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server` exited 0.
+- [x] `cargo fmt --check` exited 0.
 - [x] `npm test` exited 0 with 10 files and 51 tests passing.
 - [x] `npm run build` exited 0.
 - [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app --test mobile_bridge_runtime` exited 0 when rerun outside the sandbox after sandbox listener bind denial.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app` exited 0 when rerun outside the sandbox after sandbox listener bind denial.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app` exited 0 outside the sandbox.
 - [x] `./init.sh` exited 0 with npm test, npm run build, and cargo test passing.

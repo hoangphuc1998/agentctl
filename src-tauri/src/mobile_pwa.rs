@@ -399,6 +399,7 @@ const state = {
   selectedRunId: null,
   terminalOutput: "",
   terminalId: null,
+  terminalStatus: "idle",
   socket: null,
   busy: false,
   error: ""
@@ -434,6 +435,7 @@ function clearCredentials() {
   state.selectedRunId = null;
   state.terminalOutput = "";
   state.terminalId = null;
+  state.terminalStatus = "idle";
   state.error = "";
   render();
 }
@@ -532,6 +534,7 @@ function attachSelectedRun() {
   closeStream();
   state.terminalOutput = "";
   state.terminalId = null;
+  state.terminalStatus = "connecting";
   if (!run || !state.credentials) return;
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const query = new URLSearchParams({
@@ -544,8 +547,22 @@ function attachSelectedRun() {
     socket.send(JSON.stringify({ type: "attachTerminal", runId: run.id, cols: 96, rows: 28 }));
   });
   socket.addEventListener("message", (event) => handleStreamMessage(event.data));
+  socket.addEventListener("error", () => {
+    if (state.socket === socket) {
+      state.terminalStatus = "closed";
+      state.error = "Terminal stream error.";
+      render();
+    }
+  });
   socket.addEventListener("close", () => {
-    if (state.socket === socket) state.socket = null;
+    if (state.socket === socket) {
+      state.socket = null;
+      if (!state.terminalId) {
+        state.terminalStatus = "closed";
+        state.error = "Terminal stream closed before attach.";
+        render();
+      }
+    }
   });
 }
 
@@ -553,12 +570,15 @@ function handleStreamMessage(text) {
   const message = JSON.parse(text);
   if (message.type === "terminalAttached") {
     state.terminalId = message.terminalId;
+    state.terminalStatus = "attached";
   }
   if (message.type === "terminalSnapshot") {
     state.terminalOutput = message.data || "";
+    state.terminalStatus = "attached";
   }
   if (message.type === "terminalOutput") {
     state.terminalOutput += message.data || "";
+    state.terminalStatus = "attached";
   }
   if (message.type === "error") {
     state.error = message.message || "Stream error";
@@ -579,12 +599,14 @@ function sendInstruction(event) {
 
 function closeStream() {
   if (state.socket) {
+    const socket = state.socket;
+    state.socket = null;
     if (state.terminalId) {
-      state.socket.send(JSON.stringify({ type: "detachTerminal", terminalId: state.terminalId }));
+      socket.send(JSON.stringify({ type: "detachTerminal", terminalId: state.terminalId }));
     }
-    state.socket.close();
+    socket.close();
   }
-  state.socket = null;
+  state.terminalStatus = "idle";
 }
 
 function allRuns() {
@@ -701,7 +723,7 @@ function selectedRunTemplate(run) {
       </div>
       ${run.restorable ? `<button data-action="resume" ${state.busy ? "disabled" : ""}>Resume</button>` : ""}
     </div>
-    <pre class="terminal" aria-label="Terminal output">${escapeHtml(state.terminalOutput || "Waiting for terminal output...")}</pre>
+    <pre class="terminal" aria-label="Terminal output">${escapeHtml(terminalText())}</pre>
     <form class="composer" data-form="instruction">
       <label>
         <span class="muted">Instruction</span>
@@ -710,6 +732,14 @@ function selectedRunTemplate(run) {
       <button ${state.terminalId ? "" : "disabled"}>Send</button>
     </form>
   `;
+}
+
+function terminalText() {
+  if (state.terminalOutput) return state.terminalOutput;
+  if (state.terminalStatus === "connecting") return "Connecting terminal stream...";
+  if (state.terminalStatus === "attached") return "Terminal attached. Waiting for output...";
+  if (state.terminalStatus === "closed") return "Terminal stream closed before attach.";
+  return "Waiting for terminal output...";
 }
 
 function bindEvents() {
@@ -771,5 +801,16 @@ mod tests {
         assert!(script.body.contains("/api/mobile/v1/stream?"));
         assert!(script.body.contains("deviceId"));
         assert!(script.body.contains("token"));
+    }
+
+    #[test]
+    fn mobile_script_reports_terminal_stream_connection_states() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("Connecting terminal stream..."));
+        assert!(script
+            .body
+            .contains("Terminal stream closed before attach."));
+        assert!(script.body.contains("Terminal stream error."));
     }
 }

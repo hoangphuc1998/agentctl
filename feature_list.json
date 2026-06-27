@@ -456,6 +456,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-27 18:03 +07: Added RED Vitest coverage that executes the embedded APP_JS prompt analyzer against representative Codex approval rows, Claude selected numbered rows, plain numbered rows, plain lettered rows, and fallback-only interactive prompts. Replaced separate numbered/lettered/cursor parsers with a unified parseChoiceRows option-row parser that recognizes optional selected markers, bracketed/dotted numeric or letter tokens, labels, and simple shortcut hints such as (y), (p), and (esc). Added versioned /mobile app.js/styles.css URLs tied to MOBILE_PWA_ASSET_VERSION and bumped the service worker cache to v4. Verification passed: baseline ./init.sh, npm test -- src-tauri/mobilePwaScript.test.ts RED then GREEN, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, direct Node execution of the Codex screenshot prompt returning Yes proceed/Yes don't ask/No choices with y/p/esc inputs, node --check for extracted APP_JS and SERVICE_WORKER_JS, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, and final ./init.sh after artifact updates."
+    },
+    {
+      "id": "feat-045",
+      "name": "Mobile PWA Asset Reset and Version Visibility",
+      "description": "Give the mobile PWA a general recovery path for stale installed assets by exposing the asset version in the UI, adding a reset page, and disabling browser HTTP caching for embedded mobile assets.",
+      "dependencies": [
+        "feat-044"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-27 21:48 +07: Diagnosed the remaining 'nothing shows on mobile PWA' report as likely stale installed PWA assets after parser tests already passed. Added RED mobile_pwa and mobile_bridge_server tests requiring a visible v5 asset marker, /mobile/reset and /mobile/reset/ routes, a reset page that unregisters service workers and deletes Cache API entries, no-store asset responses, and service worker v5 cache entries. Implemented the reset page, visible PWA v5 badge with Reset PWA link, no-store headers, /mobile/reset routes, and cache v5 assets. Verification passed: cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app bridge_declares_mobile_pwa_asset_routes, npm test -- src-tauri/mobilePwaScript.test.ts, cargo fmt --check, git diff --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside the sandbox after the listener-bind test hit sandbox permissions, and ./init.sh after artifact updates."
     }
   ]
 }

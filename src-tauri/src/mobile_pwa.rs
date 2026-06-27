@@ -76,7 +76,7 @@ pub async fn icon_svg() -> Response {
 
 macro_rules! mobile_pwa_asset_version {
     () => {
-        "v5"
+        "v6"
     };
 }
 
@@ -685,6 +685,12 @@ h2 {
   max-height: 30dvh;
 }
 
+.composer-actions {
+  display: flex;
+  align-items: end;
+  gap: 8px;
+}
+
 .choice-panel {
   border-top: 1px solid var(--line);
   background: rgba(234, 240, 237, 0.98);
@@ -722,6 +728,12 @@ h2 {
 
 .key-button {
   padding: 0 8px;
+}
+
+.choice-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
 }
 
 .mobile-drawer {
@@ -899,12 +911,16 @@ h2 {
   .composer-bar {
     grid-template-columns: 1fr;
   }
+
+  .composer-actions {
+    justify-content: flex-end;
+  }
 }
 "#;
 
 const APP_JS: &str = r#"const STORAGE_KEY = "agent-manager-mobile-credentials";
 const TAIL_LOCK_THRESHOLD = 48;
-const MOBILE_PWA_VERSION = "v5";
+const MOBILE_PWA_VERSION = "v6";
 const app = document.getElementById("app");
 
 const state = {
@@ -915,6 +931,7 @@ const state = {
   terminalId: null,
   attachedRunId: null,
   terminalStatus: "idle",
+  composerOverridePromptSignature: "",
   pendingTerminalOutput: "",
   pendingTerminalReplace: false,
   pendingTerminalControlRefresh: false,
@@ -956,6 +973,7 @@ function clearCredentials() {
   state.terminalOutput = "";
   state.terminalId = null;
   state.attachedRunId = null;
+  state.composerOverridePromptSignature = "";
   state.pendingTerminalOutput = "";
   state.pendingTerminalReplace = false;
   state.pendingTerminalControlRefresh = false;
@@ -1062,6 +1080,7 @@ function attachSelectedRun() {
   state.terminalOutput = "";
   state.terminalId = null;
   state.attachedRunId = null;
+  state.composerOverridePromptSignature = "";
   state.pendingTerminalOutput = "";
   state.pendingTerminalReplace = false;
   state.pendingTerminalControlRefresh = false;
@@ -1551,6 +1570,10 @@ function looksInteractivePrompt(text) {
 
 function terminalPromptSignature(text) {
   const prompt = analyzeTerminalPrompt(text);
+  return promptSignature(prompt);
+}
+
+function promptSignature(prompt) {
   return JSON.stringify({
     mode: prompt.mode,
     choices: prompt.choices.map((choice) => [choice.label, choice.input])
@@ -1559,6 +1582,22 @@ function terminalPromptSignature(text) {
 
 function terminalControlsChanged(previousPromptSignature) {
   return terminalPromptSignature(state.terminalOutput) !== previousPromptSignature;
+}
+
+function shouldShowComposerOverride(prompt) {
+  return prompt.mode !== "normal" && state.composerOverridePromptSignature === promptSignature(prompt);
+}
+
+function showComposerForCurrentPrompt() {
+  const prompt = analyzeTerminalPrompt(state.terminalOutput);
+  if (prompt.mode === "normal") return;
+  state.composerOverridePromptSignature = promptSignature(prompt);
+  render({ preserveTerminalScroll: true });
+}
+
+function showPromptControls() {
+  state.composerOverridePromptSignature = "";
+  render({ preserveTerminalScroll: true });
 }
 
 function selectedRunTemplate(run) {
@@ -1581,6 +1620,9 @@ function selectedRunTemplate(run) {
 }
 
 function controlPanelTemplate(prompt) {
+  if (shouldShowComposerOverride(prompt)) {
+    return normalComposerTemplate({ showPromptControls: true });
+  }
   if (prompt.mode === "choice") {
     return choiceModeTemplate(prompt);
   }
@@ -1607,6 +1649,9 @@ function choiceModeTemplate(prompt) {
           </button>
         `).join("")}
       </div>
+      <div class="choice-panel-actions">
+        <button type="button" class="secondary mini-button" data-action="show-composer">Textbox</button>
+      </div>
     </div>
   `;
 }
@@ -1629,18 +1674,24 @@ function fallbackKeyModeTemplate() {
           </button>
         `).join("")}
       </div>
+      <div class="choice-panel-actions">
+        <button type="button" class="secondary mini-button" data-action="show-composer">Textbox</button>
+      </div>
     </div>
   `;
 }
 
-function normalComposerTemplate() {
+function normalComposerTemplate(options = {}) {
   return `
     <form class="composer-bar" data-terminal-controls data-form="instruction">
       <label>
         <span class="muted">Instruction</span>
         <textarea name="instruction" placeholder="Send instructions to the selected agent"></textarea>
       </label>
-      <button data-send-instruction ${state.terminalId ? "" : "disabled"}>Send</button>
+      <div class="composer-actions">
+        ${options.showPromptControls ? `<button type="button" class="secondary mini-button" data-action="show-prompt-controls">Options</button>` : ""}
+        <button data-send-instruction ${state.terminalId ? "" : "disabled"}>Send</button>
+      </div>
     </form>
   `;
 }
@@ -1678,6 +1729,8 @@ function bindEvents() {
       sendTerminalInput(terminalInputFromAttribute(button.getAttribute("data-terminal-key")));
     });
   });
+  app.querySelector('[data-action="show-composer"]')?.addEventListener("click", showComposerForCurrentPrompt);
+  app.querySelector('[data-action="show-prompt-controls"]')?.addEventListener("click", showPromptControls);
   app.querySelector('[data-action="refresh"]')?.addEventListener("click", () => loadDashboard());
   app.querySelector('[data-action="disconnect"]')?.addEventListener("click", clearCredentials);
   app.querySelector('[data-action="resume"]')?.addEventListener("click", resumeSelectedRun);
@@ -1722,13 +1775,13 @@ mod tests {
         let shell = asset_for_path("/mobile").expect("mobile shell should be served");
 
         assert_eq!(shell.content_type, "text/html; charset=utf-8");
-        assert_eq!(MOBILE_PWA_ASSET_VERSION, "v5");
+        assert_eq!(MOBILE_PWA_ASSET_VERSION, "v6");
         assert!(shell
             .body
             .contains(r#"href="/mobile/manifest.webmanifest""#));
-        assert!(shell.body.contains(r#"href="/mobile/styles.css?v=v5""#));
-        assert!(shell.body.contains(r#"src="/mobile/app.js?v=v5""#));
-        assert!(shell.body.contains(r#"data-mobile-version="v5""#));
+        assert!(shell.body.contains(r#"href="/mobile/styles.css?v=v6""#));
+        assert!(shell.body.contains(r#"src="/mobile/app.js?v=v6""#));
+        assert!(shell.body.contains(r#"data-mobile-version="v6""#));
         assert!(shell.body.contains("Agent Manager Mobile"));
     }
 
@@ -1746,7 +1799,7 @@ mod tests {
         assert!(reset.body.contains("caches.delete(key)"));
         assert!(reset
             .body
-            .contains(r#"location.replace("/mobile?resetComplete=1&v=v5")"#));
+            .contains(r#"location.replace("/mobile?resetComplete=1&v=v6")"#));
     }
 
     #[test]
@@ -1761,7 +1814,7 @@ mod tests {
         let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
 
         assert_eq!(script.content_type, "text/javascript; charset=utf-8");
-        assert!(script.body.contains(r#"const MOBILE_PWA_VERSION = "v5";"#));
+        assert!(script.body.contains(r#"const MOBILE_PWA_VERSION = "v6";"#));
         assert!(script.body.contains(r#"href="/mobile/reset""#));
         assert!(script
             .body
@@ -1939,6 +1992,30 @@ mod tests {
     }
 
     #[test]
+    fn mobile_choice_mode_can_reveal_textbox_for_current_prompt() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+        let styles = asset_for_path("/mobile/styles.css").expect("mobile styles should be served");
+
+        assert!(script.body.contains("composerOverridePromptSignature"));
+        assert!(script
+            .body
+            .contains("function showComposerForCurrentPrompt()"));
+        assert!(script.body.contains("function showPromptControls()"));
+        assert!(script
+            .body
+            .contains("function shouldShowComposerOverride(prompt)"));
+        assert!(script.body.contains(r#"data-action="show-composer""#));
+        assert!(script
+            .body
+            .contains(r#"data-action="show-prompt-controls""#));
+        assert!(script
+            .body
+            .contains("return normalComposerTemplate({ showPromptControls: true });"));
+        assert!(styles.body.contains(".choice-panel-actions"));
+        assert!(styles.body.contains(".composer-actions"));
+    }
+
+    #[test]
     fn mobile_script_maps_option_rows_to_terminal_input() {
         let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
 
@@ -2029,7 +2106,9 @@ mod tests {
     fn mobile_script_keeps_normal_instruction_composer_for_regular_terminal_text() {
         let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
 
-        assert!(script.body.contains("function normalComposerTemplate()"));
+        assert!(script
+            .body
+            .contains("function normalComposerTemplate(options = {})"));
         assert!(script.body.contains(r#"<textarea name="instruction""#));
         assert!(script.body.contains("sendTerminalInput(`${text}\\n`)"));
     }
@@ -2041,9 +2120,9 @@ mod tests {
 
         assert!(service_worker
             .body
-            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v5";"#));
-        assert!(service_worker.body.contains(r#""/mobile/styles.css?v=v5""#));
-        assert!(service_worker.body.contains(r#""/mobile/app.js?v=v5""#));
+            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v6";"#));
+        assert!(service_worker.body.contains(r#""/mobile/styles.css?v=v6""#));
+        assert!(service_worker.body.contains(r#""/mobile/app.js?v=v6""#));
         assert!(service_worker.body.contains(r#""/mobile/reset""#));
     }
 

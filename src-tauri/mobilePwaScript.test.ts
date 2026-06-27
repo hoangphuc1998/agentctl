@@ -13,6 +13,19 @@ type PromptModel = {
   choices: PromptChoice[];
 };
 
+type MobilePwaHarness = {
+  state: {
+    terminalId: string | null;
+    terminalOutput: string;
+    composerOverridePromptSignature?: string;
+  };
+  analyzeTerminalPrompt: (text: string) => PromptModel;
+  controlPanelTemplate: (prompt: PromptModel) => string;
+  showComposerForCurrentPrompt: (() => void) | null;
+  showPromptControls: (() => void) | null;
+  terminalPromptSignature: (text: string) => string;
+};
+
 function embeddedAppScript() {
   const source = readFileSync(join(process.cwd(), "src-tauri/src/mobile_pwa.rs"), "utf8");
   const match = source.match(/const APP_JS: &str = r#"(.*?)"#;/s);
@@ -20,7 +33,7 @@ function embeddedAppScript() {
   return match[1];
 }
 
-function loadPromptAnalyzer() {
+function loadMobilePwaHarness() {
   const appElement = {
     innerHTML: "",
     querySelector: () => null,
@@ -42,8 +55,23 @@ function loadPromptAnalyzer() {
     WebSocket: function WebSocket() {}
   });
 
-  runInContext(`${embeddedAppScript()}\nthis.__analyzeTerminalPrompt = analyzeTerminalPrompt;`, context);
-  return context.__analyzeTerminalPrompt as (text: string) => PromptModel;
+  runInContext(
+    `${embeddedAppScript()}
+this.__mobilePwaHarness = {
+  state,
+  analyzeTerminalPrompt,
+  controlPanelTemplate,
+  terminalPromptSignature,
+  showComposerForCurrentPrompt: typeof showComposerForCurrentPrompt === "function" ? showComposerForCurrentPrompt : null,
+  showPromptControls: typeof showPromptControls === "function" ? showPromptControls : null
+};`,
+    context
+  );
+  return context.__mobilePwaHarness as MobilePwaHarness;
+}
+
+function loadPromptAnalyzer() {
+  return loadMobilePwaHarness().analyzeTerminalPrompt;
 }
 
 describe("mobile PWA prompt analyzer", () => {
@@ -113,5 +141,30 @@ Esc to cancel · Tab to amend
 
     expect(analyzeTerminalPrompt("Use arrow keys to select a row, then press Enter").mode).toBe("fallbackKeys");
     expect(analyzeTerminalPrompt("• Read file\n• Run pwd\nWorking...").mode).toBe("normal");
+  });
+
+  it("can reveal the textbox for the current choice prompt and return to choices", () => {
+    const harness = loadMobilePwaHarness();
+    harness.state.terminalId = "terminal-1";
+    harness.state.terminalOutput = "Choose one:\n1. Alpha\n2. Beta";
+    const prompt = harness.analyzeTerminalPrompt(harness.state.terminalOutput);
+
+    expect(harness.controlPanelTemplate(prompt)).toContain('data-action="show-composer"');
+    expect(harness.controlPanelTemplate(prompt)).not.toContain("<textarea");
+
+    expect(harness.showComposerForCurrentPrompt).not.toBeNull();
+    harness.showComposerForCurrentPrompt?.();
+
+    expect(harness.state.composerOverridePromptSignature).toBe(
+      harness.terminalPromptSignature(harness.state.terminalOutput)
+    );
+    expect(harness.controlPanelTemplate(prompt)).toContain("<textarea");
+    expect(harness.controlPanelTemplate(prompt)).toContain('data-action="show-prompt-controls"');
+    expect(harness.controlPanelTemplate(prompt)).not.toContain("data-choice-mode");
+
+    expect(harness.showPromptControls).not.toBeNull();
+    harness.showPromptControls?.();
+    expect(harness.state.composerOverridePromptSignature).toBe("");
+    expect(harness.controlPanelTemplate(prompt)).toContain("data-choice-mode");
   });
 });

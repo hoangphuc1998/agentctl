@@ -47,6 +47,8 @@ const DEVICE_ID_HEADER: &str = "x-agent-manager-device";
 const MOBILE_PWA_ROUTE_PATHS: &[&str] = &[
     "/mobile",
     "/mobile/",
+    "/mobile/reset",
+    "/mobile/reset/",
     "/mobile/app.js",
     "/mobile/styles.css",
     "/mobile/manifest.webmanifest",
@@ -124,6 +126,8 @@ pub fn mobile_bridge_router(state: BridgeServerState) -> Router {
     Router::new()
         .route("/mobile", get(mobile_pwa::index))
         .route("/mobile/", get(mobile_pwa::index))
+        .route("/mobile/reset", get(mobile_pwa::reset))
+        .route("/mobile/reset/", get(mobile_pwa::reset))
         .route("/mobile/app.js", get(mobile_pwa::app_js))
         .route("/mobile/styles.css", get(mobile_pwa::styles_css))
         .route("/mobile/manifest.webmanifest", get(mobile_pwa::manifest))
@@ -696,6 +700,8 @@ mod tests {
             &[
                 "/mobile",
                 "/mobile/",
+                "/mobile/reset",
+                "/mobile/reset/",
                 "/mobile/app.js",
                 "/mobile/styles.css",
                 "/mobile/manifest.webmanifest",

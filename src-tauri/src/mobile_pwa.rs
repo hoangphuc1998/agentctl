@@ -1,5 +1,8 @@
 use axum::{
-    http::{header::CONTENT_TYPE, StatusCode},
+    http::{
+        header::{CACHE_CONTROL, CONTENT_TYPE},
+        StatusCode,
+    },
     response::{IntoResponse, Response},
 };
 
@@ -14,6 +17,10 @@ pub fn asset_for_path(path: &str) -> Option<MobilePwaAsset> {
         "/mobile" => Some(MobilePwaAsset {
             content_type: "text/html; charset=utf-8",
             body: INDEX_HTML,
+        }),
+        "/mobile/reset" => Some(MobilePwaAsset {
+            content_type: "text/html; charset=utf-8",
+            body: RESET_HTML,
         }),
         "/mobile/app.js" => Some(MobilePwaAsset {
             content_type: "text/javascript; charset=utf-8",
@@ -43,6 +50,10 @@ pub async fn index() -> Response {
     asset_response("/mobile")
 }
 
+pub async fn reset() -> Response {
+    asset_response("/mobile/reset")
+}
+
 pub async fn app_js() -> Response {
     asset_response("/mobile/app.js")
 }
@@ -65,7 +76,7 @@ pub async fn icon_svg() -> Response {
 
 macro_rules! mobile_pwa_asset_version {
     () => {
-        "v4"
+        "v5"
     };
 }
 
@@ -73,7 +84,14 @@ pub const MOBILE_PWA_ASSET_VERSION: &str = mobile_pwa_asset_version!();
 
 fn asset_response(path: &str) -> Response {
     match asset_for_path(path) {
-        Some(asset) => ([(CONTENT_TYPE, asset.content_type)], asset.body).into_response(),
+        Some(asset) => (
+            [
+                (CONTENT_TYPE, asset.content_type),
+                (CACHE_CONTROL, "no-store"),
+            ],
+            asset.body,
+        )
+            .into_response(),
         None => (StatusCode::NOT_FOUND, "mobile asset not found").into_response(),
     }
 }
@@ -93,10 +111,97 @@ const INDEX_HTML: &str = concat!(
     <title>Agent Manager Mobile</title>
   </head>
   <body>
-    <main id="app" class="shell" aria-live="polite"></main>
+    <main id="app" class="shell" aria-live="polite" data-mobile-version=""##,
+    mobile_pwa_asset_version!(),
+    r##""></main>
     <script type="module" src="/mobile/app.js?v="##,
     mobile_pwa_asset_version!(),
     r##""></script>
+  </body>
+</html>
+"##
+);
+
+const RESET_HTML: &str = concat!(
+    r##"<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#101418">
+    <title>Resetting Agent Manager Mobile</title>
+    <style>
+      * { box-sizing: border-box; }
+      :root {
+        font-family: "Aptos", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+        background: #e7eceb;
+        color: #101418;
+      }
+      body {
+        min-height: 100dvh;
+        display: grid;
+        place-items: center;
+        margin: 0;
+        padding: 18px;
+      }
+      main {
+        width: min(480px, 100%);
+        border: 1px solid #c4cfcb;
+        border-radius: 8px;
+        background: #fbf8f1;
+        padding: 20px;
+        box-shadow: 0 16px 44px rgba(16, 20, 24, 0.14);
+      }
+      .kicker {
+        margin: 0 0 6px;
+        color: #59666c;
+        font-size: 0.72rem;
+        font-weight: 820;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      h1 {
+        margin: 0 0 10px;
+        font-size: 2rem;
+        line-height: 1;
+      }
+      p {
+        margin: 0;
+        color: #59666c;
+        line-height: 1.45;
+      }
+    </style>
+  </head>
+  <body>
+    <main data-mobile-version=""##,
+    mobile_pwa_asset_version!(),
+    r##"">
+      <p class="kicker">Mobile Bridge</p>
+      <h1>Resetting Agent Manager Mobile</h1>
+      <p id="status">Clearing installed PWA assets and service worker...</p>
+    </main>
+    <script>
+      (async () => {
+        const status = document.getElementById("status");
+        try {
+          if ("serviceWorker" in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+          }
+          if ("caches" in window) {
+            const keys = await caches.keys();
+            await Promise.all(keys.map((key) => caches.delete(key)));
+          }
+          status.textContent = "Reset complete. Reloading the mobile bridge...";
+        } catch (error) {
+          status.textContent = `Reset hit an error, reloading anyway: ${error && error.message ? error.message : error}`;
+        } finally {
+          location.replace("/mobile?resetComplete=1&v="##,
+    mobile_pwa_asset_version!(),
+    r##"");
+        }
+      })();
+    </script>
   </body>
 </html>
 "##
@@ -127,6 +232,7 @@ const SERVICE_WORKER_JS: &str = concat!(
     r#"";
 const SHELL_ASSETS = [
   "/mobile",
+  "/mobile/reset",
   "/mobile/styles.css?v="#,
     mobile_pwa_asset_version!(),
     r#"",
@@ -245,6 +351,13 @@ button {
 button.secondary {
   background: #dbe5e2;
   color: var(--ink);
+}
+
+a {
+  color: var(--accent);
+  font-weight: 760;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
 }
 
 button.danger {
@@ -383,6 +496,33 @@ h2 {
 .ready-title h1 {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pwa-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 4px 0 0;
+}
+
+.asset-version {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid rgba(89, 102, 108, 0.28);
+  border-radius: 999px;
+  background: rgba(234, 240, 237, 0.82);
+  color: var(--muted);
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+
+.reset-link {
+  font-size: 0.78rem;
   white-space: nowrap;
 }
 
@@ -764,6 +904,7 @@ h2 {
 
 const APP_JS: &str = r#"const STORAGE_KEY = "agent-manager-mobile-credentials";
 const TAIL_LOCK_THRESHOLD = 48;
+const MOBILE_PWA_VERSION = "v5";
 const app = document.getElementById("app");
 
 const state = {
@@ -1186,6 +1327,7 @@ function pairingTemplate() {
         <p class="kicker">Chrome PWA</p>
         <h1>Agent Manager</h1>
         <p class="muted">Pair this browser with the desktop Mobile Bridge.</p>
+        ${pwaMetaTemplate()}
       </div>
       <button class="secondary" data-action="health">Check bridge</button>
     </section>
@@ -1220,6 +1362,7 @@ function readyTemplate() {
           <p class="kicker">Mobile Bridge</p>
           <h1>${run ? escapeHtml(run.runName) : "Agent Manager"}</h1>
           <p class="muted">${run ? `${escapeHtml(run.repoName)} / ${escapeHtml(run.observedState)}` : escapeHtml(location.host)}</p>
+          ${pwaMetaTemplate()}
         </div>
         <div class="ready-actions">
           <button class="secondary" data-action="refresh" ${state.busy ? "disabled" : ""}>Refresh</button>
@@ -1252,6 +1395,15 @@ function readyTemplate() {
       </div>
       <div class="drawer-backdrop${state.drawerOpen ? " open" : ""}" data-action="close-drawer" aria-hidden="true"></div>
     </section>
+  `;
+}
+
+function pwaMetaTemplate() {
+  return `
+    <p class="pwa-meta">
+      <span class="asset-version" data-mobile-version="${escapeHtml(MOBILE_PWA_VERSION)}">PWA ${escapeHtml(MOBILE_PWA_VERSION)}</span>
+      <a class="reset-link" href="/mobile/reset">Reset PWA</a>
+    </p>
   `;
 }
 
@@ -1570,12 +1722,38 @@ mod tests {
         let shell = asset_for_path("/mobile").expect("mobile shell should be served");
 
         assert_eq!(shell.content_type, "text/html; charset=utf-8");
+        assert_eq!(MOBILE_PWA_ASSET_VERSION, "v5");
         assert!(shell
             .body
             .contains(r#"href="/mobile/manifest.webmanifest""#));
-        assert!(shell.body.contains(r#"href="/mobile/styles.css?v=v4""#));
-        assert!(shell.body.contains(r#"src="/mobile/app.js?v=v4""#));
+        assert!(shell.body.contains(r#"href="/mobile/styles.css?v=v5""#));
+        assert!(shell.body.contains(r#"src="/mobile/app.js?v=v5""#));
+        assert!(shell.body.contains(r#"data-mobile-version="v5""#));
         assert!(shell.body.contains("Agent Manager Mobile"));
+    }
+
+    #[test]
+    fn mobile_reset_asset_clears_installed_pwa_state_before_reloading() {
+        let reset = asset_for_path("/mobile/reset").expect("mobile reset should be served");
+
+        assert_eq!(reset.content_type, "text/html; charset=utf-8");
+        assert!(reset.body.contains("Resetting Agent Manager Mobile"));
+        assert!(reset
+            .body
+            .contains("navigator.serviceWorker.getRegistrations()"));
+        assert!(reset.body.contains("registration.unregister()"));
+        assert!(reset.body.contains("caches.keys()"));
+        assert!(reset.body.contains("caches.delete(key)"));
+        assert!(reset
+            .body
+            .contains(r#"location.replace("/mobile?resetComplete=1&v=v5")"#));
+    }
+
+    #[test]
+    fn mobile_asset_responses_disable_browser_http_cache() {
+        let response = asset_response("/mobile/app.js");
+
+        assert_eq!(response.headers().get(CACHE_CONTROL).unwrap(), "no-store");
     }
 
     #[test]
@@ -1583,6 +1761,11 @@ mod tests {
         let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
 
         assert_eq!(script.content_type, "text/javascript; charset=utf-8");
+        assert!(script.body.contains(r#"const MOBILE_PWA_VERSION = "v5";"#));
+        assert!(script.body.contains(r#"href="/mobile/reset""#));
+        assert!(script
+            .body
+            .contains("PWA ${escapeHtml(MOBILE_PWA_VERSION)}"));
         assert!(script.body.contains("/api/mobile/v1/pair/claim"));
         assert!(script.body.contains("/api/mobile/v1/dashboard"));
         assert!(script.body.contains("/api/mobile/v1/runs/"));
@@ -1858,9 +2041,10 @@ mod tests {
 
         assert!(service_worker
             .body
-            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v4";"#));
-        assert!(service_worker.body.contains(r#""/mobile/styles.css?v=v4""#));
-        assert!(service_worker.body.contains(r#""/mobile/app.js?v=v4""#));
+            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v5";"#));
+        assert!(service_worker.body.contains(r#""/mobile/styles.css?v=v5""#));
+        assert!(service_worker.body.contains(r#""/mobile/app.js?v=v5""#));
+        assert!(service_worker.body.contains(r#""/mobile/reset""#));
     }
 
     #[test]

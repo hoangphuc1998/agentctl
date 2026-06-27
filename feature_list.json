@@ -406,6 +406,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-26 18:10 +07: Used the frontend-design skill to move the /mobile PWA toward a cooler operator-console aesthetic, added RED mobile_pwa asset tests for requestAnimationFrame terminal output batching, structural render scroll preservation, stream status UI, composer focus controls, and CSS containment/focus styling. Implemented queued terminal output flushing, render scroll capture/restore, a live stream status pill, compact Input focus control, terminal/composer polish, and a less beige-heavy color system. Verification passed: ./init.sh baseline, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo fmt --check, git diff --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside sandbox after listener bind denial, and final ./init.sh."
+    },
+    {
+      "id": "feat-040",
+      "name": "Mobile PWA Terminal Control Sequence Cleanup",
+      "description": "Prevent raw tmux VT control sequences from appearing as weird characters in the Chrome PWA terminal window.",
+      "dependencies": [
+        "feat-039"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-27 10:22 +07: Found the Mobile PWA rendered raw PTY bytes in a plain text terminal surface, so ANSI/VT sequences such as CSI color codes, erase-line commands, OSC titles, and charset switches were visible on mobile. Added a RED mobile_bridge_server regression covering those sequences, including split CSI/OSC chunks, then sanitized mobile terminal output before sending WebSocket terminalOutput messages. Verification passed: ./init.sh baseline, cargo test -p agent-manager-desktop --features tauri-app mobile_terminal_output_drops_vt_control_sequences, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, cargo test -p agent-manager-desktop --features tauri-app outside sandbox after listener bind denial, and final ./init.sh."
     }
   ]
 }

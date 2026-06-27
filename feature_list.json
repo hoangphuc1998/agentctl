@@ -416,6 +416,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-27 10:22 +07: Found the Mobile PWA rendered raw PTY bytes in a plain text terminal surface, so ANSI/VT sequences such as CSI color codes, erase-line commands, OSC titles, and charset switches were visible on mobile. Added a RED mobile_bridge_server regression covering those sequences, including split CSI/OSC chunks, then sanitized mobile terminal output before sending WebSocket terminalOutput messages. Verification passed: ./init.sh baseline, cargo test -p agent-manager-desktop --features tauri-app mobile_terminal_output_drops_vt_control_sequences, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, cargo test -p agent-manager-desktop --features tauri-app outside sandbox after listener bind denial, and final ./init.sh."
+    },
+    {
+      "id": "feat-041",
+      "name": "Mobile PWA Visible Pane Terminal Stream",
+      "description": "Make mobile live terminal streaming send replacement tmux visible-pane snapshots instead of appending raw terminal protocol bytes.",
+      "dependencies": [
+        "feat-040"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-27 10:56 +07: Follow-up screenshots showed sanitized raw PTY chunks still streamed tmux protocol/status-line nonsense because the PWA plain text terminal cannot apply cursor and erase semantics. Added a RED mobile_bridge_server regression requiring live refreshes to emit replacement terminalSnapshot messages and suppress duplicate visible text, then changed the mobile PTY reader to use raw bytes only as a change signal and stream tmux snapshot_window visible text. Verification passed: ./init.sh baseline, cargo test -p agent-manager-desktop --features tauri-app mobile_terminal_live_refreshes_are_replacement_snapshots, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, cargo test -p agent-manager-desktop --features tauri-app outside sandbox after listener bind denial, and final ./init.sh."
     }
   ]
 }

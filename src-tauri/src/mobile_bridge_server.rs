@@ -385,7 +385,8 @@ impl MobilePtySession {
         let writer = pair.master.take_writer().map_err(|err| err.to_string())?;
         let terminal_id = Uuid::new_v4().to_string();
         let run_id = run.id.to_string();
-        spawn_mobile_reader(terminal_id.clone(), run_id, reader, output);
+        let snapshot_target = MobileTerminalSnapshotTarget::for_run(run, TMUX_SESSION)?;
+        spawn_mobile_reader(terminal_id.clone(), run_id, snapshot_target, reader, output);
         Ok(Self {
             terminal_id,
             master: pair.master,
@@ -417,33 +418,65 @@ impl Drop for MobilePtySession {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct MobileTerminalSnapshotTarget {
+    session: String,
+    window: String,
+}
+
+impl MobileTerminalSnapshotTarget {
+    fn for_run(
+        run: &agentctl_core::domain::RunRecord,
+        fallback_session: &str,
+    ) -> Result<Self, String> {
+        let session = run
+            .tmux_session
+            .as_deref()
+            .unwrap_or(fallback_session)
+            .to_string();
+        let window = run
+            .tmux_window
+            .as_ref()
+            .ok_or_else(|| format!("run `{}` does not have a tmux window", run.run_name))?
+            .to_string();
+        Ok(Self { session, window })
+    }
+
+    fn capture_visible_text(&self) -> Option<String> {
+        Tmux::new(&self.session)
+            .snapshot_window(&self.window)
+            .ok()
+            .filter(|snapshot| snapshot.pane_active)
+            .map(|snapshot| snapshot.visible_text)
+    }
+}
+
 fn spawn_mobile_reader(
     terminal_id: String,
     run_id: String,
+    snapshot_target: MobileTerminalSnapshotTarget,
     mut reader: Box<dyn Read + Send>,
     output: mpsc::Sender<StreamServerMessage>,
 ) {
     thread::spawn(move || {
         let mut buffer = [0u8; 8192];
-        let mut sanitizer = MobileTerminalTextSanitizer::default();
+        let mut last_visible_text = snapshot_target.capture_visible_text();
         loop {
             match reader.read(&mut buffer) {
                 Ok(0) => break,
                 Ok(size) => {
-                    let raw = String::from_utf8_lossy(&buffer[..size]);
-                    let data = sanitizer.sanitize_chunk(&raw);
-                    if data.is_empty() {
-                        continue;
-                    }
-                    if output
-                        .blocking_send(StreamServerMessage::TerminalOutput {
-                            terminal_id: terminal_id.clone(),
-                            run_id: run_id.clone(),
-                            data,
-                        })
-                        .is_err()
-                    {
-                        break;
+                    if size > 0 {
+                        if let Some(visible_text) = snapshot_target.capture_visible_text() {
+                            if let Some(message) = mobile_terminal_snapshot_message(
+                                &run_id,
+                                visible_text,
+                                &mut last_visible_text,
+                            ) {
+                                if output.blocking_send(message).is_err() {
+                                    break;
+                                }
+                            }
+                        }
                     }
                 }
                 Err(_) => break,
@@ -456,155 +489,19 @@ fn spawn_mobile_reader(
     });
 }
 
-#[derive(Default)]
-struct MobileTerminalTextSanitizer {
-    state: TerminalControlState,
-    pending_cr: bool,
-}
-
-#[derive(Default)]
-enum TerminalControlState {
-    #[default]
-    Ground,
-    Escape,
-    EscapeIntermediate,
-    Charset,
-    Csi,
-    Osc,
-    OscEscape,
-    ControlString,
-    ControlStringEscape,
-}
-
-impl MobileTerminalTextSanitizer {
-    fn sanitize_chunk(&mut self, data: &str) -> String {
-        let mut output = String::with_capacity(data.len());
-        for ch in data.chars() {
-            self.sanitize_char(ch, &mut output);
-        }
-        output
+fn mobile_terminal_snapshot_message(
+    run_id: &str,
+    visible_text: String,
+    last_visible_text: &mut Option<String>,
+) -> Option<StreamServerMessage> {
+    if last_visible_text.as_deref() == Some(visible_text.as_str()) {
+        return None;
     }
-
-    fn sanitize_char(&mut self, ch: char, output: &mut String) {
-        match self.state {
-            TerminalControlState::Ground => self.sanitize_ground_char(ch, output),
-            TerminalControlState::Escape => self.sanitize_escape_char(ch),
-            TerminalControlState::EscapeIntermediate => self.sanitize_escape_intermediate_char(ch),
-            TerminalControlState::Charset => {
-                self.state = TerminalControlState::Ground;
-            }
-            TerminalControlState::Csi => self.sanitize_csi_char(ch),
-            TerminalControlState::Osc => self.sanitize_osc_char(ch),
-            TerminalControlState::OscEscape => self.sanitize_osc_escape_char(ch),
-            TerminalControlState::ControlString => self.sanitize_control_string_char(ch),
-            TerminalControlState::ControlStringEscape => {
-                self.sanitize_control_string_escape_char(ch);
-            }
-        }
-    }
-
-    fn sanitize_ground_char(&mut self, ch: char, output: &mut String) {
-        if self.pending_cr {
-            self.pending_cr = false;
-            if ch == '\n' {
-                return;
-            }
-        }
-
-        match ch {
-            '\x1b' => self.state = TerminalControlState::Escape,
-            '\u{009b}' => self.state = TerminalControlState::Csi,
-            '\u{009d}' => self.state = TerminalControlState::Osc,
-            '\u{0090}' | '\u{0098}' | '\u{009e}' | '\u{009f}' => {
-                self.state = TerminalControlState::ControlString;
-            }
-            '\r' => {
-                output.push('\n');
-                self.pending_cr = true;
-            }
-            '\n' | '\t' => output.push(ch),
-            ch if is_c0_control(ch) || is_c1_control(ch) => {}
-            _ => output.push(ch),
-        }
-    }
-
-    fn sanitize_escape_char(&mut self, ch: char) {
-        self.state = match ch {
-            '[' => TerminalControlState::Csi,
-            ']' => TerminalControlState::Osc,
-            'P' | 'X' | '^' | '_' => TerminalControlState::ControlString,
-            '(' | ')' | '*' | '+' | '-' | '.' | '/' => TerminalControlState::Charset,
-            '\x1b' => TerminalControlState::Escape,
-            ch if is_escape_intermediate(ch) => TerminalControlState::EscapeIntermediate,
-            _ => TerminalControlState::Ground,
-        };
-    }
-
-    fn sanitize_escape_intermediate_char(&mut self, ch: char) {
-        if ch == '\x1b' {
-            self.state = TerminalControlState::Escape;
-        } else if is_escape_final(ch) {
-            self.state = TerminalControlState::Ground;
-        }
-    }
-
-    fn sanitize_csi_char(&mut self, ch: char) {
-        if ch == '\x1b' {
-            self.state = TerminalControlState::Escape;
-        } else if is_csi_final(ch) {
-            self.state = TerminalControlState::Ground;
-        }
-    }
-
-    fn sanitize_osc_char(&mut self, ch: char) {
-        match ch {
-            '\x07' => self.state = TerminalControlState::Ground,
-            '\x1b' => self.state = TerminalControlState::OscEscape,
-            _ => {}
-        }
-    }
-
-    fn sanitize_osc_escape_char(&mut self, ch: char) {
-        self.state = match ch {
-            '\\' => TerminalControlState::Ground,
-            '\x1b' => TerminalControlState::OscEscape,
-            _ => TerminalControlState::Osc,
-        };
-    }
-
-    fn sanitize_control_string_char(&mut self, ch: char) {
-        if ch == '\x1b' {
-            self.state = TerminalControlState::ControlStringEscape;
-        }
-    }
-
-    fn sanitize_control_string_escape_char(&mut self, ch: char) {
-        self.state = match ch {
-            '\\' => TerminalControlState::Ground,
-            '\x1b' => TerminalControlState::ControlStringEscape,
-            _ => TerminalControlState::ControlString,
-        };
-    }
-}
-
-fn is_c0_control(ch: char) -> bool {
-    matches!(ch, '\u{0000}'..='\u{001f}' | '\u{007f}')
-}
-
-fn is_c1_control(ch: char) -> bool {
-    matches!(ch, '\u{0080}'..='\u{009f}')
-}
-
-fn is_escape_intermediate(ch: char) -> bool {
-    matches!(ch, '\u{0020}'..='\u{002f}')
-}
-
-fn is_escape_final(ch: char) -> bool {
-    matches!(ch, '\u{0030}'..='\u{007e}')
-}
-
-fn is_csi_final(ch: char) -> bool {
-    matches!(ch, '\u{0040}'..='\u{007e}')
+    *last_visible_text = Some(visible_text.clone());
+    Some(StreamServerMessage::TerminalSnapshot {
+        run_id: run_id.to_string(),
+        data: visible_text,
+    })
 }
 
 fn authorize(state: &BridgeServerState, headers: &HeaderMap) -> Result<String, BridgeApiError> {
@@ -831,16 +728,27 @@ mod tests {
     }
 
     #[test]
-    fn mobile_terminal_output_drops_vt_control_sequences() {
-        let mut sanitizer = MobileTerminalTextSanitizer::default();
+    fn mobile_terminal_live_refreshes_are_replacement_snapshots() {
+        let mut last_visible_text = Some("old pane".to_string());
 
         assert_eq!(
-            sanitizer.sanitize_chunk("\x1b[39mfeat\x1b[49m\x1b[2m\r\n\x1b(B\x1b[Kqueued\x1b[0m"),
-            "feat\nqueued"
+            mobile_terminal_snapshot_message(
+                "run-1",
+                "clean visible pane".to_string(),
+                &mut last_visible_text,
+            ),
+            Some(StreamServerMessage::TerminalSnapshot {
+                run_id: "run-1".to_string(),
+                data: "clean visible pane".to_string(),
+            })
         );
-        assert_eq!(sanitizer.sanitize_chunk("\x1b[3"), "");
-        assert_eq!(sanitizer.sanitize_chunk("8;5;151mgreen"), "green");
-        assert_eq!(sanitizer.sanitize_chunk("\x1b]0;window title"), "");
-        assert_eq!(sanitizer.sanitize_chunk("\x07done"), "done");
+        assert_eq!(
+            mobile_terminal_snapshot_message(
+                "run-1",
+                "clean visible pane".to_string(),
+                &mut last_visible_text,
+            ),
+            None
+        );
     }
 }

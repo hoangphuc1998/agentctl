@@ -107,7 +107,7 @@ const MANIFEST_JSON: &str = r##"{
 }
 "##;
 
-const SERVICE_WORKER_JS: &str = r#"const CACHE_NAME = "agent-manager-mobile-v2";
+const SERVICE_WORKER_JS: &str = r#"const CACHE_NAME = "agent-manager-mobile-v3";
 const SHELL_ASSETS = [
   "/mobile",
   "/mobile/styles.css",
@@ -122,19 +122,34 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    )
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+    await self.clients.claim();
+    const clients = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    await Promise.all(clients.map((client) => {
+      const url = new URL(client.url);
+      return url.pathname.startsWith("/mobile") ? client.navigate(client.url) : undefined;
+    }));
+  })());
 });
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (url.pathname.startsWith("/api/mobile/")) return;
   if (url.pathname.startsWith("/mobile")) {
-    event.respondWith(caches.match(event.request).then((cached) => cached || fetch(event.request)));
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) =>
+        fetch(event.request).then((response) => {
+          if (response.ok) {
+            cache.put(event.request, response.clone());
+          }
+          return response;
+        }).catch(() =>
+          caches.match(event.request).then((cached) => cached || Response.error())
+        )
+      )
+    );
   }
 });
 "#;
@@ -1246,6 +1261,10 @@ function runRowTemplate(run) {
 function analyzeTerminalPrompt(text) {
   const lines = recentNonEmptyLines(text);
   const recentText = lines.join("\n");
+  const cursorChoices = cursorChoicesFromLines(lines);
+  if (cursorChoices.length >= 2) {
+    return { mode: "choice", choices: withCancelChoice(cursorChoices, recentText) };
+  }
   const numberedChoices = numberedChoicesFromLines(lines);
   if (numberedChoices.length >= 2) {
     return { mode: "choice", choices: withCancelChoice(numberedChoices, recentText) };
@@ -1253,10 +1272,6 @@ function analyzeTerminalPrompt(text) {
   const letteredChoices = letteredChoicesFromLines(lines);
   if (letteredChoices.length >= 2) {
     return { mode: "choice", choices: withCancelChoice(letteredChoices, recentText) };
-  }
-  const cursorChoices = cursorChoicesFromLines(lines);
-  if (cursorChoices.length >= 2) {
-    return { mode: "choice", choices: withCancelChoice(cursorChoices, recentText) };
   }
   if (looksInteractivePrompt(recentText)) {
     return { mode: "fallbackKeys", choices: [] };
@@ -1280,7 +1295,7 @@ function numberedChoicesFromLines(lines) {
     const number = match[1] || match[2];
     const label = match[3].trim();
     if (!label) continue;
-    choices.push({ label, input: `${number}\n` });
+    choices.push({ label: cleanChoiceLabel(label), input: `${number}\n` });
   }
   return choices;
 }
@@ -1293,7 +1308,7 @@ function letteredChoicesFromLines(lines) {
     const letter = match[1] || match[2];
     const label = match[3].trim();
     if (!label) continue;
-    choices.push({ label, input: `${letter}\n` });
+    choices.push({ label: cleanChoiceLabel(label), input: `${letter}\n` });
   }
   return choices;
 }
@@ -1328,9 +1343,13 @@ function cursorChoiceBlockEnd(lines, selectedIndex) {
 
 function cursorChoiceLabel(line) {
   const selected = line.match(/^\s*(?:\u276f|>)\s+(.+?)\s*$/);
-  if (selected) return selected[1].trim();
+  if (selected) return cleanChoiceLabel(selected[1].trim());
   const plain = line.match(/^\s{2,}([^\s].+?)\s*$/);
-  return plain ? plain[1].trim() : "";
+  return plain ? cleanChoiceLabel(plain[1].trim()) : "";
+}
+
+function cleanChoiceLabel(label) {
+  return label.replace(/^(?:\d{1,2}|[A-Za-z])[.)]\s+/, "");
 }
 
 function cursorChoiceInput(selectedIndex, index) {
@@ -1745,6 +1764,29 @@ mod tests {
     }
 
     #[test]
+    fn mobile_script_prioritizes_claude_selected_numbered_choices() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        let cursor_index = script
+            .body
+            .find("const cursorChoices = cursorChoicesFromLines(lines);")
+            .expect("cursor choice parsing should be present");
+        let numbered_index = script
+            .body
+            .find("const numberedChoices = numberedChoicesFromLines(lines);")
+            .expect("numbered choice parsing should be present");
+
+        assert!(cursor_index < numbered_index);
+        assert!(script.body.contains("function cleanChoiceLabel(label)"));
+        assert!(script
+            .body
+            .contains(r#"return cleanChoiceLabel(selected[1].trim());"#));
+        assert!(script
+            .body
+            .contains(r#"label: cleanChoiceLabel(label), input: `${number}\n`"#));
+    }
+
+    #[test]
     fn mobile_script_renders_fallback_terminal_keys_for_uncertain_prompts() {
         let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
         let styles = asset_for_path("/mobile/styles.css").expect("mobile styles should be served");
@@ -1806,6 +1848,21 @@ mod tests {
 
         assert!(service_worker
             .body
-            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v2";"#));
+            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v3";"#));
+    }
+
+    #[test]
+    fn mobile_service_worker_fetches_fresh_mobile_assets_before_cache() {
+        let service_worker =
+            asset_for_path("/mobile/sw.js").expect("mobile service worker should be served");
+
+        assert!(service_worker
+            .body
+            .contains("fetch(event.request).then((response) => {"));
+        assert!(service_worker
+            .body
+            .contains("cache.put(event.request, response.clone())"));
+        assert!(service_worker.body.contains("cached || Response.error()"));
+        assert!(service_worker.body.contains("client.navigate(client.url)"));
     }
 }

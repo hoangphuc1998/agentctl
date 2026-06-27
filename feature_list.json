@@ -436,6 +436,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-27 16:06 +07: Added RED mobile_pwa asset tests for Choice Mode composer replacement, numbered/lettered/cursor choice mappings, fallback key controls, encoded terminal input attributes, recent-line prompt hints, normal composer preservation, and PWA cache busting. Implemented conservative prompt analysis in the /mobile PWA, direct choice buttons, Up/Down/Enter/Esc/Tab fallback keys, encoded terminal input data attributes, prompt-aware control refresh on terminal snapshots, and service worker cache v2. Verification passed: cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, node --check for extracted APP_JS and SERVICE_WORKER_JS, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, and final ./init.sh after artifact updates."
+    },
+    {
+      "id": "feat-043",
+      "name": "Mobile PWA Claude Choice Prompt Repair",
+      "description": "Make Claude selected numbered prompts show all mobile choice buttons and prevent stale cached PWA assets from hiding the new choice UI.",
+      "dependencies": [
+        "feat-042"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-27 16:44 +07: Reproduced the screenshot prompt against the embedded APP_JS and found the analyzer entered Choice Mode through plain numbered choices, dropping the highlighted '1. Yes' row, while the cache-first service worker could keep serving stale composer-only app assets. Added RED mobile_pwa tests for prioritizing cursor-selected Claude numbered choices and for network-first mobile asset caching. Fixed the analyzer to parse cursor-selected prompts before plain numbered lists, clean numeric/letter prefixes from labels, and bumped the service worker to v3 with network-first /mobile fetches plus client reload on activation. Verification passed: cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, node execution of the screenshot prompt returning Yes/Yes allow/No/Cancel choices, node --check for extracted APP_JS and SERVICE_WORKER_JS, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, and final ./init.sh after artifact updates."
     }
   ]
 }

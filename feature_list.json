@@ -446,6 +446,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-27 16:44 +07: Reproduced the screenshot prompt against the embedded APP_JS and found the analyzer entered Choice Mode through plain numbered choices, dropping the highlighted '1. Yes' row, while the cache-first service worker could keep serving stale composer-only app assets. Added RED mobile_pwa tests for prioritizing cursor-selected Claude numbered choices and for network-first mobile asset caching. Fixed the analyzer to parse cursor-selected prompts before plain numbered lists, clean numeric/letter prefixes from labels, and bumped the service worker to v3 with network-first /mobile fetches plus client reload on activation. Verification passed: cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, node execution of the screenshot prompt returning Yes/Yes allow/No/Cancel choices, node --check for extracted APP_JS and SERVICE_WORKER_JS, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, and final ./init.sh after artifact updates."
+    },
+    {
+      "id": "feat-044",
+      "name": "Mobile PWA General Choice Row Parser",
+      "description": "Replace case-specific Codex and Claude choice prompt parsing with one structural option-row parser for selected markers, tokens, labels, and shortcut hints.",
+      "dependencies": [
+        "feat-043"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-27 18:03 +07: Added RED Vitest coverage that executes the embedded APP_JS prompt analyzer against representative Codex approval rows, Claude selected numbered rows, plain numbered rows, plain lettered rows, and fallback-only interactive prompts. Replaced separate numbered/lettered/cursor parsers with a unified parseChoiceRows option-row parser that recognizes optional selected markers, bracketed/dotted numeric or letter tokens, labels, and simple shortcut hints such as (y), (p), and (esc). Added versioned /mobile app.js/styles.css URLs tied to MOBILE_PWA_ASSET_VERSION and bumped the service worker cache to v4. Verification passed: baseline ./init.sh, npm test -- src-tauri/mobilePwaScript.test.ts RED then GREEN, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, direct Node execution of the Codex screenshot prompt returning Yes proceed/Yes don't ask/No choices with y/p/esc inputs, node --check for extracted APP_JS and SERVICE_WORKER_JS, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, and final ./init.sh after artifact updates."
     }
   ]
 }

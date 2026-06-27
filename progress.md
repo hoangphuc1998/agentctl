@@ -2,9 +2,9 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-27 10:22 +07
-**Session ID:** mobile-pwa-terminal-control-sequence-cleanup
-**Active Feature:** feat-040 - Mobile PWA Terminal Control Sequence Cleanup
+**Last Updated:** 2026-06-27 10:56 +07
+**Session ID:** mobile-pwa-visible-pane-terminal-stream
+**Active Feature:** feat-041 - Mobile PWA Visible Pane Terminal Stream
 
 ## Status
 
@@ -12,10 +12,10 @@
 
 - [x] Confirmed the repo root and read AGENTS.md, README.md, mobile PWA docs, feature_list.json, and recent commits.
 - [x] Ran baseline `./init.sh`; it exited 0 with npm test, npm run build, and cargo test passing.
-- [x] Traced the mobile terminal data path and found the Chrome PWA was rendering raw PTY bytes in a plain text terminal surface.
-- [x] Added a RED `mobile_bridge_server` regression for ANSI/VT control sequences leaking into mobile terminal output, including split CSI/OSC chunks.
-- [x] Added a stateful mobile terminal text sanitizer before WebSocket `terminalOutput` messages are sent to the PWA.
-- [x] Updated `feature_list.json` with completed feat-040 evidence.
+- [x] Investigated the follow-up screenshots and found sanitized raw PTY chunks still cannot match the desktop xterm view because the PWA plain text surface does not apply cursor/erase semantics.
+- [x] Added a RED `mobile_bridge_server` regression requiring live mobile refreshes to emit replacement `terminalSnapshot` messages and suppress duplicate visible text.
+- [x] Changed the mobile PTY reader so raw bytes are used only as change notifications; the browser receives fresh `tmux capture-pane` visible text snapshots.
+- [x] Updated `feature_list.json` with completed feat-041 evidence.
 
 ### What is In Progress
 
@@ -27,7 +27,7 @@
 ### What is Next
 
 1. Open `https://linhmon.linhmon.1vn.app/mobile` from Android Chrome after starting the Mobile Bridge.
-2. Select a noisy running tmux-backed agent pane and confirm sequences like `\x1b[39m`, `\x1b[K`, and `\x1b(B` no longer appear as visible text.
+2. Select a noisy running tmux-backed agent pane and confirm mobile shows the same visible pane text as desktop instead of repeated raw tmux status/protocol fragments.
 
 ## Blockers / Risks
 
@@ -38,21 +38,23 @@
 ## Decisions Made
 
 - Keep the embedded `/mobile` PWA dependency-free and plain text rather than bundling xterm.js into the Rust string asset.
-- Sanitize only the Mobile Bridge terminal stream; the desktop embedded terminal still receives raw PTY bytes for xterm.js.
-- Preserve printable terminal text while dropping CSI, OSC, charset, DCS/PM/APC/SOS, C0, and C1 control sequences.
+- Do not stream sanitized raw PTY chunks to mobile; raw bytes do not carry enough applied terminal state for a plain text renderer.
+- Stream replacement visible-pane snapshots for mobile live updates and deduplicate identical snapshots to avoid pointless redraws.
+- Keep the desktop embedded terminal path unchanged; it still receives raw PTY bytes for xterm.js.
 
 ## Files Modified This Session
 
-- `src-tauri/src/mobile_bridge_server.rs` - Adds mobile-only terminal output sanitization and regression coverage.
-- `feature_list.json` - Adds completed feat-040 evidence.
+- `src-tauri/src/mobile_bridge_server.rs` - Replaces mobile raw terminal chunk streaming with visible-pane snapshot streaming and regression coverage.
+- `feature_list.json` - Adds completed feat-041 evidence.
 - `progress.md` - Records this session status and verification.
 
 ## Evidence of Completion
 
 - [x] Baseline `./init.sh` exited 0 before edits with npm test, npm run build, and cargo test.
-- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_terminal_output_drops_vt_control_sequences` failed because `MobileTerminalTextSanitizer` did not exist.
-- [x] GREEN: `cargo test -p agent-manager-desktop --features tauri-app mobile_terminal_output_drops_vt_control_sequences` exited 0.
+- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_terminal_live_refreshes_are_replacement_snapshots` failed because `mobile_terminal_snapshot_message` did not exist.
+- [x] GREEN: `cargo test -p agent-manager-desktop --features tauri-app mobile_terminal_live_refreshes_are_replacement_snapshots` exited 0.
 - [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server` exited 0.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0.
 - [x] `cargo fmt --check` exited 0.
 - [x] `npm test` exited 0 with 10 files and 59 tests passing.
 - [x] `npm run build` exited 0.

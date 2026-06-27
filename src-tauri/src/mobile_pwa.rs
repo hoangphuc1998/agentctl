@@ -63,6 +63,14 @@ pub async fn icon_svg() -> Response {
     asset_response("/mobile/icon.svg")
 }
 
+macro_rules! mobile_pwa_asset_version {
+    () => {
+        "v4"
+    };
+}
+
+pub const MOBILE_PWA_ASSET_VERSION: &str = mobile_pwa_asset_version!();
+
 fn asset_response(path: &str) -> Response {
     match asset_for_path(path) {
         Some(asset) => ([(CONTENT_TYPE, asset.content_type)], asset.body).into_response(),
@@ -70,7 +78,8 @@ fn asset_response(path: &str) -> Response {
     }
 }
 
-const INDEX_HTML: &str = r##"<!doctype html>
+const INDEX_HTML: &str = concat!(
+    r##"<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
@@ -78,15 +87,20 @@ const INDEX_HTML: &str = r##"<!doctype html>
     <meta name="theme-color" content="#101418">
     <link rel="manifest" href="/mobile/manifest.webmanifest">
     <link rel="icon" href="/mobile/icon.svg" type="image/svg+xml">
-    <link rel="stylesheet" href="/mobile/styles.css">
+    <link rel="stylesheet" href="/mobile/styles.css?v="##,
+    mobile_pwa_asset_version!(),
+    r##"">
     <title>Agent Manager Mobile</title>
   </head>
   <body>
     <main id="app" class="shell" aria-live="polite"></main>
-    <script type="module" src="/mobile/app.js"></script>
+    <script type="module" src="/mobile/app.js?v="##,
+    mobile_pwa_asset_version!(),
+    r##""></script>
   </body>
 </html>
-"##;
+"##
+);
 
 const MANIFEST_JSON: &str = r##"{
   "name": "Agent Manager Mobile",
@@ -107,11 +121,18 @@ const MANIFEST_JSON: &str = r##"{
 }
 "##;
 
-const SERVICE_WORKER_JS: &str = r#"const CACHE_NAME = "agent-manager-mobile-v3";
+const SERVICE_WORKER_JS: &str = concat!(
+    r#"const CACHE_NAME = "agent-manager-mobile-"#,
+    mobile_pwa_asset_version!(),
+    r#"";
 const SHELL_ASSETS = [
   "/mobile",
-  "/mobile/styles.css",
-  "/mobile/app.js",
+  "/mobile/styles.css?v="#,
+    mobile_pwa_asset_version!(),
+    r#"",
+  "/mobile/app.js?v="#,
+    mobile_pwa_asset_version!(),
+    r#"",
   "/mobile/manifest.webmanifest",
   "/mobile/icon.svg"
 ];
@@ -152,7 +173,8 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
-"#;
+"#
+);
 
 const ICON_SVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-label="Agent Manager">
   <rect width="192" height="192" rx="38" fill="#101418"/>
@@ -1261,17 +1283,9 @@ function runRowTemplate(run) {
 function analyzeTerminalPrompt(text) {
   const lines = recentNonEmptyLines(text);
   const recentText = lines.join("\n");
-  const cursorChoices = cursorChoicesFromLines(lines);
-  if (cursorChoices.length >= 2) {
-    return { mode: "choice", choices: withCancelChoice(cursorChoices, recentText) };
-  }
-  const numberedChoices = numberedChoicesFromLines(lines);
-  if (numberedChoices.length >= 2) {
-    return { mode: "choice", choices: withCancelChoice(numberedChoices, recentText) };
-  }
-  const letteredChoices = letteredChoicesFromLines(lines);
-  if (letteredChoices.length >= 2) {
-    return { mode: "choice", choices: withCancelChoice(letteredChoices, recentText) };
+  const choices = choicesFromOptionRows(parseChoiceRows(lines));
+  if (choices.length >= 2) {
+    return { mode: "choice", choices: withCancelChoice(choices, recentText) };
   }
   if (looksInteractivePrompt(recentText)) {
     return { mode: "fallbackKeys", choices: [] };
@@ -1287,69 +1301,80 @@ function recentNonEmptyLines(text) {
     .slice(-28);
 }
 
-function numberedChoicesFromLines(lines) {
-  const choices = [];
-  for (const line of lines) {
-    const match = line.match(/^\s*(?:\[(\d{1,2})\]|(\d{1,2})[.)])\s+(.+?)\s*$/);
-    if (!match) continue;
-    const number = match[1] || match[2];
-    const label = match[3].trim();
-    if (!label) continue;
-    choices.push({ label: cleanChoiceLabel(label), input: `${number}\n` });
+function parseChoiceRows(lines) {
+  const rows = lines.map((line) => optionRowFromLine(line));
+  const selectedIndex = rows.findIndex((row) => row && row.selected);
+  if (selectedIndex >= 0) {
+    return contiguousOptionRows(rows, selectedIndex);
   }
-  return choices;
+  return longestOptionRun(rows);
 }
 
-function letteredChoicesFromLines(lines) {
-  const choices = [];
-  for (const line of lines) {
-    const match = line.match(/^\s*(?:\[([A-Za-z])\]|([A-Za-z])[.)])\s+(.+?)\s*$/);
-    if (!match) continue;
-    const letter = match[1] || match[2];
-    const label = match[3].trim();
-    if (!label) continue;
-    choices.push({ label: cleanChoiceLabel(label), input: `${letter}\n` });
-  }
-  return choices;
+function optionRowFromLine(line) {
+  const match = String(line || "").match(/^\s*(?:(?<marker>[\u276f\u203a>▸▶➜→»])\s*)?(?:\[(?<bracketToken>\d{1,2}|[A-Za-z])\]|(?<token>\d{1,2}|[A-Za-z])[.)])\s+(?<label>.+?)\s*$/u);
+  if (!match || !match.groups) return null;
+  const rawLabel = match.groups.label.trim();
+  const shortcut = shortcutFromLabel(rawLabel);
+  return {
+    selected: Boolean(match.groups.marker),
+    token: match.groups.bracketToken || match.groups.token,
+    label: cleanChoiceLabel(rawLabel),
+    shortcut
+  };
 }
 
-function cursorChoicesFromLines(lines) {
-  const selectedIndex = lines.findIndex((line) => /^\s*(?:\u276f|>)\s+\S/.test(line));
-  if (selectedIndex < 0) return [];
-  const start = cursorChoiceBlockStart(lines, selectedIndex);
-  const end = cursorChoiceBlockEnd(lines, selectedIndex);
-  const rows = lines.slice(start, end + 1)
-    .map((line) => cursorChoiceLabel(line))
-    .filter(Boolean);
-  const relativeSelectedIndex = selectedIndex - start;
-  if (relativeSelectedIndex < 0 || relativeSelectedIndex >= rows.length || rows.length < 2) return [];
-  return rows.map((label, index) => ({
-    label,
-    input: cursorChoiceInput(relativeSelectedIndex, index)
+function contiguousOptionRows(rows, selectedIndex) {
+  let start = selectedIndex;
+  while (start > 0 && rows[start - 1]) start -= 1;
+  let end = selectedIndex;
+  while (end + 1 < rows.length && rows[end + 1]) end += 1;
+  return rows.slice(start, end + 1).filter(Boolean);
+}
+
+function longestOptionRun(rows) {
+  let best = [];
+  let current = [];
+  for (const row of rows) {
+    if (row) {
+      current.push(row);
+      if (current.length > best.length) best = current;
+      continue;
+    }
+    current = [];
+  }
+  return best;
+}
+
+function choicesFromOptionRows(rows) {
+  if (rows.length < 2) return [];
+  const selectedIndex = rows.findIndex((row) => row.selected);
+  return rows.map((row, index) => ({
+    label: row.label,
+    input: optionRowInput(row, selectedIndex, index)
   }));
 }
 
-function cursorChoiceBlockStart(lines, selectedIndex) {
-  let index = selectedIndex;
-  while (index > 0 && cursorChoiceLabel(lines[index - 1])) index -= 1;
-  return index;
+function optionRowInput(row, selectedIndex, index) {
+  if (simpleShortcutInput(row.shortcut)) return simpleShortcutInput(row.shortcut);
+  if (selectedIndex >= 0) return cursorChoiceInput(selectedIndex, index);
+  return `${row.token}\n`;
 }
 
-function cursorChoiceBlockEnd(lines, selectedIndex) {
-  let index = selectedIndex;
-  while (index + 1 < lines.length && cursorChoiceLabel(lines[index + 1])) index += 1;
-  return index;
+function shortcutFromLabel(label) {
+  const match = label.match(/\(([^()]+)\)\s*$/);
+  return match ? match[1].trim().toLowerCase() : "";
 }
 
-function cursorChoiceLabel(line) {
-  const selected = line.match(/^\s*(?:\u276f|>)\s+(.+?)\s*$/);
-  if (selected) return cleanChoiceLabel(selected[1].trim());
-  const plain = line.match(/^\s{2,}([^\s].+?)\s*$/);
-  return plain ? cleanChoiceLabel(plain[1].trim()) : "";
+function simpleShortcutInput(shortcut) {
+  if (/^[a-z0-9]$/.test(shortcut)) return shortcut;
+  if (shortcut === "esc" || shortcut === "escape") return "\x1b";
+  return "";
 }
 
 function cleanChoiceLabel(label) {
-  return label.replace(/^(?:\d{1,2}|[A-Za-z])[.)]\s+/, "");
+  return label
+    .replace(/^(?:\d{1,2}|[A-Za-z])[.)]\s+/, "")
+    .replace(/\s+\((?:[a-z0-9]|esc|escape)\)\s*$/i, "");
 }
 
 function cursorChoiceInput(selectedIndex, index) {
@@ -1364,6 +1389,7 @@ function repeatKey(key, count) {
 
 function withCancelChoice(choices, text) {
   if (!/\besc\b|\bcancel\b/i.test(text)) return choices;
+  if (choices.some((choice) => choice.input === "\x1b" || /^cancel$/i.test(choice.label))) return choices;
   return [...choices, { label: "Cancel", input: "\x1b" }];
 }
 
@@ -1547,8 +1573,8 @@ mod tests {
         assert!(shell
             .body
             .contains(r#"href="/mobile/manifest.webmanifest""#));
-        assert!(shell.body.contains(r#"href="/mobile/styles.css""#));
-        assert!(shell.body.contains(r#"src="/mobile/app.js""#));
+        assert!(shell.body.contains(r#"href="/mobile/styles.css?v=v4""#));
+        assert!(shell.body.contains(r#"src="/mobile/app.js?v=v4""#));
         assert!(shell.body.contains("Agent Manager Mobile"));
     }
 
@@ -1730,16 +1756,17 @@ mod tests {
     }
 
     #[test]
-    fn mobile_script_maps_numbered_and_cursor_choices_to_terminal_input() {
+    fn mobile_script_maps_option_rows_to_terminal_input() {
         let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
 
+        assert!(script.body.contains("function parseChoiceRows(lines)"));
+        assert!(script.body.contains("function optionRowFromLine(line)"));
+        assert!(script.body.contains("function choicesFromOptionRows(rows)"));
         assert!(script
             .body
-            .contains("function numberedChoicesFromLines(lines)"));
-        assert!(script
-            .body
-            .contains("function cursorChoicesFromLines(lines)"));
-        assert!(script.body.contains("input: `${number}\\n`"));
+            .contains("function optionRowInput(row, selectedIndex, index)"));
+        assert!(script.body.contains(r#"[\u276f\u203a>▸▶➜→»]"#));
+        assert!(script.body.contains(r#"return `${row.token}\n`;"#));
         assert!(script
             .body
             .contains(r#"repeatKey("\x1b[B", index - selectedIndex)"#));
@@ -1753,37 +1780,23 @@ mod tests {
     fn mobile_script_maps_lettered_choices_to_terminal_input() {
         let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
 
-        assert!(script
-            .body
-            .contains("function letteredChoicesFromLines(lines)"));
-        assert!(script
-            .body
-            .contains("const letteredChoices = letteredChoicesFromLines(lines);"));
-        assert!(script.body.contains("letteredChoices.length >= 2"));
-        assert!(script.body.contains("input: `${letter}\\n`"));
+        assert!(script.body.contains(r#"\d{1,2}|[A-Za-z]"#));
+        assert!(script.body.contains("return `${row.token}\\n`;"));
     }
 
     #[test]
-    fn mobile_script_prioritizes_claude_selected_numbered_choices() {
+    fn mobile_script_parses_selected_options_with_shortcut_hints() {
         let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
 
-        let cursor_index = script
-            .body
-            .find("const cursorChoices = cursorChoicesFromLines(lines);")
-            .expect("cursor choice parsing should be present");
-        let numbered_index = script
-            .body
-            .find("const numberedChoices = numberedChoicesFromLines(lines);")
-            .expect("numbered choice parsing should be present");
-
-        assert!(cursor_index < numbered_index);
         assert!(script.body.contains("function cleanChoiceLabel(label)"));
+        assert!(script.body.contains("function shortcutFromLabel(label)"));
         assert!(script
             .body
-            .contains(r#"return cleanChoiceLabel(selected[1].trim());"#));
-        assert!(script
-            .body
-            .contains(r#"label: cleanChoiceLabel(label), input: `${number}\n`"#));
+            .contains("function simpleShortcutInput(shortcut)"));
+        assert!(script.body.contains(
+            r#"if (simpleShortcutInput(row.shortcut)) return simpleShortcutInput(row.shortcut);"#
+        ));
+        assert!(script.body.contains(r#"shortcut === "esc""#));
     }
 
     #[test]
@@ -1825,10 +1838,7 @@ mod tests {
             .contains(r#"const recentText = lines.join("\n");"#));
         assert!(script
             .body
-            .contains("withCancelChoice(numberedChoices, recentText)"));
-        assert!(script
-            .body
-            .contains("withCancelChoice(cursorChoices, recentText)"));
+            .contains("withCancelChoice(choices, recentText)"));
         assert!(script.body.contains("looksInteractivePrompt(recentText)"));
     }
 
@@ -1848,7 +1858,9 @@ mod tests {
 
         assert!(service_worker
             .body
-            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v3";"#));
+            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v4";"#));
+        assert!(service_worker.body.contains(r#""/mobile/styles.css?v=v4""#));
+        assert!(service_worker.body.contains(r#""/mobile/app.js?v=v4""#));
     }
 
     #[test]

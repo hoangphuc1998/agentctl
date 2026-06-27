@@ -466,6 +466,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-27 21:48 +07: Diagnosed the remaining 'nothing shows on mobile PWA' report as likely stale installed PWA assets after parser tests already passed. Added RED mobile_pwa and mobile_bridge_server tests requiring a visible v5 asset marker, /mobile/reset and /mobile/reset/ routes, a reset page that unregisters service workers and deletes Cache API entries, no-store asset responses, and service worker v5 cache entries. Implemented the reset page, visible PWA v5 badge with Reset PWA link, no-store headers, /mobile/reset routes, and cache v5 assets. Verification passed: cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo test -p agent-manager-desktop --features tauri-app bridge_declares_mobile_pwa_asset_routes, npm test -- src-tauri/mobilePwaScript.test.ts, cargo fmt --check, git diff --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside the sandbox after the listener-bind test hit sandbox permissions, and ./init.sh after artifact updates."
+    },
+    {
+      "id": "feat-046",
+      "name": "Mobile PWA Choice Textbox Override",
+      "description": "Let users temporarily show the instruction textbox again from mobile choice or fallback-key mode, while keeping direct option controls as the default for detected prompts.",
+      "dependencies": [
+        "feat-045"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-27 22:11 +07: Added RED embedded-JS and mobile_pwa tests requiring choice/fallback controls to expose a Textbox action, preserve direct options by default, switch to the normal instruction composer for the current prompt, and allow returning to option controls. Implemented a per-prompt composer override signature, Textbox and Options controls, compact action styling, and bumped mobile PWA assets/service worker to v6 so phones fetch the new UI. Verification passed: baseline ./init.sh, npm test -- src-tauri/mobilePwaScript.test.ts RED then GREEN, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa RED then GREEN, cargo fmt --check, git diff --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside the sandbox after the listener-bind test hit sandbox permissions, and ./init.sh after artifact updates."
     }
   ]
 }

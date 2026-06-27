@@ -2,9 +2,9 @@
 
 ## Current State
 
-**Last Updated:** 2026-06-27 21:50 +07
-**Session ID:** mobile-pwa-asset-reset-version
-**Active Feature:** feat-045 - Mobile PWA Asset Reset and Version Visibility
+**Last Updated:** 2026-06-27 22:13 +07
+**Session ID:** mobile-pwa-choice-textbox-override
+**Active Feature:** feat-046 - Mobile PWA Choice Textbox Override
 
 ## Status
 
@@ -29,7 +29,11 @@
 - [x] Bumped the service worker cache to `agent-manager-mobile-v5` and pre-cached versioned assets plus reset page.
 - [x] Added `Cache-Control: no-store` to embedded mobile PWA asset responses.
 - [x] Added visible `PWA v5` and `Reset PWA` affordances to the mobile shell.
-- [x] Updated `feature_list.json` with completed feat-045 evidence.
+- [x] Added a `Textbox` action to mobile Choice Mode and Fallback Key Mode.
+- [x] Added a per-prompt composer override so the textbox is shown only for the current detected prompt.
+- [x] Added an `Options` action in the forced textbox view so users can return to direct choice controls.
+- [x] Bumped the mobile PWA asset/service-worker version to `v6` for this UI change.
+- [x] Updated `feature_list.json` with completed feat-046 evidence.
 
 ### What is In Progress
 
@@ -42,8 +46,9 @@
 
 1. Restart the Mobile Bridge so it serves the latest embedded `/mobile` assets.
 2. Open `https://linhmon.linhmon.1vn.app/mobile/reset` once from the phone to clear the installed service worker and cached PWA bundle.
-3. Confirm the reloaded mobile page shows `PWA v5` in the header.
-4. Select a Codex or Claude run showing option rows and confirm direct choice buttons replace the textbox.
+3. Confirm the reloaded mobile page shows `PWA v6` in the header.
+4. Select a Codex or Claude run showing option rows and confirm direct choice buttons show by default.
+5. Tap `Textbox` to reveal the instruction composer, then tap `Options` to return to direct choices.
 
 ## Blockers / Risks
 
@@ -61,25 +66,25 @@
 - Keep the Mobile Bridge WebSocket protocol unchanged.
 - Treat stale installed PWA assets as a first-class recovery problem instead of adding more prompt-specific parsing cases.
 - Keep the reset page independent of the main app JS/CSS so it can recover even when the installed shell is stale.
+- Keep direct choice buttons as the default for option prompts, with textbox override scoped to the current prompt signature.
 
 ## Files Modified This Session
 
-- `src-tauri/src/mobile_pwa.rs` - Adds mobile PWA reset asset, visible v5 marker/reset link, no-store asset responses, service worker cache v5, and asset tests.
-- `src-tauri/src/mobile_bridge_server.rs` - Registers `/mobile/reset` and `/mobile/reset/` routes and updates route metadata tests.
-- `feature_list.json` - Adds completed feat-045 evidence.
+- `src-tauri/src/mobile_pwa.rs` - Adds choice-mode textbox override controls, per-prompt override state, v6 asset bump, styling, and asset tests.
+- `src-tauri/mobilePwaScript.test.ts` - Adds embedded-JS behavior coverage for showing the textbox and returning to choices.
+- `feature_list.json` - Adds completed feat-046 evidence.
 - `progress.md` - Records this session status and verification.
 
 ## Evidence of Completion
 
 - [x] Baseline `./init.sh` exited 0 before edits with npm test, npm run build, and cargo test.
-- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` failed for missing v5 version marker, missing `/mobile/reset`, missing reset cache cleanup, and old service worker cache v4.
-- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app bridge_declares_mobile_pwa_asset_routes` failed because `/mobile/reset` was not declared.
-- [x] GREEN: `npm test -- src-tauri/mobilePwaScript.test.ts` exited 0 with 4 tests passing.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0 with 26 tests passing.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app bridge_declares_mobile_pwa_asset_routes` exited 0.
+- [x] RED: `npm test -- src-tauri/mobilePwaScript.test.ts` failed because Choice Mode did not expose `data-action="show-composer"`.
+- [x] RED: `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` failed for missing v6 version marker, missing composer override hooks, and old service worker cache v5.
+- [x] GREEN: `npm test -- src-tauri/mobilePwaScript.test.ts` exited 0 with 5 tests passing.
+- [x] `cargo test -p agent-manager-desktop --features tauri-app mobile_pwa` exited 0 with 27 tests passing.
 - [x] `cargo fmt --check` exited 0.
 - [x] `git diff --check` exited 0.
-- [x] `npm test` exited 0 with 11 files and 63 tests passing.
+- [x] `npm test` exited 0 with 11 files and 64 tests passing.
 - [x] `npm run build` exited 0.
 - [x] `cargo check -p agent-manager-desktop --features tauri-app` exited 0.
 - [x] `cargo test -p agent-manager-desktop --features tauri-app` exited 0 outside the sandbox after the listener-bind runtime test hit sandbox permissions.

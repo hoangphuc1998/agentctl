@@ -107,7 +107,7 @@ const MANIFEST_JSON: &str = r##"{
 }
 "##;
 
-const SERVICE_WORKER_JS: &str = r#"const CACHE_NAME = "agent-manager-mobile-v1";
+const SERVICE_WORKER_JS: &str = r#"const CACHE_NAME = "agent-manager-mobile-v2";
 const SHELL_ASSETS = [
   "/mobile",
   "/mobile/styles.css",
@@ -508,6 +508,45 @@ h2 {
   max-height: 30dvh;
 }
 
+.choice-panel {
+  border-top: 1px solid var(--line);
+  background: rgba(234, 240, 237, 0.98);
+  padding: 10px;
+}
+
+.choice-list {
+  display: grid;
+  gap: 8px;
+}
+
+.choice-button,
+.key-button {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(15, 118, 110, 0.28);
+  background: #f7fff9;
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.choice-button {
+  justify-content: flex-start;
+  text-align: left;
+  padding: 10px 12px;
+}
+
+.key-bar {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.key-button {
+  padding: 0 8px;
+}
+
 .mobile-drawer {
   position: fixed;
   inset: 0 auto 0 0;
@@ -700,6 +739,7 @@ const state = {
   terminalStatus: "idle",
   pendingTerminalOutput: "",
   pendingTerminalReplace: false,
+  pendingTerminalControlRefresh: false,
   terminalFlushScheduled: false,
   socket: null,
   drawerOpen: false,
@@ -740,6 +780,7 @@ function clearCredentials() {
   state.attachedRunId = null;
   state.pendingTerminalOutput = "";
   state.pendingTerminalReplace = false;
+  state.pendingTerminalControlRefresh = false;
   state.terminalFlushScheduled = false;
   state.terminalStatus = "idle";
   state.drawerOpen = false;
@@ -845,6 +886,7 @@ function attachSelectedRun() {
   state.attachedRunId = null;
   state.pendingTerminalOutput = "";
   state.pendingTerminalReplace = false;
+  state.pendingTerminalControlRefresh = false;
   if (!run || !state.credentials) {
     state.terminalStatus = "idle";
     return;
@@ -919,13 +961,16 @@ function handleStreamMessage(text) {
 
 function sendInstruction(event) {
   event.preventDefault();
-  const run = selectedRun();
-  if (!run || !state.socket || !state.terminalId) return;
   const form = new FormData(event.currentTarget);
   const text = String(form.get("instruction") || "").trimEnd();
   if (!text) return;
-  state.socket.send(JSON.stringify({ type: "terminalInput", terminalId: state.terminalId, data: `${text}\n` }));
+  sendTerminalInput(`${text}\n`);
   event.currentTarget.reset();
+}
+
+function sendTerminalInput(data) {
+  if (!selectedRun() || !state.socket || !state.terminalId || !data) return;
+  state.socket.send(JSON.stringify({ type: "terminalInput", terminalId: state.terminalId, data }));
 }
 
 function closeStream() {
@@ -946,9 +991,15 @@ function terminalOutputElement() {
 }
 
 function setTerminalOutput(data) {
+  const previousPromptSignature = terminalPromptSignature(state.terminalOutput);
   state.pendingTerminalOutput = "";
   state.pendingTerminalReplace = false;
+  state.pendingTerminalControlRefresh = false;
   state.terminalOutput = data;
+  if (terminalControlsChanged(previousPromptSignature)) {
+    render({ preserveTerminalScroll: true });
+    return;
+  }
   const terminal = terminalOutputElement();
   if (!terminal) {
     render({ preserveTerminalScroll: true });
@@ -962,8 +1013,13 @@ function setTerminalOutput(data) {
 
 function appendTerminalOutput(data) {
   if (!data) return;
+  const previousPromptSignature = terminalPromptSignature(state.terminalOutput);
   const hadOutput = Boolean(state.terminalOutput);
   state.terminalOutput += data;
+  if (terminalControlsChanged(previousPromptSignature)) {
+    render({ preserveTerminalScroll: true });
+    return;
+  }
   const terminal = terminalOutputElement();
   if (!terminal) {
     render({ preserveTerminalScroll: true });
@@ -978,10 +1034,12 @@ function appendTerminalOutput(data) {
 
 function queueTerminalOutput(data) {
   if (!data) return;
+  const previousPromptSignature = terminalPromptSignature(state.terminalOutput);
   const hadOutput = Boolean(state.terminalOutput);
   state.terminalOutput += data;
   state.pendingTerminalOutput += data;
   state.pendingTerminalReplace = state.pendingTerminalReplace || !hadOutput;
+  state.pendingTerminalControlRefresh = state.pendingTerminalControlRefresh || terminalControlsChanged(previousPromptSignature);
   if (!state.terminalFlushScheduled) {
     state.terminalFlushScheduled = true;
     requestAnimationFrame(flushTerminalOutput);
@@ -992,9 +1050,15 @@ function flushTerminalOutput() {
   state.terminalFlushScheduled = false;
   const data = state.pendingTerminalOutput;
   const replace = state.pendingTerminalReplace;
+  const refreshControls = state.pendingTerminalControlRefresh;
   state.pendingTerminalOutput = "";
   state.pendingTerminalReplace = false;
+  state.pendingTerminalControlRefresh = false;
   if (!data) return;
+  if (refreshControls) {
+    render({ preserveTerminalScroll: true });
+    return;
+  }
   const terminal = terminalOutputElement();
   if (!terminal) {
     render({ preserveTerminalScroll: true });
@@ -1179,7 +1243,129 @@ function runRowTemplate(run) {
   `;
 }
 
+function analyzeTerminalPrompt(text) {
+  const lines = recentNonEmptyLines(text);
+  const recentText = lines.join("\n");
+  const numberedChoices = numberedChoicesFromLines(lines);
+  if (numberedChoices.length >= 2) {
+    return { mode: "choice", choices: withCancelChoice(numberedChoices, recentText) };
+  }
+  const letteredChoices = letteredChoicesFromLines(lines);
+  if (letteredChoices.length >= 2) {
+    return { mode: "choice", choices: withCancelChoice(letteredChoices, recentText) };
+  }
+  const cursorChoices = cursorChoicesFromLines(lines);
+  if (cursorChoices.length >= 2) {
+    return { mode: "choice", choices: withCancelChoice(cursorChoices, recentText) };
+  }
+  if (looksInteractivePrompt(recentText)) {
+    return { mode: "fallbackKeys", choices: [] };
+  }
+  return { mode: "normal", choices: [] };
+}
+
+function recentNonEmptyLines(text) {
+  return String(text || "")
+    .split(/\r?\n/)
+    .map((line) => line.replace(/\s+$/, ""))
+    .filter((line) => line.trim())
+    .slice(-28);
+}
+
+function numberedChoicesFromLines(lines) {
+  const choices = [];
+  for (const line of lines) {
+    const match = line.match(/^\s*(?:\[(\d{1,2})\]|(\d{1,2})[.)])\s+(.+?)\s*$/);
+    if (!match) continue;
+    const number = match[1] || match[2];
+    const label = match[3].trim();
+    if (!label) continue;
+    choices.push({ label, input: `${number}\n` });
+  }
+  return choices;
+}
+
+function letteredChoicesFromLines(lines) {
+  const choices = [];
+  for (const line of lines) {
+    const match = line.match(/^\s*(?:\[([A-Za-z])\]|([A-Za-z])[.)])\s+(.+?)\s*$/);
+    if (!match) continue;
+    const letter = match[1] || match[2];
+    const label = match[3].trim();
+    if (!label) continue;
+    choices.push({ label, input: `${letter}\n` });
+  }
+  return choices;
+}
+
+function cursorChoicesFromLines(lines) {
+  const selectedIndex = lines.findIndex((line) => /^\s*(?:\u276f|>)\s+\S/.test(line));
+  if (selectedIndex < 0) return [];
+  const start = cursorChoiceBlockStart(lines, selectedIndex);
+  const end = cursorChoiceBlockEnd(lines, selectedIndex);
+  const rows = lines.slice(start, end + 1)
+    .map((line) => cursorChoiceLabel(line))
+    .filter(Boolean);
+  const relativeSelectedIndex = selectedIndex - start;
+  if (relativeSelectedIndex < 0 || relativeSelectedIndex >= rows.length || rows.length < 2) return [];
+  return rows.map((label, index) => ({
+    label,
+    input: cursorChoiceInput(relativeSelectedIndex, index)
+  }));
+}
+
+function cursorChoiceBlockStart(lines, selectedIndex) {
+  let index = selectedIndex;
+  while (index > 0 && cursorChoiceLabel(lines[index - 1])) index -= 1;
+  return index;
+}
+
+function cursorChoiceBlockEnd(lines, selectedIndex) {
+  let index = selectedIndex;
+  while (index + 1 < lines.length && cursorChoiceLabel(lines[index + 1])) index += 1;
+  return index;
+}
+
+function cursorChoiceLabel(line) {
+  const selected = line.match(/^\s*(?:\u276f|>)\s+(.+?)\s*$/);
+  if (selected) return selected[1].trim();
+  const plain = line.match(/^\s{2,}([^\s].+?)\s*$/);
+  return plain ? plain[1].trim() : "";
+}
+
+function cursorChoiceInput(selectedIndex, index) {
+  if (index > selectedIndex) return repeatKey("\x1b[B", index - selectedIndex) + "\r";
+  if (index < selectedIndex) return repeatKey("\x1b[A", selectedIndex - index) + "\r";
+  return "\r";
+}
+
+function repeatKey(key, count) {
+  return Array.from({ length: count }, () => key).join("");
+}
+
+function withCancelChoice(choices, text) {
+  if (!/\besc\b|\bcancel\b/i.test(text)) return choices;
+  return [...choices, { label: "Cancel", input: "\x1b" }];
+}
+
+function looksInteractivePrompt(text) {
+  return /\b(choose|select|approve|confirm|press enter|press esc|esc to cancel|use (the )?(arrow|up|down)|\[y\/n\]|\(y\/n\))\b/i.test(text);
+}
+
+function terminalPromptSignature(text) {
+  const prompt = analyzeTerminalPrompt(text);
+  return JSON.stringify({
+    mode: prompt.mode,
+    choices: prompt.choices.map((choice) => [choice.label, choice.input])
+  });
+}
+
+function terminalControlsChanged(previousPromptSignature) {
+  return terminalPromptSignature(state.terminalOutput) !== previousPromptSignature;
+}
+
 function selectedRunTemplate(run) {
+  const prompt = state.terminalId ? analyzeTerminalPrompt(state.terminalOutput) : { mode: "normal", choices: [] };
   return `
     <div class="terminal-header">
       <div>
@@ -1188,12 +1374,71 @@ function selectedRunTemplate(run) {
       </div>
       <div class="terminal-status-row">
         ${statusPillTemplate()}
-        <button class="secondary mini-button" data-action="focus-composer" aria-label="Focus instruction composer" title="Focus instruction composer">Input</button>
+        ${prompt.mode === "normal" ? `<button class="secondary mini-button" data-action="focus-composer" aria-label="Focus instruction composer" title="Focus instruction composer">Input</button>` : ""}
         ${run.restorable ? `<button data-action="resume" ${state.busy ? "disabled" : ""}>Resume</button>` : ""}
       </div>
     </div>
     <pre class="terminal" data-terminal-output aria-label="Terminal output">${escapeHtml(terminalText())}</pre>
-    <form class="composer-bar" data-form="instruction">
+    ${controlPanelTemplate(prompt)}
+  `;
+}
+
+function controlPanelTemplate(prompt) {
+  if (prompt.mode === "choice") {
+    return choiceModeTemplate(prompt);
+  }
+  if (prompt.mode === "fallbackKeys") {
+    return fallbackKeyModeTemplate();
+  }
+  return normalComposerTemplate();
+}
+
+function statusPillTemplate() {
+  const status = state.terminalId ? "live" : state.terminalStatus;
+  const label = status === "attached" ? "live" : status;
+  return `<span class="stream-status ${escapeHtml(status)}" aria-live="polite">${escapeHtml(label)}</span>`;
+}
+
+function choiceModeTemplate(prompt) {
+  const disabled = state.terminalId ? "" : "disabled";
+  return `
+    <div class="choice-panel" data-terminal-controls data-choice-mode aria-label="Terminal choices">
+      <div class="choice-list">
+        ${prompt.choices.map((choice) => `
+          <button class="choice-button" data-terminal-choice-input="${terminalInputAttribute(choice.input)}" ${disabled}>
+            ${escapeHtml(choice.label)}
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function fallbackKeyModeTemplate() {
+  const keys = [
+    { label: "Up", data: "\x1b[A" },
+    { label: "Down", data: "\x1b[B" },
+    { label: "Enter", data: "\r" },
+    { label: "Esc", data: "\x1b" },
+    { label: "Tab", data: "\t" }
+  ];
+  const disabled = state.terminalId ? "" : "disabled";
+  return `
+    <div class="choice-panel key-panel" data-terminal-controls aria-label="Terminal keys">
+      <div class="key-bar">
+        ${keys.map((key) => `
+          <button class="key-button" data-terminal-key="${terminalInputAttribute(key.data)}" ${disabled}>
+            ${escapeHtml(key.label)}
+          </button>
+        `).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function normalComposerTemplate() {
+  return `
+    <form class="composer-bar" data-terminal-controls data-form="instruction">
       <label>
         <span class="muted">Instruction</span>
         <textarea name="instruction" placeholder="Send instructions to the selected agent"></textarea>
@@ -1203,10 +1448,16 @@ function selectedRunTemplate(run) {
   `;
 }
 
-function statusPillTemplate() {
-  const status = state.terminalId ? "live" : state.terminalStatus;
-  const label = status === "attached" ? "live" : status;
-  return `<span class="stream-status ${escapeHtml(status)}" aria-live="polite">${escapeHtml(label)}</span>`;
+function terminalInputAttribute(data) {
+  return escapeHtml(encodeURIComponent(data));
+}
+
+function terminalInputFromAttribute(encoded) {
+  try {
+    return decodeURIComponent(encoded || "");
+  } catch {
+    return "";
+  }
 }
 
 function terminalText() {
@@ -1220,6 +1471,16 @@ function terminalText() {
 function bindEvents() {
   app.querySelector('[data-form="pair"]')?.addEventListener("submit", pair);
   app.querySelector('[data-form="instruction"]')?.addEventListener("submit", sendInstruction);
+  app.querySelectorAll("[data-terminal-choice-input]").forEach((button) => {
+    button.addEventListener("click", () => {
+      sendTerminalInput(terminalInputFromAttribute(button.getAttribute("data-terminal-choice-input")));
+    });
+  });
+  app.querySelectorAll("[data-terminal-key]").forEach((button) => {
+    button.addEventListener("click", () => {
+      sendTerminalInput(terminalInputFromAttribute(button.getAttribute("data-terminal-key")));
+    });
+  });
   app.querySelector('[data-action="refresh"]')?.addEventListener("click", () => loadDashboard());
   app.querySelector('[data-action="disconnect"]')?.addEventListener("click", clearCredentials);
   app.querySelector('[data-action="resume"]')?.addEventListener("click", resumeSelectedRun);
@@ -1434,5 +1695,117 @@ mod tests {
         assert!(styles.body.contains(".terminal-panel"));
         assert!(styles.body.contains("contain: layout paint style;"));
         assert!(styles.body.contains(".composer-bar:focus-within"));
+    }
+
+    #[test]
+    fn mobile_script_detects_choice_prompts_and_replaces_composer() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("function analyzeTerminalPrompt(text)"));
+        assert!(script
+            .body
+            .contains("function controlPanelTemplate(prompt)"));
+        assert!(script.body.contains("function choiceModeTemplate(prompt)"));
+        assert!(script.body.contains("return choiceModeTemplate(prompt);"));
+        assert!(script.body.contains(r#"data-terminal-choice-input"#));
+    }
+
+    #[test]
+    fn mobile_script_maps_numbered_and_cursor_choices_to_terminal_input() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script
+            .body
+            .contains("function numberedChoicesFromLines(lines)"));
+        assert!(script
+            .body
+            .contains("function cursorChoicesFromLines(lines)"));
+        assert!(script.body.contains("input: `${number}\\n`"));
+        assert!(script
+            .body
+            .contains(r#"repeatKey("\x1b[B", index - selectedIndex)"#));
+        assert!(script
+            .body
+            .contains(r#"repeatKey("\x1b[A", selectedIndex - index)"#));
+        assert!(script.body.contains(r#"+ "\r""#));
+    }
+
+    #[test]
+    fn mobile_script_maps_lettered_choices_to_terminal_input() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script
+            .body
+            .contains("function letteredChoicesFromLines(lines)"));
+        assert!(script
+            .body
+            .contains("const letteredChoices = letteredChoicesFromLines(lines);"));
+        assert!(script.body.contains("letteredChoices.length >= 2"));
+        assert!(script.body.contains("input: `${letter}\\n`"));
+    }
+
+    #[test]
+    fn mobile_script_renders_fallback_terminal_keys_for_uncertain_prompts() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+        let styles = asset_for_path("/mobile/styles.css").expect("mobile styles should be served");
+
+        assert!(script.body.contains("function fallbackKeyModeTemplate()"));
+        assert!(script.body.contains("data-terminal-key"));
+        assert!(script.body.contains(r#"{ label: "Up", data: "\x1b[A" }"#));
+        assert!(script.body.contains(r#"{ label: "Down", data: "\x1b[B" }"#));
+        assert!(script.body.contains(r#"{ label: "Enter", data: "\r" }"#));
+        assert!(script.body.contains(r#"{ label: "Esc", data: "\x1b" }"#));
+        assert!(script.body.contains(r#"{ label: "Tab", data: "\t" }"#));
+        assert!(styles.body.contains(".choice-panel"));
+        assert!(styles.body.contains(".key-button"));
+    }
+
+    #[test]
+    fn mobile_script_encodes_terminal_input_attributes_before_sending() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script
+            .body
+            .contains("function terminalInputAttribute(data)"));
+        assert!(script
+            .body
+            .contains("function terminalInputFromAttribute(encoded)"));
+        assert!(script.body.contains("encodeURIComponent(data)"));
+        assert!(script.body.contains("decodeURIComponent(encoded || \"\")"));
+    }
+
+    #[test]
+    fn mobile_script_limits_interactive_hint_detection_to_recent_lines() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script
+            .body
+            .contains(r#"const recentText = lines.join("\n");"#));
+        assert!(script
+            .body
+            .contains("withCancelChoice(numberedChoices, recentText)"));
+        assert!(script
+            .body
+            .contains("withCancelChoice(cursorChoices, recentText)"));
+        assert!(script.body.contains("looksInteractivePrompt(recentText)"));
+    }
+
+    #[test]
+    fn mobile_script_keeps_normal_instruction_composer_for_regular_terminal_text() {
+        let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
+
+        assert!(script.body.contains("function normalComposerTemplate()"));
+        assert!(script.body.contains(r#"<textarea name="instruction""#));
+        assert!(script.body.contains("sendTerminalInput(`${text}\\n`)"));
+    }
+
+    #[test]
+    fn mobile_service_worker_cache_is_bumped_for_choice_mode_assets() {
+        let service_worker =
+            asset_for_path("/mobile/sw.js").expect("mobile service worker should be served");
+
+        assert!(service_worker
+            .body
+            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v2";"#));
     }
 }

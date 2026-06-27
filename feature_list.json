@@ -426,6 +426,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-27 10:56 +07: Follow-up screenshots showed sanitized raw PTY chunks still streamed tmux protocol/status-line nonsense because the PWA plain text terminal cannot apply cursor and erase semantics. Added a RED mobile_bridge_server regression requiring live refreshes to emit replacement terminalSnapshot messages and suppress duplicate visible text, then changed the mobile PTY reader to use raw bytes only as a change signal and stream tmux snapshot_window visible text. Verification passed: ./init.sh baseline, cargo test -p agent-manager-desktop --features tauri-app mobile_terminal_live_refreshes_are_replacement_snapshots, cargo test -p agent-manager-desktop --features tauri-app mobile_bridge_server, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, cargo test -p agent-manager-desktop --features tauri-app outside sandbox after listener bind denial, and final ./init.sh."
+    },
+    {
+      "id": "feat-042",
+      "name": "Mobile PWA Choice Mode Controls",
+      "description": "Replace the mobile instruction composer with tappable choices or fallback terminal keys when Codex or Claude shows an interactive chooser prompt.",
+      "dependencies": [
+        "feat-041"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-27 16:06 +07: Added RED mobile_pwa asset tests for Choice Mode composer replacement, numbered/lettered/cursor choice mappings, fallback key controls, encoded terminal input attributes, recent-line prompt hints, normal composer preservation, and PWA cache busting. Implemented conservative prompt analysis in the /mobile PWA, direct choice buttons, Up/Down/Enter/Esc/Tab fallback keys, encoded terminal input data attributes, prompt-aware control refresh on terminal snapshots, and service worker cache v2. Verification passed: cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, node --check for extracted APP_JS and SERVICE_WORKER_JS, cargo fmt --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, and final ./init.sh after artifact updates."
     }
   ]
 }

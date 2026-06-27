@@ -76,7 +76,7 @@ pub async fn icon_svg() -> Response {
 
 macro_rules! mobile_pwa_asset_version {
     () => {
-        "v6"
+        "v7"
     };
 }
 
@@ -102,7 +102,7 @@ const INDEX_HTML: &str = concat!(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#101418">
+    <meta name="theme-color" content="#0f1419">
     <link rel="manifest" href="/mobile/manifest.webmanifest">
     <link rel="icon" href="/mobile/icon.svg" type="image/svg+xml">
     <link rel="stylesheet" href="/mobile/styles.css?v="##,
@@ -128,14 +128,14 @@ const RESET_HTML: &str = concat!(
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#101418">
+    <meta name="theme-color" content="#0f1419">
     <title>Resetting Agent Manager Mobile</title>
     <style>
       * { box-sizing: border-box; }
       :root {
         font-family: "Aptos", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-        background: #e7eceb;
-        color: #101418;
+        background: #0f1419;
+        color: #e6edf3;
       }
       body {
         min-height: 100dvh;
@@ -146,15 +146,15 @@ const RESET_HTML: &str = concat!(
       }
       main {
         width: min(480px, 100%);
-        border: 1px solid #c4cfcb;
+        border: 1px solid rgba(255, 255, 255, 0.09);
         border-radius: 8px;
-        background: #fbf8f1;
+        background: #1a2128;
         padding: 20px;
-        box-shadow: 0 16px 44px rgba(16, 20, 24, 0.14);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
       }
       .kicker {
         margin: 0 0 6px;
-        color: #59666c;
+        color: #8b98a5;
         font-size: 0.72rem;
         font-weight: 820;
         letter-spacing: 0.08em;
@@ -167,7 +167,7 @@ const RESET_HTML: &str = concat!(
       }
       p {
         margin: 0;
-        color: #59666c;
+        color: #8b98a5;
         line-height: 1.45;
       }
     </style>
@@ -213,8 +213,8 @@ const MANIFEST_JSON: &str = r##"{
   "start_url": "/mobile",
   "scope": "/mobile",
   "display": "standalone",
-  "background_color": "#f5f1e8",
-  "theme_color": "#101418",
+  "background_color": "#0f1419",
+  "theme_color": "#0f1419",
   "icons": [
     {
       "src": "/mobile/icon.svg",
@@ -295,25 +295,33 @@ const STYLES_CSS: &str = r#"* {
 }
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   font-family: "Aptos", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #e7eceb;
-  color: #101418;
-  --bg: #e7eceb;
-  --paper: #fbf8f1;
-  --paper-strong: #eaf0ed;
-  --ink: #101418;
-  --muted: #59666c;
-  --line: #c4cfcb;
-  --line-strong: #a9b7b2;
-  --terminal: #070b0e;
-  --terminal-text: #ddf2df;
-  --accent: #0f766e;
-  --accent-soft: #d9f3ee;
-  --accent-cool: #2f5d9f;
-  --accent-warm: #b26b2d;
-  --danger: #b42318;
-  --shadow: 0 16px 44px rgba(16, 20, 24, 0.14);
+  background: #0f1419;
+  color: #e6edf3;
+  --bg: #0f1419;
+  --surface: #1a2128;
+  --surface-strong: #222b34;
+  --ink: #e6edf3;
+  --muted: #8b98a5;
+  --line: rgba(255, 255, 255, 0.09);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --terminal: #06090c;
+  --terminal-text: #d7f5dd;
+  --accent: #2dd4a7;
+  --accent-soft: rgba(45, 212, 167, 0.14);
+  --accent-cool: #6aa6ff;
+  --accent-warm: #e0a35e;
+  --danger: #f87171;
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 999px;
 }
 
 html,
@@ -324,11 +332,7 @@ body {
 body {
   margin: 0;
   min-height: 100dvh;
-  background:
-    linear-gradient(135deg, rgba(15, 118, 110, 0.13), transparent 32rem),
-    linear-gradient(315deg, rgba(47, 93, 159, 0.11), transparent 30rem),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.62), transparent 18rem),
-    var(--bg);
+  background: var(--bg);
 }
 
 button,
@@ -340,16 +344,16 @@ textarea {
 button {
   min-height: 44px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   padding: 0 14px;
-  background: var(--ink);
-  color: #fffaf0;
+  background: var(--accent);
+  color: #06231b;
   font-weight: 760;
   cursor: pointer;
 }
 
 button.secondary {
-  background: #dbe5e2;
+  background: var(--surface-strong);
   color: var(--ink);
 }
 
@@ -362,6 +366,7 @@ a {
 
 button.danger {
   background: var(--danger);
+  color: #fff;
 }
 
 button:disabled {
@@ -372,7 +377,7 @@ button:disabled {
 button:focus-visible,
 input:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid rgba(19, 122, 82, 0.62);
+  outline: 2px solid rgba(45, 212, 167, 0.6);
   outline-offset: 2px;
 }
 
@@ -380,10 +385,15 @@ input,
 textarea {
   width: 100%;
   border: 1px solid var(--line-strong);
-  border-radius: 7px;
-  background: rgba(255, 250, 241, 0.92);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: var(--ink);
-  padding: 12px;
+  padding: var(--space-3);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
 }
 
 textarea {
@@ -395,7 +405,7 @@ textarea {
   width: min(100%, 1160px);
   min-height: 100dvh;
   margin: 0 auto;
-  padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom));
+  padding: max(var(--space-3), env(safe-area-inset-top)) var(--space-3) max(var(--space-3), env(safe-area-inset-bottom));
 }
 
 .topbar {
@@ -403,7 +413,7 @@ textarea {
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
-  padding: 12px 0 18px;
+  padding: var(--space-3) 0 var(--space-5);
 }
 
 .kicker {
@@ -442,38 +452,37 @@ h2 {
 }
 
 .notice {
-  border: 1px solid rgba(180, 35, 24, 0.2);
-  border-radius: 8px;
-  background: #fff1ed;
-  box-shadow: 0 10px 30px rgba(16, 20, 24, 0.08);
-  color: #7a2518;
-  padding: 12px 14px;
+  border: 1px solid rgba(248, 113, 113, 0.28);
+  border-radius: var(--radius-sm);
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+  padding: var(--space-3) 14px;
 }
 
 .panel,
 .metric,
 .run-row {
-  border: 1px solid rgba(16, 20, 24, 0.14);
-  border-radius: 8px;
-  background: rgba(255, 250, 241, 0.86);
-  box-shadow: 0 10px 30px rgba(16, 20, 24, 0.08);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
 }
 
 .panel {
-  padding: 16px;
+  padding: var(--space-4);
 }
 
 .pair-grid {
   display: grid;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .ready-shell {
-  height: calc(100dvh - 24px);
-  min-height: 520px;
+  height: calc(100dvh - var(--space-3));
+  min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .ready-topbar {
@@ -481,12 +490,12 @@ h2 {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
-  border: 1px solid rgba(16, 20, 24, 0.12);
-  border-radius: 8px;
-  background: rgba(255, 250, 241, 0.9);
-  box-shadow: 0 10px 30px rgba(16, 20, 24, 0.08);
-  padding: 9px;
+  gap: var(--space-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+  padding: var(--space-2);
 }
 
 .ready-title {
@@ -511,9 +520,9 @@ h2 {
   display: inline-flex;
   align-items: center;
   min-height: 22px;
-  border: 1px solid rgba(89, 102, 108, 0.28);
-  border-radius: 999px;
-  background: rgba(234, 240, 237, 0.82);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--surface-strong);
   color: var(--muted);
   padding: 2px 8px;
   font-size: 0.72rem;
@@ -531,7 +540,7 @@ h2 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .ready-actions {
@@ -561,9 +570,9 @@ h2 {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   overflow: hidden;
-  border: 1px solid rgba(16, 20, 24, 0.14);
-  border-radius: 8px;
-  background: linear-gradient(180deg, #fbf8f1, #eef3ef);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   contain: layout paint style;
   box-shadow: var(--shadow);
 }
@@ -573,9 +582,9 @@ h2 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-2);
   border-bottom: 1px solid var(--line);
-  padding: 10px 12px;
+  padding: var(--space-2) var(--space-3);
 }
 
 .terminal-header h2,
@@ -589,7 +598,7 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .stream-status {
@@ -597,10 +606,10 @@ h2 {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid rgba(15, 118, 110, 0.3);
-  border-radius: 999px;
-  background: rgba(217, 243, 238, 0.9);
-  color: #075f58;
+  border: 1px solid rgba(45, 212, 167, 0.35);
+  border-radius: var(--radius-pill);
+  background: rgba(45, 212, 167, 0.12);
+  color: var(--accent);
   padding: 3px 9px;
   font-size: 0.72rem;
   font-weight: 820;
@@ -611,15 +620,15 @@ h2 {
   content: "";
   width: 7px;
   height: 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: currentColor;
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.13);
+  box-shadow: 0 0 0 3px rgba(45, 212, 167, 0.18);
 }
 
 .stream-status.idle,
 .stream-status.closed {
-  border-color: rgba(89, 102, 108, 0.32);
-  background: rgba(234, 240, 237, 0.92);
+  border-color: var(--line-strong);
+  background: var(--surface-strong);
   color: var(--muted);
 }
 
@@ -628,8 +637,8 @@ h2 {
   min-height: 38px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid rgba(16, 20, 24, 0.12);
-  background: #f5f1e8;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-strong);
   color: var(--ink);
   padding: 0 10px;
   font-size: 0.78rem;
@@ -647,15 +656,15 @@ h2 {
   border-radius: 0;
   background: var(--terminal);
   color: var(--terminal-text);
-  padding: 13px;
-  font: 0.84rem/1.44 "Ubuntu Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  padding: var(--space-3);
+  font: 0.80rem/1.44 "Ubuntu Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   letter-spacing: 0;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .terminal::selection {
-  background: rgba(76, 154, 255, 0.32);
+  background: rgba(45, 212, 167, 0.28);
   color: #f7fffb;
 }
 
@@ -663,15 +672,16 @@ h2 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;
-  gap: 8px;
+  gap: var(--space-2);
   border-top: 1px solid var(--line);
-  background: rgba(234, 240, 237, 0.96);
-  padding: 10px;
+  background: var(--surface-strong);
+  padding: var(--space-2);
+  padding-bottom: max(var(--space-2), env(safe-area-inset-bottom));
 }
 
 .composer-bar:focus-within {
-  border-top-color: rgba(15, 118, 110, 0.55);
-  box-shadow: 0 -1px 0 rgba(15, 118, 110, 0.2);
+  border-top-color: rgba(45, 212, 167, 0.55);
+  box-shadow: 0 -1px 0 rgba(45, 212, 167, 0.2);
 }
 
 .composer-bar label {
@@ -688,18 +698,19 @@ h2 {
 .composer-actions {
   display: flex;
   align-items: end;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .choice-panel {
   border-top: 1px solid var(--line);
-  background: rgba(234, 240, 237, 0.98);
-  padding: 10px;
+  background: var(--surface-strong);
+  padding: var(--space-2);
+  padding-bottom: max(var(--space-2), env(safe-area-inset-bottom));
 }
 
 .choice-list {
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .choice-button,
@@ -708,8 +719,8 @@ h2 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(15, 118, 110, 0.28);
-  background: #f7fff9;
+  border: 1px solid rgba(45, 212, 167, 0.22);
+  background: rgba(45, 212, 167, 0.08);
   color: var(--ink);
   font-weight: 700;
 }
@@ -717,7 +728,7 @@ h2 {
 .choice-button {
   justify-content: flex-start;
   text-align: left;
-  padding: 10px 12px;
+  padding: 10px var(--space-3);
 }
 
 .key-bar {
@@ -727,13 +738,13 @@ h2 {
 }
 
 .key-button {
-  padding: 0 8px;
+  padding: 0 var(--space-2);
 }
 
 .choice-panel-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: var(--space-2);
 }
 
 .mobile-drawer {
@@ -743,15 +754,15 @@ h2 {
   width: min(88vw, 360px);
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  gap: 12px;
+  gap: var(--space-3);
   overflow: auto;
   transform: translateX(-105%);
   visibility: hidden;
   transition: transform 0.18s ease;
   border-right: 1px solid var(--line);
-  background: rgba(247, 239, 226, 0.98);
+  background: var(--surface);
   box-shadow: var(--shadow);
-  padding: max(14px, env(safe-area-inset-top)) 12px max(14px, env(safe-area-inset-bottom));
+  padding: max(var(--space-4), env(safe-area-inset-top)) var(--space-3) max(var(--space-4), env(safe-area-inset-bottom));
 }
 
 .mobile-drawer.open {
@@ -763,7 +774,7 @@ h2 {
   position: fixed;
   inset: 0;
   z-index: 20;
-  background: rgba(16, 20, 24, 0.36);
+  background: rgba(0, 0, 0, 0.54);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.18s ease;
@@ -778,7 +789,7 @@ h2 {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .status-strip {
@@ -788,7 +799,7 @@ h2 {
 }
 
 .metric {
-  padding: 9px;
+  padding: var(--space-2);
 }
 
 .metric strong {
@@ -806,24 +817,24 @@ h2 {
 .run-list {
   min-width: 0;
   display: grid;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .run-row {
   width: 100%;
-  min-height: 76px;
+  min-height: 72px;
   display: grid;
-  gap: 6px;
-  padding: 11px;
+  gap: 5px;
+  padding: var(--space-2) var(--space-3);
   text-align: left;
-  background: rgba(255, 250, 241, 0.9);
+  background: var(--surface);
   color: var(--ink);
 }
 
 .run-row.selected {
-  border-color: var(--ink);
-  background: #fffef9;
-  box-shadow: 0 0 0 1px rgba(16, 20, 24, 0.1) inset;
+  border-color: var(--accent);
+  background: rgba(45, 212, 167, 0.06);
+  box-shadow: 0 0 0 1px var(--accent) inset;
 }
 
 .run-row strong,
@@ -850,22 +861,22 @@ h2 {
   align-items: center;
   min-height: 22px;
   width: fit-content;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 2px 8px;
   background: var(--accent-soft);
-  color: #075f3e;
+  color: var(--accent);
   font-size: 0.72rem;
   font-weight: 820;
 }
 
 @media (min-width: 900px) {
   .ready-shell {
-    min-height: 680px;
+    min-height: 0;
   }
 
   .ready-main {
     grid-template-columns: minmax(290px, 0.36fr) minmax(0, 1fr);
-    gap: 12px;
+    gap: var(--space-3);
   }
 
   .mobile-drawer {
@@ -875,10 +886,10 @@ h2 {
     min-height: 0;
     transform: none;
     visibility: visible;
-    border: 1px solid rgba(16, 20, 24, 0.14);
-    border-radius: 8px;
-    box-shadow: 0 10px 30px rgba(16, 20, 24, 0.08);
-    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+    padding: var(--space-4);
   }
 
   .drawer-backdrop,
@@ -890,18 +901,18 @@ h2 {
 
 @media (max-width: 520px) {
   .shell {
-    padding-inline: 8px;
+    padding-inline: var(--space-2);
   }
 
   .ready-shell {
-    height: calc(100dvh - 16px);
-    min-height: 480px;
-    gap: 8px;
+    height: calc(100dvh - var(--space-2));
+    min-height: 0;
+    gap: var(--space-2);
   }
 
   .ready-topbar {
     grid-template-columns: auto minmax(0, 1fr) auto;
-    padding: 7px;
+    padding: var(--space-1) var(--space-2);
   }
 
   .ready-actions .secondary[data-action="disconnect"] {
@@ -920,7 +931,7 @@ h2 {
 
 const APP_JS: &str = r#"const STORAGE_KEY = "agent-manager-mobile-credentials";
 const TAIL_LOCK_THRESHOLD = 48;
-const MOBILE_PWA_VERSION = "v6";
+const MOBILE_PWA_VERSION = "v7";
 const app = document.getElementById("app");
 
 const state = {
@@ -939,7 +950,9 @@ const state = {
   socket: null,
   drawerOpen: false,
   busy: false,
-  error: ""
+  error: "",
+  terminalCols: 80,
+  terminalRows: 24
 };
 
 if ("serviceWorker" in navigator) {
@@ -1098,7 +1111,10 @@ function attachSelectedRun() {
   const socket = new WebSocket(`${protocol}//${location.host}/api/mobile/v1/stream?${query}`);
   state.socket = socket;
   socket.addEventListener("open", () => {
-    socket.send(JSON.stringify({ type: "attachTerminal", runId: run.id, cols: 96, rows: 28 }));
+    const { cols, rows } = computeTerminalGeometry();
+    state.terminalCols = cols;
+    state.terminalRows = rows;
+    socket.send(JSON.stringify({ type: "attachTerminal", runId: run.id, cols, rows }));
   });
   socket.addEventListener("message", (event) => handleStreamMessage(event.data));
   socket.addEventListener("error", () => {
@@ -1764,6 +1780,48 @@ function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+function computeTerminalGeometry() {
+  const terminalEl = app ? app.querySelector("[data-terminal-output]") : null;
+  const padding = 24;
+  const fontSizePx = 12.8;
+  const lineHeightMult = 1.44;
+  const cellW = fontSizePx * 0.6;
+  const lineH = fontSizePx * lineHeightMult;
+  let w, h;
+  if (terminalEl && typeof terminalEl.getBoundingClientRect === "function") {
+    const rect = terminalEl.getBoundingClientRect();
+    w = rect.width > 0 ? rect.width : ((typeof window !== "undefined" && window.innerWidth) || 400) - padding * 2;
+    h = rect.height > 0 ? rect.height : ((typeof window !== "undefined" && window.innerHeight) || 600) * 0.55;
+  } else {
+    w = ((typeof window !== "undefined" && window.innerWidth) || 400) - padding * 2;
+    h = ((typeof window !== "undefined" && window.innerHeight) || 600) * 0.55;
+  }
+  const cols = Math.max(24, Math.min(120, Math.floor((w - padding) / cellW)));
+  const rows = Math.max(12, Math.min(60, Math.floor((h - padding) / lineH)));
+  return { cols, rows };
+}
+
+let resizeTimer = null;
+function handleViewportResize() {
+  if (!state.socket || !state.terminalId) return;
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    const { cols, rows } = computeTerminalGeometry();
+    if (cols === state.terminalCols && rows === state.terminalRows) return;
+    state.terminalCols = cols;
+    state.terminalRows = rows;
+    if (state.socket && state.terminalId) {
+      state.socket.send(JSON.stringify({ type: "terminalResize", terminalId: state.terminalId, cols, rows }));
+    }
+    render({ preserveTerminalScroll: true });
+  }, 120);
+}
+
+if (typeof window !== "undefined") {
+  window.addEventListener("resize", handleViewportResize);
+  window.addEventListener("orientationchange", handleViewportResize);
+}
 "#;
 
 #[cfg(test)]
@@ -1775,13 +1833,13 @@ mod tests {
         let shell = asset_for_path("/mobile").expect("mobile shell should be served");
 
         assert_eq!(shell.content_type, "text/html; charset=utf-8");
-        assert_eq!(MOBILE_PWA_ASSET_VERSION, "v6");
+        assert_eq!(MOBILE_PWA_ASSET_VERSION, "v7");
         assert!(shell
             .body
             .contains(r#"href="/mobile/manifest.webmanifest""#));
-        assert!(shell.body.contains(r#"href="/mobile/styles.css?v=v6""#));
-        assert!(shell.body.contains(r#"src="/mobile/app.js?v=v6""#));
-        assert!(shell.body.contains(r#"data-mobile-version="v6""#));
+        assert!(shell.body.contains(r#"href="/mobile/styles.css?v=v7""#));
+        assert!(shell.body.contains(r#"src="/mobile/app.js?v=v7""#));
+        assert!(shell.body.contains(r#"data-mobile-version="v7""#));
         assert!(shell.body.contains("Agent Manager Mobile"));
     }
 
@@ -1799,7 +1857,7 @@ mod tests {
         assert!(reset.body.contains("caches.delete(key)"));
         assert!(reset
             .body
-            .contains(r#"location.replace("/mobile?resetComplete=1&v=v6")"#));
+            .contains(r#"location.replace("/mobile?resetComplete=1&v=v7")"#));
     }
 
     #[test]
@@ -1814,7 +1872,7 @@ mod tests {
         let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
 
         assert_eq!(script.content_type, "text/javascript; charset=utf-8");
-        assert!(script.body.contains(r#"const MOBILE_PWA_VERSION = "v6";"#));
+        assert!(script.body.contains(r#"const MOBILE_PWA_VERSION = "v7";"#));
         assert!(script.body.contains(r#"href="/mobile/reset""#));
         assert!(script
             .body
@@ -2120,9 +2178,9 @@ mod tests {
 
         assert!(service_worker
             .body
-            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v6";"#));
-        assert!(service_worker.body.contains(r#""/mobile/styles.css?v=v6""#));
-        assert!(service_worker.body.contains(r#""/mobile/app.js?v=v6""#));
+            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v7";"#));
+        assert!(service_worker.body.contains(r#""/mobile/styles.css?v=v7""#));
+        assert!(service_worker.body.contains(r#""/mobile/app.js?v=v7""#));
         assert!(service_worker.body.contains(r#""/mobile/reset""#));
     }
 

@@ -76,7 +76,7 @@ pub async fn icon_svg() -> Response {
 
 macro_rules! mobile_pwa_asset_version {
     () => {
-        "v7"
+        "v8"
     };
 }
 
@@ -931,7 +931,7 @@ h2 {
 
 const APP_JS: &str = r#"const STORAGE_KEY = "agent-manager-mobile-credentials";
 const TAIL_LOCK_THRESHOLD = 48;
-const MOBILE_PWA_VERSION = "v7";
+const MOBILE_PWA_VERSION = "v8";
 const app = document.getElementById("app");
 
 const state = {
@@ -1177,7 +1177,7 @@ function sendInstruction(event) {
   const form = new FormData(event.currentTarget);
   const text = String(form.get("instruction") || "").trimEnd();
   if (!text) return;
-  sendTerminalInput(`${text}\n`);
+  sendTerminalInput(`${text}\r`);
   event.currentTarget.reset();
 }
 
@@ -1833,13 +1833,13 @@ mod tests {
         let shell = asset_for_path("/mobile").expect("mobile shell should be served");
 
         assert_eq!(shell.content_type, "text/html; charset=utf-8");
-        assert_eq!(MOBILE_PWA_ASSET_VERSION, "v7");
+        assert_eq!(MOBILE_PWA_ASSET_VERSION, "v8");
         assert!(shell
             .body
             .contains(r#"href="/mobile/manifest.webmanifest""#));
-        assert!(shell.body.contains(r#"href="/mobile/styles.css?v=v7""#));
-        assert!(shell.body.contains(r#"src="/mobile/app.js?v=v7""#));
-        assert!(shell.body.contains(r#"data-mobile-version="v7""#));
+        assert!(shell.body.contains(r#"href="/mobile/styles.css?v=v8""#));
+        assert!(shell.body.contains(r#"src="/mobile/app.js?v=v8""#));
+        assert!(shell.body.contains(r#"data-mobile-version="v8""#));
         assert!(shell.body.contains("Agent Manager Mobile"));
     }
 
@@ -1857,7 +1857,7 @@ mod tests {
         assert!(reset.body.contains("caches.delete(key)"));
         assert!(reset
             .body
-            .contains(r#"location.replace("/mobile?resetComplete=1&v=v7")"#));
+            .contains(r#"location.replace("/mobile?resetComplete=1&v=v8")"#));
     }
 
     #[test]
@@ -1872,7 +1872,7 @@ mod tests {
         let script = asset_for_path("/mobile/app.js").expect("mobile script should be served");
 
         assert_eq!(script.content_type, "text/javascript; charset=utf-8");
-        assert!(script.body.contains(r#"const MOBILE_PWA_VERSION = "v7";"#));
+        assert!(script.body.contains(r#"const MOBILE_PWA_VERSION = "v8";"#));
         assert!(script.body.contains(r#"href="/mobile/reset""#));
         assert!(script
             .body
@@ -2168,7 +2168,7 @@ mod tests {
             .body
             .contains("function normalComposerTemplate(options = {})"));
         assert!(script.body.contains(r#"<textarea name="instruction""#));
-        assert!(script.body.contains("sendTerminalInput(`${text}\\n`)"));
+        assert!(script.body.contains("sendTerminalInput(`${text}\\r`)"));
     }
 
     #[test]
@@ -2178,9 +2178,9 @@ mod tests {
 
         assert!(service_worker
             .body
-            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v7";"#));
-        assert!(service_worker.body.contains(r#""/mobile/styles.css?v=v7""#));
-        assert!(service_worker.body.contains(r#""/mobile/app.js?v=v7""#));
+            .contains(r#"const CACHE_NAME = "agent-manager-mobile-v8";"#));
+        assert!(service_worker.body.contains(r#""/mobile/styles.css?v=v8""#));
+        assert!(service_worker.body.contains(r#""/mobile/app.js?v=v8""#));
         assert!(service_worker.body.contains(r#""/mobile/reset""#));
     }
 

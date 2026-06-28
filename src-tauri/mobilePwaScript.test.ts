@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createContext, runInContext } from "node:vm";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 type PromptChoice = {
   label: string;
@@ -17,10 +17,14 @@ type MobilePwaHarness = {
   state: {
     terminalId: string | null;
     terminalOutput: string;
+    selectedRunId: string | null;
+    dashboard: unknown;
+    socket: { send: (data: string) => void } | null;
     composerOverridePromptSignature?: string;
   };
   analyzeTerminalPrompt: (text: string) => PromptModel;
   controlPanelTemplate: (prompt: PromptModel) => string;
+  sendInstruction: ((event: { preventDefault: () => void; currentTarget: unknown }) => void) | null;
   showComposerForCurrentPrompt: (() => void) | null;
   showPromptControls: (() => void) | null;
   terminalPromptSignature: (text: string) => string;
@@ -52,7 +56,18 @@ function loadMobilePwaHarness() {
       host: "example.test",
       origin: "https://example.test"
     },
-    WebSocket: function WebSocket() {}
+    WebSocket: function WebSocket() {},
+    FormData: class FormData {
+      private readonly form: { instructionValue?: string };
+
+      constructor(form: { instructionValue?: string }) {
+        this.form = form;
+      }
+
+      get(name: string) {
+        return name === "instruction" ? this.form.instructionValue || "" : null;
+      }
+    }
   });
 
   runInContext(
@@ -62,6 +77,7 @@ this.__mobilePwaHarness = {
   analyzeTerminalPrompt,
   controlPanelTemplate,
   terminalPromptSignature,
+  sendInstruction: typeof sendInstruction === "function" ? sendInstruction : null,
   showComposerForCurrentPrompt: typeof showComposerForCurrentPrompt === "function" ? showComposerForCurrentPrompt : null,
   showPromptControls: typeof showPromptControls === "function" ? showPromptControls : null
 };`,
@@ -166,5 +182,42 @@ Esc to cancel · Tab to amend
     harness.showPromptControls?.();
     expect(harness.state.composerOverridePromptSignature).toBe("");
     expect(harness.controlPanelTemplate(prompt)).toContain("data-choice-mode");
+  });
+
+  it("submits composer instructions with carriage return as terminal Enter", () => {
+    const harness = loadMobilePwaHarness();
+    const sentMessages: string[] = [];
+    const reset = vi.fn();
+    harness.state.dashboard = {
+      repos: [
+        {
+          runs: [
+            {
+              id: "run-1"
+            }
+          ]
+        }
+      ]
+    };
+    harness.state.selectedRunId = "run-1";
+    harness.state.terminalId = "terminal-1";
+    harness.state.socket = { send: (message) => sentMessages.push(message) };
+
+    expect(harness.sendInstruction).not.toBeNull();
+    harness.sendInstruction?.({
+      preventDefault: vi.fn(),
+      currentTarget: {
+        instructionValue: "pwd",
+        reset
+      }
+    });
+
+    expect(sentMessages).toHaveLength(1);
+    expect(JSON.parse(sentMessages[0])).toMatchObject({
+      type: "terminalInput",
+      terminalId: "terminal-1",
+      data: "pwd\r"
+    });
+    expect(reset).toHaveBeenCalledOnce();
   });
 });

@@ -476,6 +476,16 @@
       ],
       "status": "completed",
       "evidence": "2026-06-27 22:11 +07: Added RED embedded-JS and mobile_pwa tests requiring choice/fallback controls to expose a Textbox action, preserve direct options by default, switch to the normal instruction composer for the current prompt, and allow returning to option controls. Implemented a per-prompt composer override signature, Textbox and Options controls, compact action styling, and bumped mobile PWA assets/service worker to v6 so phones fetch the new UI. Verification passed: baseline ./init.sh, npm test -- src-tauri/mobilePwaScript.test.ts RED then GREEN, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa RED then GREEN, cargo fmt --check, git diff --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo test -p agent-manager-desktop --features tauri-app outside the sandbox after the listener-bind test hit sandbox permissions, and ./init.sh after artifact updates."
+    },
+    {
+      "id": "feat-047",
+      "name": "Mobile PWA Composer Enter Submission",
+      "description": "Send mobile PWA composer submissions with the terminal carriage-return Enter byte so coding-agent textboxes submit the command instead of only receiving text.",
+      "dependencies": [
+        "feat-046"
+      ],
+      "status": "completed",
+      "evidence": "2026-06-28 14:23 +07: Reproduced the embedded PWA composer submit path sending text plus LF instead of CR. Added RED Vitest coverage for WebSocket terminalInput data ending in \\r, changed sendInstruction to use carriage return, and bumped mobile PWA assets/service worker to v8. Verification passed: npm install, npm test -- src-tauri/mobilePwaScript.test.ts RED then GREEN, cargo test -p agent-manager-desktop --features tauri-app mobile_pwa, cargo fmt --check, git diff --check, npm test, npm run build, cargo check -p agent-manager-desktop --features tauri-app, and final ./init.sh after artifact updates."
     }
   ]
 }

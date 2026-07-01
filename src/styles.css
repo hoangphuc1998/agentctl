@@ -758,11 +758,43 @@ h2 {
   min-height: 0;
   display: grid;
   align-content: start;
-  gap: 6px;
+  gap: 10px;
   overflow: auto;
   border-right: 1px solid var(--line);
   padding: 8px;
   background: rgba(8, 13, 18, 0.84);
+}
+
+.diff-folder-group {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.diff-folder-header {
+  min-width: 0;
+  min-height: 24px;
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  color: #b9c8d8;
+  font-size: 11px;
+  font-weight: 850;
+  padding: 0 3px;
+}
+
+.diff-folder-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-folder-count {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .diff-file-row {

@@ -1,13 +1,23 @@
-import { FileText, GitCompareArrows, RefreshCw } from "lucide-react";
+import { FileText, Folder, GitCompareArrows, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { runDiff } from "../api";
 import type { RunDiffFileView, RunDiffView, RunView } from "../types";
 import { Chip } from "./Chip";
 
+const ROOT_FOLDER_LABEL = "Repository root";
+
 interface RunDiffPaneProps {
   selectedRun: RunView | null;
   active: boolean;
   onError: (message: string | null) => void;
+}
+
+interface DiffFileGroup {
+  folderPath: string;
+  files: Array<{
+    file: RunDiffFileView;
+    filename: string;
+  }>;
 }
 
 export function RunDiffPane({ selectedRun, active, onError }: RunDiffPaneProps) {
@@ -69,6 +79,7 @@ export function RunDiffPane({ selectedRun, active, onError }: RunDiffPaneProps) 
     () => diff?.files.find((file) => file.path === selectedPath) ?? diff?.files[0] ?? null,
     [diff, selectedPath]
   );
+  const fileGroups = useMemo(() => groupDiffFiles(diff?.files ?? []), [diff]);
 
   return (
     <section className="diff-shell" aria-label="Run diff">
@@ -111,21 +122,32 @@ export function RunDiffPane({ selectedRun, active, onError }: RunDiffPaneProps) 
             {diff.files.length === 0 ? (
               <div className="diff-empty compact">No file changes.</div>
             ) : (
-              diff.files.map((file) => (
-                <button
-                  key={`${file.oldPath ?? ""}:${file.path}`}
-                  className={`diff-file-row${file.path === selectedFile?.path ? " selected" : ""}`}
-                  onClick={() => setSelectedPath(file.path)}
-                  type="button"
-                >
-                  <FileText size={15} />
-                  <span className="diff-file-name">{file.path}</span>
-                  <span className={`diff-file-status status-${file.status}`}>{file.status}</span>
-                  <span className="diff-file-counts">
-                    <span>+{file.additions}</span>
-                    <span>-{file.deletions}</span>
-                  </span>
-                </button>
+              fileGroups.map((group) => (
+                <div className="diff-folder-group" key={group.folderPath}>
+                  <div className="diff-folder-header">
+                    <Folder size={14} />
+                    <span className="diff-folder-name">{group.folderPath}</span>
+                    <span className="diff-folder-count">{pluralize(group.files.length, "file")}</span>
+                  </div>
+                  {group.files.map(({ file, filename }) => (
+                    <button
+                      key={`${file.oldPath ?? ""}:${file.path}`}
+                      className={`diff-file-row${file.path === selectedFile?.path ? " selected" : ""}`}
+                      onClick={() => setSelectedPath(file.path)}
+                      aria-label={`${file.path} ${file.status} +${file.additions} -${file.deletions}`}
+                      title={file.path}
+                      type="button"
+                    >
+                      <FileText size={15} />
+                      <span className="diff-file-name">{filename}</span>
+                      <span className={`diff-file-status status-${file.status}`}>{file.status}</span>
+                      <span className="diff-file-counts">
+                        <span>+{file.additions}</span>
+                        <span>-{file.deletions}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
               ))
             )}
           </aside>
@@ -134,6 +156,19 @@ export function RunDiffPane({ selectedRun, active, onError }: RunDiffPaneProps) 
       )}
     </section>
   );
+}
+
+function groupDiffFiles(files: RunDiffFileView[]): DiffFileGroup[] {
+  const groups = new Map<string, DiffFileGroup>();
+  for (const file of files) {
+    const parts = file.path.split("/");
+    const filename = parts.pop() || file.path;
+    const folderPath = parts.length > 0 ? parts.join("/") : ROOT_FOLDER_LABEL;
+    const group = groups.get(folderPath) ?? { folderPath, files: [] };
+    group.files.push({ file, filename });
+    groups.set(folderPath, group);
+  }
+  return Array.from(groups.values());
 }
 
 function DiffFilePanel({ file }: { file: RunDiffFileView | null }) {

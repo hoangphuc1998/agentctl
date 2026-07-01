@@ -182,12 +182,61 @@ describe("App", () => {
 
     await waitFor(() => expect(runDiff).toHaveBeenCalledWith("run-1"));
     expect(screen.getByRole("tab", { name: /diff/i })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("1 file")).toBeInTheDocument();
+    expect(screen.getAllByText("1 file").length).toBeGreaterThan(0);
     expect(screen.getAllByText("+2").length).toBeGreaterThan(0);
     expect(screen.getAllByText("-1").length).toBeGreaterThan(0);
     expect(screen.getByText("This run uses a fallback base.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /src\/App\.tsx/i })).toBeInTheDocument();
     expect(screen.getByText("+new line")).toBeInTheDocument();
+  });
+
+  it("groups changed diff files by folder with filename-first rows", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+    vi.mocked(runDiff).mockResolvedValue(
+      runDiffFixture("run-1", {
+        files: [
+          {
+            path: "src/components/RunDiffPane.tsx",
+            oldPath: null,
+            status: "modified",
+            additions: 3,
+            deletions: 1,
+            binary: false,
+            patch:
+              "diff --git a/src/components/RunDiffPane.tsx b/src/components/RunDiffPane.tsx\n@@ -1 +1 @@\n-old component\n+new component\n",
+            message: null
+          },
+          {
+            path: "README.md",
+            oldPath: null,
+            status: "modified",
+            additions: 1,
+            deletions: 0,
+            binary: false,
+            patch: "diff --git a/README.md b/README.md\n@@ -1 +1 @@\n+readme update\n",
+            message: null
+          }
+        ],
+        fileCount: 2,
+        additions: 4,
+        deletions: 1
+      })
+    );
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("tab", { name: /diff/i }));
+
+    const changedFiles = await screen.findByLabelText("Changed files");
+    expect(within(changedFiles).getByText("src/components")).toBeInTheDocument();
+    expect(within(changedFiles).getByText("Repository root")).toBeInTheDocument();
+    expect(within(changedFiles).getByText("RunDiffPane.tsx")).toBeInTheDocument();
+    expect(within(changedFiles).getByText("README.md")).toBeInTheDocument();
+
+    await userEvent.click(within(changedFiles).getByRole("button", { name: /README\.md/i }));
+
+    expect(screen.getByText("+readme update")).toBeInTheDocument();
   });
 
   it("keeps the terminal mounted but inactive while reviewing the diff", async () => {

@@ -496,6 +496,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-01 14:14 +07: Added base_commit persistence for new runs with old-registry migration, a core run diff engine, a Tauri run_diff command, TypeScript API/types, and a desktop Terminal/Diff tab UI with file list plus unified patch viewer. RED tests failed for missing base_commit/diff APIs and missing Diff tab, then passed; App coverage also verifies terminal preservation and stale diff clearing while switching selected runs. Verification passed: npm install, cargo test -p agentctl-core create_run_records_resolved_base_commit, cargo test -p agentctl-core --test run_diff, cargo test -p agentctl-core --test registry_migration, cargo test -p agent-manager-desktop run_diff_view_preserves_file_status_counts_and_patch_text, npm test -- src/App.test.tsx, cargo fmt --check, cargo test -p agentctl-core, cargo test -p agent-manager-desktop, cargo check -p agent-manager-desktop --features tauri-app, npm test, npm run build, git diff --check, and final ./init.sh with 68 Vitest tests, npm run build, and cargo test passing. npm install reported existing audit findings: 3 moderate, 1 high, 1 critical."
+    },
+    {
+      "id": "feat-049",
+      "name": "Diff File Folder View",
+      "description": "Group changed files in the desktop Diff tab by direct parent folder so filenames are easier to scan.",
+      "dependencies": [
+        "feat-048"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-01 16:27 +07: Added RED App coverage requiring folder headers, repository-root grouping, filename-first rows, and preserved patch selection. Implemented frontend-only grouping in RunDiffPane with full-path aria labels and compact folder header styling. Verification passed: baseline ./init.sh, npm test -- src/App.test.tsx -t groups changed diff files RED then GREEN, npm test -- src/App.test.tsx, npm test with 69 tests, npm run build, git diff --check, and final ./init.sh after artifact updates with npm test, npm run build, and cargo test passing."
     }
   ]
 }

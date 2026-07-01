@@ -32,6 +32,7 @@ fn run(
         detection_source: DetectionSource::Tmux,
         branch: name.to_string(),
         base_ref: "main".to_string(),
+        base_commit: None,
         worktree_path: PathBuf::from(format!("/repos/agent-manager-worktrees/{name}")),
         tmux_session: Some("agentctl".to_string()),
         tmux_window: Some(tmux_window.to_string()),

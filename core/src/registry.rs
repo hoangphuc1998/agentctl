@@ -43,12 +43,12 @@ impl SqliteRegistry {
             r#"
             INSERT INTO runs (
                 id, repo_path, repo_name, tag, run_name, agent, lifecycle,
-                observed_state, detection_source, branch, base_ref, worktree_path,
+                observed_state, detection_source, branch, base_ref, base_commit, worktree_path,
                 tmux_session, tmux_window, tmux_pane, agent_session_id,
                 notification_seen_at, created_at, updated_at
             ) VALUES (
                 ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14,
-                ?15, ?16, ?17, ?18, ?19
+                ?15, ?16, ?17, ?18, ?19, ?20
             )
             ON CONFLICT(id) DO UPDATE SET
                 repo_path = excluded.repo_path,
@@ -61,6 +61,7 @@ impl SqliteRegistry {
                 detection_source = excluded.detection_source,
                 branch = excluded.branch,
                 base_ref = excluded.base_ref,
+                base_commit = excluded.base_commit,
                 worktree_path = excluded.worktree_path,
                 tmux_session = excluded.tmux_session,
                 tmux_window = excluded.tmux_window,
@@ -81,6 +82,7 @@ impl SqliteRegistry {
                 run.detection_source.as_str(),
                 run.branch,
                 run.base_ref,
+                run.base_commit,
                 path_to_string(&run.worktree_path),
                 run.tmux_session,
                 run.tmux_window,
@@ -227,6 +229,7 @@ impl SqliteRegistry {
                 detection_source TEXT NOT NULL,
                 branch TEXT NOT NULL,
                 base_ref TEXT NOT NULL,
+                base_commit TEXT,
                 worktree_path TEXT NOT NULL,
                 tmux_session TEXT,
                 tmux_window TEXT,
@@ -241,7 +244,22 @@ impl SqliteRegistry {
             CREATE INDEX IF NOT EXISTS idx_runs_grouping ON runs(repo_name, tag, run_name);
             "#,
         )?;
+        if !self.column_exists("runs", "base_commit")? {
+            self.conn
+                .execute("ALTER TABLE runs ADD COLUMN base_commit TEXT", [])?;
+        }
         Ok(())
+    }
+
+    fn column_exists(&self, table: &str, column: &str) -> RegistryResult<bool> {
+        let mut stmt = self.conn.prepare(&format!("PRAGMA table_info({table})"))?;
+        let columns = stmt.query_map([], |row| row.get::<_, String>(1))?;
+        for candidate in columns {
+            if candidate? == column {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     fn query_runs<P>(&self, sql: &str, params: P) -> RegistryResult<Vec<RunRecord>>
@@ -278,6 +296,7 @@ fn map_run(row: &Row<'_>) -> rusqlite::Result<RunRecord> {
         detection_source: parse_detection_source(&detection_source, 8)?,
         branch: row.get("branch")?,
         base_ref: row.get("base_ref")?,
+        base_commit: row.get("base_commit")?,
         worktree_path: PathBuf::from(row.get::<_, String>("worktree_path")?),
         tmux_session: row.get("tmux_session")?,
         tmux_window: row.get("tmux_window")?,

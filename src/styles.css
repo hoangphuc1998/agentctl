@@ -90,6 +90,7 @@ h2 {
 .workspace,
 .run-header,
 .terminal-shell,
+.diff-shell,
 .modal,
 .palette,
 .confirm-dialog {
@@ -592,7 +593,7 @@ h2 {
   min-width: 0;
   min-height: 0;
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 9px;
   padding: 10px;
 }
@@ -638,15 +639,67 @@ h2 {
   max-width: 360px;
 }
 
-.terminal-shell {
+.run-view-tabs {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(11, 16, 22, 0.72);
+  padding: 4px;
+  width: fit-content;
+}
+
+.run-view-tabs button {
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 10px;
+}
+
+.run-view-tabs button:hover {
+  color: var(--text);
+  background: rgba(27, 38, 51, 0.76);
+}
+
+.run-view-tabs button.selected {
+  border-color: rgba(94, 225, 140, 0.34);
+  background: rgba(30, 100, 73, 0.28);
+  color: #d8fce7;
+}
+
+.run-view-stack,
+.run-view-panel {
+  min-width: 0;
   min-height: 0;
+  height: 100%;
+}
+
+.run-view-panel[hidden] {
+  display: none;
+}
+
+.terminal-shell,
+.diff-shell {
+  min-height: 0;
+  height: 100%;
   display: grid;
   grid-template-rows: auto 1fr;
   overflow: hidden;
   background: #03070a;
 }
 
-.terminal-toolbar {
+.terminal-toolbar,
+.diff-toolbar {
   min-height: 34px;
   display: flex;
   justify-content: space-between;
@@ -690,6 +743,200 @@ h2 {
 
 .terminal-host .xterm-screen canvas {
   image-rendering: auto;
+}
+
+.diff-review {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(220px, 30%) minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.diff-file-list {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  overflow: auto;
+  border-right: 1px solid var(--line);
+  padding: 8px;
+  background: rgba(8, 13, 18, 0.84);
+}
+
+.diff-file-row {
+  width: 100%;
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #202b39;
+  border-radius: 7px;
+  background: rgba(21, 29, 40, 0.72);
+  color: var(--text);
+  cursor: pointer;
+  padding: 7px;
+  text-align: left;
+}
+
+.diff-file-row:hover,
+.diff-file-row.selected {
+  border-color: rgba(94, 225, 140, 0.34);
+  background: rgba(21, 38, 49, 0.94);
+}
+
+.diff-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.diff-file-status {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 900;
+  line-height: 1;
+  padding: 4px 6px;
+  text-transform: uppercase;
+}
+
+.diff-file-status.status-added {
+  border-color: rgba(94, 225, 140, 0.38);
+  color: var(--success);
+}
+
+.diff-file-status.status-deleted {
+  border-color: rgba(255, 133, 133, 0.38);
+  color: var(--danger);
+}
+
+.diff-file-status.status-renamed,
+.diff-file-status.status-copied {
+  border-color: rgba(115, 183, 255, 0.38);
+  color: var(--info);
+}
+
+.diff-file-counts {
+  display: inline-flex;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.diff-file-counts span:first-child {
+  color: var(--success);
+}
+
+.diff-file-counts span:last-child {
+  color: var(--danger);
+}
+
+.diff-file-panel {
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.diff-file-header {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+  background: rgba(11, 16, 22, 0.86);
+}
+
+.diff-file-header h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.diff-code {
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: auto;
+  padding: 8px 0;
+  background: #03070a;
+  color: #d7e3ef;
+  font-family:
+    "Ubuntu Mono", "MesloLGS NF", "Noto Sans Mono", ui-monospace, SFMono-Regular, Menlo, Consolas,
+    monospace;
+  font-size: 13px;
+  line-height: 1.35;
+  tab-size: 2;
+}
+
+.diff-line {
+  display: block;
+  min-height: 17px;
+  padding: 0 12px;
+  white-space: pre;
+}
+
+.diff-line.meta {
+  color: #91a8bd;
+}
+
+.diff-line.hunk {
+  background: rgba(115, 183, 255, 0.1);
+  color: #b9dcff;
+}
+
+.diff-line.added {
+  background: rgba(94, 225, 140, 0.09);
+  color: #c8f8dc;
+}
+
+.diff-line.deleted {
+  background: rgba(255, 133, 133, 0.09);
+  color: #ffd0d0;
+}
+
+.diff-empty,
+.diff-warning {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.45;
+  padding: 12px;
+}
+
+.diff-empty {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+}
+
+.diff-empty.compact {
+  min-height: 0;
+  place-items: start;
+}
+
+.diff-error {
+  color: #ffd0d0;
+}
+
+.diff-warning {
+  border: 1px solid rgba(243, 199, 92, 0.28);
+  border-radius: 6px;
+  background: rgba(45, 36, 17, 0.58);
+  color: #ffe2a0;
 }
 
 .modal-backdrop {

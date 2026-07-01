@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, path::PathBuf, process::Command};
 
 use agentctl_core::{
     agent::AgentKind,
+    diff::{RunDiff, RunDiffFile},
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
 };
 use serde::{Deserialize, Serialize};
@@ -126,6 +127,66 @@ pub struct MergeActionResult {
     pub message: String,
     pub target_branch: String,
     pub run: RunView,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunDiffView {
+    pub run_id: String,
+    pub base_ref: String,
+    pub base_commit: Option<String>,
+    pub worktree_path: String,
+    pub files: Vec<RunDiffFileView>,
+    pub file_count: usize,
+    pub additions: usize,
+    pub deletions: usize,
+    pub generated_at: i64,
+    pub warning: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RunDiffFileView {
+    pub path: String,
+    pub old_path: Option<String>,
+    pub status: String,
+    pub additions: usize,
+    pub deletions: usize,
+    pub binary: bool,
+    pub patch: Option<String>,
+    pub message: Option<String>,
+}
+
+impl From<RunDiff> for RunDiffView {
+    fn from(diff: RunDiff) -> Self {
+        Self {
+            run_id: diff.run_id,
+            base_ref: diff.base_ref,
+            base_commit: diff.base_commit,
+            worktree_path: diff.worktree_path,
+            files: diff.files.into_iter().map(Into::into).collect(),
+            file_count: diff.file_count,
+            additions: diff.additions,
+            deletions: diff.deletions,
+            generated_at: diff.generated_at,
+            warning: diff.warning,
+        }
+    }
+}
+
+impl From<RunDiffFile> for RunDiffFileView {
+    fn from(file: RunDiffFile) -> Self {
+        Self {
+            path: file.path,
+            old_path: file.old_path,
+            status: file.status,
+            additions: file.additions,
+            deletions: file.deletions,
+            binary: file.binary,
+            patch: file.patch,
+            message: file.message,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

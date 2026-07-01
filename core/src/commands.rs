@@ -147,6 +147,17 @@ impl GitCommandBuilder {
         ]
     }
 
+    pub fn rev_parse_commit(&self, repo_path: &str, reference: &str) -> Vec<String> {
+        vec![
+            "git".to_string(),
+            "-C".to_string(),
+            repo_path.to_string(),
+            "rev-parse".to_string(),
+            "--verify".to_string(),
+            format!("{reference}^{{commit}}"),
+        ]
+    }
+
     pub fn origin_head_ref(&self, repo_path: &str) -> Vec<String> {
         vec![
             "git".to_string(),
@@ -568,6 +579,23 @@ mod tests {
                 "--others".to_string(),
                 "--exclude-standard".to_string(),
                 "-z".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn rev_parse_commit_resolves_the_exact_commit_for_a_ref() {
+        let command = GitCommandBuilder::new().rev_parse_commit("/repo", "feature/base");
+
+        assert_eq!(
+            command,
+            vec![
+                "git".to_string(),
+                "-C".to_string(),
+                "/repo".to_string(),
+                "rev-parse".to_string(),
+                "--verify".to_string(),
+                "feature/base^{commit}".to_string(),
             ]
         );
     }

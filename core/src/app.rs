@@ -330,6 +330,11 @@ where
     let run_slug = sanitize_slug(&request.run_name);
     let branch = default_branch_name(&request.run_name);
     let worktree_path = default_sibling_worktree_path(&request.repo_path, &branch);
+    let git = GitCommandBuilder::new();
+    let base_commit = runner
+        .output(&git.rev_parse_commit(path_str(&request.repo_path), &request.base_ref))?
+        .trim()
+        .to_string();
     let tmux_window = window_name(&repo_name, &tag, &run_slug, id);
     let agent_session_id = match request.agent {
         AgentKind::Codex => None,
@@ -339,7 +344,6 @@ where
     let tmux = TmuxCommandBuilder::new(&config.tmux_session);
     ensure_tmux_session(runner, &tmux, config.terminal_color_environment.as_ref())?;
 
-    let git = GitCommandBuilder::new();
     let add_worktree = git.add_worktree(
         path_str(&request.repo_path),
         path_str(&worktree_path),
@@ -427,6 +431,7 @@ where
         detection_source: DetectionSource::Tmux,
         branch,
         base_ref: request.base_ref,
+        base_commit: Some(base_commit),
         worktree_path,
         tmux_session: Some(config.tmux_session.clone()),
         tmux_window: Some(tmux_window),
@@ -664,6 +669,7 @@ mod tests {
         created_window_visible_after_list_calls: Option<usize>,
         created_window: Option<String>,
         list_windows_calls: usize,
+        rev_parse_output: String,
         untracked_files_output: String,
     }
 
@@ -685,6 +691,13 @@ mod tests {
             self.commands.push(command.to_vec());
             if command_contains(command, "ls-files") {
                 return Ok(self.untracked_files_output.clone());
+            }
+            if command_contains(command, "rev-parse") {
+                return Ok(if self.rev_parse_output.is_empty() {
+                    "abc123\n".to_string()
+                } else {
+                    self.rev_parse_output.clone()
+                });
             }
             if command_contains(command, "list-windows") {
                 self.list_windows_calls += 1;
@@ -770,6 +783,39 @@ mod tests {
             .commands
             .iter()
             .any(|command| command_contains(command, "branch") && command_contains(command, "-D")));
+    }
+
+    #[test]
+    fn create_run_records_resolved_base_commit() {
+        let registry = SqliteRegistry::in_memory().expect("registry");
+        let mut runner = RecordingRunner {
+            created_window_visible_after_list_calls: Some(1),
+            rev_parse_output: "abc123def456\n".to_string(),
+            ..RecordingRunner::default()
+        };
+        let repo_root = tempfile::tempdir().expect("repo root");
+        let repo_path = repo_root.path().join("repo");
+
+        let run = create_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            NewRunRequest {
+                repo_path: repo_path.clone(),
+                base_ref: "feature/base".to_string(),
+                tag: "default".to_string(),
+                run_name: "diff-review".to_string(),
+                agent: AgentKind::Codex,
+            },
+        )
+        .expect("created run");
+
+        assert_eq!(run.base_commit.as_deref(), Some("abc123def456"));
+        assert!(runner.commands.iter().any(|command| {
+            command_contains(command, "rev-parse")
+                && command_contains(command, "feature/base^{commit}")
+                && command_contains(command, path_str(&repo_path))
+        }));
     }
 
     #[test]

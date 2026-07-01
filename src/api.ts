@@ -8,6 +8,7 @@ import type {
   DashboardState,
   MobileBridgeStatus,
   MobilePairingCode,
+  RunDiffView,
   RunView,
   TmuxRestoreStatus
 } from "./types";
@@ -66,6 +67,10 @@ export function endRun(runId: string): Promise<ActionResult> {
 
 export function mergeRun(runId: string): Promise<MergeActionResult | null> {
   return invoke("merge_run", { runId });
+}
+
+export function runDiff(runId: string): Promise<RunDiffView | null> {
+  return invoke("run_diff", { runId });
 }
 
 export function openInVsCode(runId: string): Promise<ActionResult> {

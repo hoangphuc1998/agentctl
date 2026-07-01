@@ -48,6 +48,30 @@ export interface DashboardState {
   hostTools: HostToolStatus[];
 }
 
+export interface RunDiffFileView {
+  path: string;
+  oldPath: string | null;
+  status: string;
+  additions: number;
+  deletions: number;
+  binary: boolean;
+  patch: string | null;
+  message: string | null;
+}
+
+export interface RunDiffView {
+  runId: string;
+  baseRef: string;
+  baseCommit: string | null;
+  worktreePath: string;
+  files: RunDiffFileView[];
+  fileCount: number;
+  additions: number;
+  deletions: number;
+  generatedAt: number;
+  warning: string | null;
+}
+
 export interface CreateRunPayload {
   repoPath: string;
   baseRef: string;

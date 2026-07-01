@@ -3,6 +3,7 @@ pub mod app;
 pub mod branches;
 pub mod commands;
 pub mod completion;
+pub mod diff;
 pub mod domain;
 pub mod registry;
 pub mod tmux;

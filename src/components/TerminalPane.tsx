@@ -15,14 +15,16 @@ import type { RunView } from "../types";
 
 interface TerminalPaneProps {
   selectedRun: RunView | null;
+  active?: boolean;
   onError: (message: string | null) => void;
 }
 
-export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
+export function TerminalPane({ selectedRun, active = true, onError }: TerminalPaneProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitRef = useRef<FitAddon | null>(null);
   const terminalIdRef = useRef<string | null>(null);
+  const activeRef = useRef(active);
   const [status, setStatus] = useState("Select a run to attach a terminal.");
   const selectedRunId = selectedRun?.id ?? null;
   const selectedRunName = selectedRun?.runName ?? null;
@@ -45,6 +47,13 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
     if (!terminal) return;
     terminal.refresh(0, Math.max(0, terminal.rows - 1));
   }, [fitAndResizeTerminal]);
+
+  useEffect(() => {
+    activeRef.current = active;
+    if (!active) return;
+    repaintTerminal();
+    terminalRef.current?.focus();
+  }, [active, repaintTerminal]);
 
   useEffect(() => {
     const terminal = new Terminal({
@@ -195,7 +204,9 @@ export function TerminalPane({ selectedRun, onError }: TerminalPaneProps) {
           terminalIdRef.current = null;
           return;
         }
-        terminal.focus();
+        if (activeRef.current) {
+          terminal.focus();
+        }
       } catch (err) {
         awaitingTerminalId = false;
         if (unlistenOutput) {

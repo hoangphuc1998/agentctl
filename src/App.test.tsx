@@ -13,12 +13,13 @@ import {
   mergeRun,
   mobileBridgeStatus,
   repoSuggestions,
+  runDiff,
   startMobileBridge,
   restoreRun,
   stopMobileBridge,
   tmuxRestoreStatus
 } from "./api";
-import type { DashboardState, MobileBridgeStatus, RunView, TmuxRestoreStatus } from "./types";
+import type { DashboardState, MobileBridgeStatus, RunDiffView, RunView, TmuxRestoreStatus } from "./types";
 
 const tauriWindowMocks = vi.hoisted(() => ({
   setBadgeCount: vi.fn()
@@ -38,6 +39,7 @@ vi.mock("./api", () => ({
   openInVsCode: vi.fn(),
   repoSuggestions: vi.fn(),
   restoreRun: vi.fn(),
+  runDiff: vi.fn(),
   startMobileBridge: vi.fn(),
   stopRun: vi.fn(),
   stopMobileBridge: vi.fn(),
@@ -45,8 +47,10 @@ vi.mock("./api", () => ({
 }));
 
 vi.mock("./components/TerminalPane", () => ({
-  TerminalPane: ({ selectedRun }: { selectedRun: RunView | null }) => (
-    <section aria-label="Mock terminal">{selectedRun?.runName ?? "No selected run"}</section>
+  TerminalPane: ({ selectedRun, active }: { selectedRun: RunView | null; active?: boolean }) => (
+    <section aria-label="Mock terminal" data-testid="mock-terminal" data-active={String(active ?? true)}>
+      {selectedRun?.runName ?? "No selected run"}
+    </section>
   )
 }));
 
@@ -62,6 +66,7 @@ describe("App", () => {
     vi.mocked(enableTmuxRestore).mockResolvedValue(restoreStatus(true));
     vi.mocked(chooseDirectory).mockResolvedValue(null);
     vi.mocked(repoSuggestions).mockResolvedValue([]);
+    vi.mocked(runDiff).mockResolvedValue(emptyRunDiff("run-1"));
     vi.mocked(mobileBridgeStatus).mockResolvedValue(mobileStatus(false));
     vi.mocked(startMobileBridge).mockResolvedValue(mobileStatus(true));
     vi.mocked(stopMobileBridge).mockResolvedValue(mobileStatus(false));
@@ -146,6 +151,118 @@ describe("App", () => {
     await waitFor(() => expect(mergeRun).toHaveBeenCalledWith("run-1"));
     const notice = await screen.findByText("Run not found.");
     expect(notice).toHaveClass("notice", "error");
+  });
+
+  it("loads and renders the selected run diff when the Diff tab opens", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+    vi.mocked(runDiff).mockResolvedValue(
+      runDiffFixture("run-1", {
+        warning: "This run uses a fallback base.",
+        additions: 2,
+        deletions: 1,
+        files: [
+          {
+            path: "src/App.tsx",
+            oldPath: null,
+            status: "modified",
+            additions: 2,
+            deletions: 1,
+            binary: false,
+            patch: "diff --git a/src/App.tsx b/src/App.tsx\n@@ -1 +1 @@\n-old line\n+new line\n",
+            message: null
+          }
+        ]
+      })
+    );
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("tab", { name: /diff/i }));
+
+    await waitFor(() => expect(runDiff).toHaveBeenCalledWith("run-1"));
+    expect(screen.getByRole("tab", { name: /diff/i })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("1 file")).toBeInTheDocument();
+    expect(screen.getAllByText("+2").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("-1").length).toBeGreaterThan(0);
+    expect(screen.getByText("This run uses a fallback base.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /src\/App\.tsx/i })).toBeInTheDocument();
+    expect(screen.getByText("+new line")).toBeInTheDocument();
+  });
+
+  it("keeps the terminal mounted but inactive while reviewing the diff", async () => {
+    vi.mocked(dashboardState).mockResolvedValue(dashboard("run-1"));
+    vi.mocked(runDiff).mockResolvedValue(runDiffFixture("run-1"));
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    expect(screen.getByTestId("mock-terminal")).toHaveAttribute("data-active", "true");
+
+    await userEvent.click(screen.getByRole("tab", { name: /diff/i }));
+
+    expect(screen.getByTestId("mock-terminal")).toBeInTheDocument();
+    expect(screen.getByTestId("mock-terminal")).toHaveAttribute("data-active", "false");
+  });
+
+  it("clears the previous run diff while loading another selected run", async () => {
+    let resolveSecondDiff: (diff: RunDiffView) => void = () => {};
+    vi.mocked(dashboardState).mockImplementation((selectedRunId?: string | null) =>
+      Promise.resolve(dashboard(selectedRunId ?? "run-1"))
+    );
+    vi.mocked(runDiff).mockImplementation((runId: string) => {
+      if (runId === "run-1") {
+        return Promise.resolve(
+          runDiffFixture("run-1", {
+            files: [
+              {
+                path: "old-run.md",
+                oldPath: null,
+                status: "modified",
+                additions: 1,
+                deletions: 0,
+                binary: false,
+                patch: "diff --git a/old-run.md b/old-run.md\n@@ -0,0 +1 @@\n+old run\n",
+                message: null
+              }
+            ]
+          })
+        );
+      }
+      return new Promise((resolve) => {
+        resolveSecondDiff = resolve;
+      });
+    });
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("tab", { name: /diff/i }));
+    expect(await screen.findByText("+old run")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("treeitem", { name: /api-cleanup/i }));
+
+    await waitFor(() => expect(runDiff).toHaveBeenCalledWith("run-2"));
+    expect(screen.queryByText("+old run")).not.toBeInTheDocument();
+    expect(screen.getByText("Loading diff...")).toBeInTheDocument();
+
+    resolveSecondDiff(
+      runDiffFixture("run-2", {
+        files: [
+          {
+            path: "new-run.md",
+            oldPath: null,
+            status: "modified",
+            additions: 1,
+            deletions: 0,
+            binary: false,
+            patch: "diff --git a/new-run.md b/new-run.md\n@@ -0,0 +1 @@\n+new run\n",
+            message: null
+          }
+        ]
+      })
+    );
+    expect(await screen.findByText("+new run")).toBeInTheDocument();
   });
 
   it("does not reserve dashboard space for successful create-run messages", async () => {
@@ -548,6 +665,40 @@ function restorableRun(): RunView {
     observedState: "unknown",
     detectionSource: "unknown",
     restorable: true
+  };
+}
+
+function emptyRunDiff(runId: string): RunDiffView {
+  return runDiffFixture(runId, { files: [] });
+}
+
+function runDiffFixture(
+  runId: string,
+  overrides: Partial<RunDiffView> = {}
+): RunDiffView {
+  return {
+    runId,
+    baseRef: "HEAD",
+    baseCommit: "abc123",
+    worktreePath: "/repo/worktrees/login-flow",
+    files: [
+      {
+        path: "README.md",
+        oldPath: null,
+        status: "modified",
+        additions: 1,
+        deletions: 0,
+        binary: false,
+        patch: "diff --git a/README.md b/README.md\n@@ -1 +1 @@\n+updated\n",
+        message: null
+      }
+    ],
+    fileCount: overrides.files?.length ?? 1,
+    additions: 1,
+    deletions: 0,
+    generatedAt: 42,
+    warning: null,
+    ...overrides
   };
 }
 

@@ -1,6 +1,7 @@
-use agent_manager_desktop::models::{repo_tree_from_runs, RunView};
+use agent_manager_desktop::models::{repo_tree_from_runs, RunDiffFileView, RunDiffView, RunView};
 use agentctl_core::{
     agent::AgentKind,
+    diff::{RunDiff, RunDiffFile},
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
 };
 use std::path::PathBuf;
@@ -19,6 +20,7 @@ fn run(repo_name: &str, run_name: &str, tag: &str, state: ObservedState) -> RunR
         detection_source: DetectionSource::Tmux,
         branch: run_name.to_string(),
         base_ref: "main".to_string(),
+        base_commit: None,
         worktree_path: PathBuf::from(format!("/repos/{repo_name}-worktrees/{run_name}")),
         tmux_session: Some("agentctl".to_string()),
         tmux_window: Some(format!("{repo_name}__{run_name}")),
@@ -84,5 +86,54 @@ fn run_view_preserves_cli_registry_metadata_for_frontend_actions() {
     assert_eq!(
         view.worktree_path,
         "/repos/agent-manager-worktrees/login-flow"
+    );
+}
+
+#[test]
+fn run_diff_view_preserves_file_status_counts_and_patch_text() {
+    let diff = RunDiff {
+        run_id: "run-1".to_string(),
+        base_ref: "main".to_string(),
+        base_commit: Some("abc123".to_string()),
+        worktree_path: "/repos/agent-manager-worktrees/diff-review".to_string(),
+        files: vec![RunDiffFile {
+            path: "src/App.tsx".to_string(),
+            old_path: None,
+            status: "modified".to_string(),
+            additions: 2,
+            deletions: 1,
+            binary: false,
+            patch: Some("@@ -1 +1 @@\n-old\n+new\n".to_string()),
+            message: None,
+        }],
+        file_count: 1,
+        additions: 2,
+        deletions: 1,
+        generated_at: 42,
+        warning: Some("fallback base".to_string()),
+    };
+
+    let view = RunDiffView::from(diff);
+
+    assert_eq!(view.run_id, "run-1");
+    assert_eq!(view.base_ref, "main");
+    assert_eq!(view.base_commit.as_deref(), Some("abc123"));
+    assert_eq!(view.file_count, 1);
+    assert_eq!(view.additions, 2);
+    assert_eq!(view.deletions, 1);
+    assert_eq!(view.generated_at, 42);
+    assert_eq!(view.warning.as_deref(), Some("fallback base"));
+    assert_eq!(
+        view.files,
+        vec![RunDiffFileView {
+            path: "src/App.tsx".to_string(),
+            old_path: None,
+            status: "modified".to_string(),
+            additions: 2,
+            deletions: 1,
+            binary: false,
+            patch: Some("@@ -1 +1 @@\n-old\n+new\n".to_string()),
+            message: None,
+        }]
     );
 }

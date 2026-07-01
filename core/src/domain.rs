@@ -115,6 +115,7 @@ pub struct RunRecord {
     pub detection_source: DetectionSource,
     pub branch: String,
     pub base_ref: String,
+    pub base_commit: Option<String>,
     pub worktree_path: PathBuf,
     pub tmux_session: Option<String>,
     pub tmux_window: Option<String>,

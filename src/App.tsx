@@ -6,6 +6,7 @@ import {
   Code2,
   Command,
   Copy,
+  FileDiff,
   FolderGit2,
   GitBranch,
   GitMerge,
@@ -47,6 +48,7 @@ import { CommandPalette } from "./components/CommandPalette";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { CreateRunModal } from "./components/CreateRunModal";
 import { RepoRunTree } from "./components/RepoRunTree";
+import { RunDiffPane } from "./components/RunDiffPane";
 import { StatusBadge } from "./components/StatusBadge";
 import { TerminalPane } from "./components/TerminalPane";
 import { appShortcutFromEvent } from "./keyboardShortcuts";
@@ -67,6 +69,8 @@ type PendingAction =
   | { kind: "merge"; run: RunView }
   | { kind: "cleanup-stale" };
 
+type RunViewMode = "terminal" | "diff";
+
 const emptyDashboard: DashboardState = {
   repos: [],
   selectedRunId: null,
@@ -86,6 +90,7 @@ export function App() {
   const [createDefaults, setCreateDefaults] = useState<CreateRunDefaults | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [activeRunView, setActiveRunView] = useState<RunViewMode>("terminal");
   const [refreshing, setRefreshing] = useState(false);
   const [restoreStatus, setRestoreStatus] = useState<TmuxRestoreStatus | null>(null);
   const [mobileStatus, setMobileStatus] = useState<MobileBridgeStatus | null>(null);
@@ -590,7 +595,47 @@ export function App() {
             )}
           </div>
 
-          <TerminalPane selectedRun={selectedRun} onError={setError} />
+          {selectedRun && (
+            <div className="run-view-tabs" role="tablist" aria-label="Run views">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeRunView === "terminal"}
+                className={activeRunView === "terminal" ? "selected" : ""}
+                onClick={() => setActiveRunView("terminal")}
+              >
+                <Terminal size={15} />
+                Terminal
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeRunView === "diff"}
+                className={activeRunView === "diff" ? "selected" : ""}
+                onClick={() => setActiveRunView("diff")}
+              >
+                <FileDiff size={15} />
+                Diff
+              </button>
+            </div>
+          )}
+
+          <div className="run-view-stack">
+            <div className="run-view-panel" hidden={activeRunView !== "terminal"}>
+              <TerminalPane
+                selectedRun={selectedRun}
+                active={activeRunView === "terminal"}
+                onError={setError}
+              />
+            </div>
+            <div className="run-view-panel" hidden={activeRunView !== "diff"}>
+              <RunDiffPane
+                selectedRun={selectedRun}
+                active={activeRunView === "diff"}
+                onError={setError}
+              />
+            </div>
+          </div>
         </section>
       </section>
 

@@ -137,6 +137,7 @@ pub fn run() {
             commands::end_run,
             commands::merge_run,
             commands::open_in_vscode,
+            commands::run_diff,
             commands::cleanup_stale_runs,
             commands::tmux_restore_status,
             commands::enable_tmux_restore,

@@ -19,6 +19,7 @@ fn run() -> RunRecord {
         detection_source: DetectionSource::Tmux,
         branch: "login-flow".to_string(),
         base_ref: "main".to_string(),
+        base_commit: None,
         worktree_path: PathBuf::from("/repos/agent-manager-worktrees/login-flow"),
         tmux_session: Some("agentctl".to_string()),
         tmux_window: Some("agent-manager__feature__login-flow".to_string()),

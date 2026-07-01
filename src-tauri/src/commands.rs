@@ -5,6 +5,7 @@ use agentctl_core::{
     app::{App, AppConfig, NewRunRequest, SystemCommandRunner},
     branches::{BranchLister, GitBranchLister},
     completion::{base_ref_candidates, repo_path_candidates},
+    diff::load_run_diff,
     registry::SqliteRegistry,
     tmux::{detect_observed_state, detection_source_for, Tmux},
 };
@@ -17,7 +18,7 @@ use crate::{
     mobile_bridge::{BridgeBind, MobileBridgeStatus, PairingCode, PairingTime},
     models::{
         host_tool_statuses, ActionResult, CreateRunPayload, DashboardState, MergeActionResult,
-        Suggestion, TerminalStarted,
+        RunDiffView, Suggestion, TerminalStarted,
     },
     services::{
         agent_attention_event_for_transition, agent_system_notification_for_event,
@@ -162,6 +163,19 @@ pub fn open_in_vscode(
         message: "Opened run worktree in VS Code.".to_string(),
         run: run.map(Into::into),
     })
+}
+
+#[tauri::command]
+pub fn run_diff(
+    state: State<'_, DesktopState>,
+    run_id: String,
+) -> DesktopResult<Option<RunDiffView>> {
+    let id = parse_uuid(&run_id)?;
+    let registry = registry(&state)?;
+    let Some(run) = registry.get_run(id)? else {
+        return Ok(None);
+    };
+    Ok(Some(load_run_diff(&run)?.into()))
 }
 
 #[tauri::command]

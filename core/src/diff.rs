@@ -1,17 +1,9 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    error::Error,
-    fs,
-    path::{Component, Path},
-    process::Command,
-};
+use std::{collections::BTreeMap, error::Error, path::Path, process::Command};
 
 use chrono::Utc;
 use serde::Serialize;
 
 use crate::domain::RunRecord;
-
-const LARGE_FILE_PATCH_LIMIT_BYTES: usize = 256 * 1024;
 
 pub type DiffResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -53,14 +45,6 @@ struct FileStat {
 pub fn load_run_diff(run: &RunRecord) -> DiffResult<RunDiff> {
     let (base_commit, warning) = diff_base(run)?;
     let mut files = tracked_diff_files(run.worktree_path.as_path(), &base_commit)?;
-    let mut seen_paths = files
-        .iter()
-        .map(|file| file.path.clone())
-        .collect::<BTreeSet<_>>();
-
-    for file in untracked_diff_files(run.worktree_path.as_path(), &mut seen_paths)? {
-        files.push(file);
-    }
 
     files.sort_by(|left, right| left.path.cmp(&right.path));
     let additions = files.iter().map(|file| file.additions).sum();
@@ -108,6 +92,7 @@ fn tracked_diff_files(worktree_path: &Path, base_commit: &str) -> DiffResult<Vec
             "--numstat",
             "-z",
             base_commit,
+            "HEAD",
             "--",
         ],
     )?);
@@ -119,6 +104,7 @@ fn tracked_diff_files(worktree_path: &Path, base_commit: &str) -> DiffResult<Vec
             "--name-status",
             "-z",
             base_commit,
+            "HEAD",
             "--",
         ],
     )?);
@@ -139,6 +125,7 @@ fn tracked_diff_files(worktree_path: &Path, base_commit: &str) -> DiffResult<Vec
                 "diff",
                 "--find-renames",
                 base_commit,
+                "HEAD",
                 "--",
                 file.path.as_str(),
             ],
@@ -146,88 +133,6 @@ fn tracked_diff_files(worktree_path: &Path, base_commit: &str) -> DiffResult<Vec
     }
 
     Ok(files)
-}
-
-fn untracked_diff_files(
-    worktree_path: &Path,
-    seen_paths: &mut BTreeSet<String>,
-) -> DiffResult<Vec<RunDiffFile>> {
-    let output = git_bytes(
-        worktree_path,
-        &["ls-files", "--others", "--exclude-standard", "-z"],
-    )?;
-    let mut files = Vec::new();
-
-    for path in nul_strings(&output) {
-        if !seen_paths.insert(path.clone()) || !is_safe_relative_path(&path) {
-            continue;
-        }
-        let file_path = worktree_path.join(&path);
-        if !file_path.is_file() {
-            continue;
-        }
-        let data = fs::read(&file_path)?;
-        files.push(untracked_file_diff(path, &data));
-    }
-
-    Ok(files)
-}
-
-fn untracked_file_diff(path: String, data: &[u8]) -> RunDiffFile {
-    if data.contains(&0) {
-        return RunDiffFile {
-            path,
-            old_path: None,
-            status: "added".to_string(),
-            additions: 0,
-            deletions: 0,
-            binary: true,
-            patch: None,
-            message: Some("Binary file not shown.".to_string()),
-        };
-    }
-
-    let Ok(text) = String::from_utf8(data.to_vec()) else {
-        return RunDiffFile {
-            path,
-            old_path: None,
-            status: "added".to_string(),
-            additions: 0,
-            deletions: 0,
-            binary: true,
-            patch: None,
-            message: Some("Binary file not shown.".to_string()),
-        };
-    };
-    let additions = text.lines().count();
-    let (patch, message) = if data.len() > LARGE_FILE_PATCH_LIMIT_BYTES {
-        (None, Some("File too large to display.".to_string()))
-    } else {
-        (Some(added_file_patch(&path, &text, additions)), None)
-    };
-
-    RunDiffFile {
-        path,
-        old_path: None,
-        status: "added".to_string(),
-        additions,
-        deletions: 0,
-        binary: false,
-        patch,
-        message,
-    }
-}
-
-fn added_file_patch(path: &str, text: &str, additions: usize) -> String {
-    let mut patch = format!(
-        "diff --git a/{path} b/{path}\nnew file mode 100644\n--- /dev/null\n+++ b/{path}\n@@ -0,0 +1,{additions} @@\n"
-    );
-    for line in text.lines() {
-        patch.push('+');
-        patch.push_str(line);
-        patch.push('\n');
-    }
-    patch
 }
 
 fn parse_name_status(output: &[u8]) -> Vec<RunDiffFile> {
@@ -324,15 +229,6 @@ fn nul_strings(output: &[u8]) -> Vec<String> {
         .filter(|token| !token.is_empty())
         .map(|token| String::from_utf8_lossy(token).to_string())
         .collect()
-}
-
-fn is_safe_relative_path(path: &str) -> bool {
-    Path::new(path).components().all(|component| {
-        !matches!(
-            component,
-            Component::ParentDir | Component::RootDir | Component::Prefix(_)
-        )
-    })
 }
 
 fn git_output(repo_path: &Path, args: &[&str]) -> DiffResult<String> {

@@ -12,7 +12,7 @@ use tempfile::TempDir;
 use uuid::Uuid;
 
 #[test]
-fn run_diff_includes_tracked_changes_against_base_and_untracked_files() {
+fn run_diff_includes_only_committed_changes_against_base() {
     let repo = git_repo();
     let base_commit = git_output(repo.path(), ["rev-parse", "HEAD"]);
     git(repo.path(), ["checkout", "-b", "feature/diff-review"]);
@@ -35,8 +35,8 @@ fn run_diff_includes_tracked_changes_against_base_and_untracked_files() {
     let diff = load_run_diff(&run_record(repo.path(), &base_commit)).expect("run diff");
 
     assert_eq!(diff.base_commit.as_deref(), Some(base_commit.as_str()));
-    assert_eq!(diff.file_count, 2);
-    assert_eq!(diff.additions, 3);
+    assert_eq!(diff.file_count, 1);
+    assert_eq!(diff.additions, 1);
     assert_eq!(diff.deletions, 1);
     assert!(diff.warning.is_none());
 
@@ -50,47 +50,22 @@ fn run_diff_includes_tracked_changes_against_base_and_untracked_files() {
     assert_eq!(tracked.deletions, 1);
     assert_eq!(tracked.binary, false);
     assert!(tracked.patch.as_deref().unwrap_or("").contains("-    1"));
-    assert!(tracked.patch.as_deref().unwrap_or("").contains("+    3"));
-
-    let untracked = diff
-        .files
-        .iter()
-        .find(|file| file.path == "notes.md")
-        .expect("untracked file");
-    assert_eq!(untracked.status, "added");
-    assert_eq!(untracked.additions, 2);
-    assert_eq!(untracked.deletions, 0);
-    assert_eq!(untracked.binary, false);
-    assert!(untracked
-        .patch
-        .as_deref()
-        .unwrap_or("")
-        .contains("+++ b/notes.md"));
-    assert!(untracked
-        .patch
-        .as_deref()
-        .unwrap_or("")
-        .contains("+new note"));
+    assert!(tracked.patch.as_deref().unwrap_or("").contains("+    2"));
+    assert!(!tracked.patch.as_deref().unwrap_or("").contains("+    3"));
+    assert!(!diff.files.iter().any(|file| file.path == "notes.md"));
     assert!(!diff.files.iter().any(|file| file.path == "ignored.log"));
 }
 
 #[test]
-fn run_diff_marks_binary_untracked_files_without_rendering_contents() {
+fn run_diff_ignores_binary_untracked_files() {
     let repo = git_repo();
     let base_commit = git_output(repo.path(), ["rev-parse", "HEAD"]);
     std::fs::write(repo.path().join("asset.bin"), [0, 159, 146, 150]).expect("write binary");
 
     let diff = load_run_diff(&run_record(repo.path(), &base_commit)).expect("run diff");
 
-    let binary = diff
-        .files
-        .iter()
-        .find(|file| file.path == "asset.bin")
-        .expect("binary file");
-    assert_eq!(binary.status, "added");
-    assert!(binary.binary);
-    assert!(binary.patch.is_none());
-    assert_eq!(binary.message.as_deref(), Some("Binary file not shown."));
+    assert_eq!(diff.file_count, 0);
+    assert!(diff.files.is_empty());
 }
 
 fn git_repo() -> TempDir {

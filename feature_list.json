@@ -506,6 +506,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-01 16:27 +07: Added RED App coverage requiring folder headers, repository-root grouping, filename-first rows, and preserved patch selection. Implemented frontend-only grouping in RunDiffPane with full-path aria labels and compact folder header styling. Verification passed: baseline ./init.sh, npm test -- src/App.test.tsx -t groups changed diff files RED then GREEN, npm test -- src/App.test.tsx, npm test with 69 tests, npm run build, git diff --check, and final ./init.sh after artifact updates with npm test, npm run build, and cargo test passing."
+    },
+    {
+      "id": "feat-050",
+      "name": "Committed-Only Diff Review",
+      "description": "Limit the desktop Diff tab to committed branch changes by comparing each run base commit to HEAD and excluding uncommitted tracked and untracked files.",
+      "dependencies": [
+        "feat-049"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-02 13:22 +07: Added RED core coverage proving run diffs must ignore uncommitted worktree edits and untracked binary files, then changed the diff engine to compare base_commit to HEAD only. Verification passed: baseline ./init.sh, cargo test -p agentctl-core --test run_diff RED then GREEN, cargo fmt --check, cargo test -p agentctl-core, cargo test -p agent-manager-desktop run_diff_view_preserves_file_status_counts_and_patch_text, npm test -- src/App.test.tsx, git diff --check, and final ./init.sh with npm test, npm run build, and cargo test passing."
     }
   ]
 }

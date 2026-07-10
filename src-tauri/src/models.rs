@@ -4,6 +4,7 @@ use agentctl_core::{
     agent::AgentKind,
     diff::{RunDiff, RunDiffFile},
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
+    untracked_files::UntrackedFilesPreview,
 };
 use serde::{Deserialize, Serialize};
 
@@ -105,6 +106,26 @@ pub struct CreateRunPayload {
     pub tag: String,
     pub run_name: String,
     pub agent: String,
+    #[serde(default)]
+    pub copy_ignored_files: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct IgnoredFilesPreviewView {
+    pub file_count: usize,
+    pub total_bytes: u64,
+    pub requires_confirmation: bool,
+}
+
+impl From<UntrackedFilesPreview> for IgnoredFilesPreviewView {
+    fn from(preview: UntrackedFilesPreview) -> Self {
+        Self {
+            file_count: preview.file_count,
+            total_bytes: preview.total_bytes,
+            requires_confirmation: preview.requires_confirmation(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]

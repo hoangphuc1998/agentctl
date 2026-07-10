@@ -6,6 +6,7 @@ import type {
   AgentAttentionEvent,
   CreateRunPayload,
   DashboardState,
+  IgnoredFilesPreview,
   MobileBridgeStatus,
   MobilePairingCode,
   RunDiffView,
@@ -51,6 +52,10 @@ export function dashboardState(selectedRunId?: string | null): Promise<Dashboard
 
 export function createRun(payload: CreateRunPayload): Promise<ActionResult> {
   return invoke("create_run", { payload });
+}
+
+export function ignoredFilesPreview(repoPath: string): Promise<IgnoredFilesPreview> {
+  return invoke("ignored_files_preview", { repoPath });
 }
 
 export function restoreRun(runId: string): Promise<ActionResult> {

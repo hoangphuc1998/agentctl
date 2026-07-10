@@ -2,7 +2,7 @@ use std::{path::PathBuf, str::FromStr};
 
 use agentctl_core::{
     agent::AgentKind,
-    app::{App, AppConfig, NewRunRequest, SystemCommandRunner},
+    app::{preview_ignored_untracked_files, App, AppConfig, NewRunRequest, SystemCommandRunner},
     branches::{BranchLister, GitBranchLister},
     completion::{base_ref_candidates, repo_path_candidates},
     diff::load_run_diff,
@@ -17,8 +17,8 @@ use crate::{
     error::{DesktopError, DesktopResult},
     mobile_bridge::{BridgeBind, MobileBridgeStatus, PairingCode, PairingTime},
     models::{
-        host_tool_statuses, ActionResult, CreateRunPayload, DashboardState, MergeActionResult,
-        RunDiffView, Suggestion, TerminalStarted,
+        host_tool_statuses, ActionResult, CreateRunPayload, DashboardState,
+        IgnoredFilesPreviewView, MergeActionResult, RunDiffView, Suggestion, TerminalStarted,
     },
     services::{
         agent_attention_event_for_transition, agent_system_notification_for_event,
@@ -67,26 +67,44 @@ pub fn dashboard_state(
 }
 
 #[tauri::command]
-pub fn create_run(
+pub async fn create_run(
     state: State<'_, DesktopState>,
     payload: CreateRunPayload,
 ) -> DesktopResult<ActionResult> {
-    let registry = registry(&state)?;
+    let registry_path = state.registry_path().clone();
+    let agent = AgentKind::from_str(&payload.agent).map_err(DesktopError::Message)?;
     let request = NewRunRequest {
         repo_path: PathBuf::from(payload.repo_path),
         base_ref: payload.base_ref,
         tag: payload.tag,
         run_name: payload.run_name,
-        agent: AgentKind::from_str(&payload.agent).map_err(DesktopError::Message)?,
+        agent,
+        copy_ignored_files: payload.copy_ignored_files,
     };
-    let mut app = App::new(registry, SystemCommandRunner, AppConfig::from_environment());
-    let run = app.create_run(request)?;
+    let run = blocking_task(move || {
+        let registry = SqliteRegistry::open(&registry_path)?;
+        let mut app = App::new(registry, SystemCommandRunner, AppConfig::from_environment());
+        app.create_run(request).map_err(DesktopError::from)
+    })
+    .await?;
     save_tmux_restore_snapshot_best_effort();
     state.set_selected_run_id(Some(run.id.to_string()))?;
     Ok(ActionResult {
         message: format!("Created `{}`.", run.run_name),
         run: Some(run.into()),
     })
+}
+
+#[tauri::command]
+pub async fn ignored_files_preview(repo_path: String) -> DesktopResult<IgnoredFilesPreviewView> {
+    blocking_task(move || {
+        let repo_path = PathBuf::from(repo_path);
+        let mut runner = SystemCommandRunner;
+        preview_ignored_untracked_files(&mut runner, &repo_path)
+            .map(IgnoredFilesPreviewView::from)
+            .map_err(DesktopError::from)
+    })
+    .await
 }
 
 #[tauri::command]
@@ -331,6 +349,16 @@ fn app(state: &DesktopState) -> DesktopResult<App<SystemCommandRunner>> {
         SystemCommandRunner,
         AppConfig::from_environment(),
     ))
+}
+
+async fn blocking_task<T, F>(task: F) -> DesktopResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> DesktopResult<T> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(|err| DesktopError::Message(format!("blocking task failed: {err}")))?
 }
 
 fn parse_uuid(value: &str) -> DesktopResult<Uuid> {

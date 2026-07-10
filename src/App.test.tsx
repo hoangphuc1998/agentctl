@@ -8,6 +8,7 @@ import {
   dashboardState,
   enableTmuxRestore,
   endRun,
+  ignoredFilesPreview,
   issueMobilePairingCode,
   listenAgentAttention,
   mergeRun,
@@ -32,6 +33,7 @@ vi.mock("./api", () => ({
   dashboardState: vi.fn(),
   enableTmuxRestore: vi.fn(),
   endRun: vi.fn(),
+  ignoredFilesPreview: vi.fn(),
   issueMobilePairingCode: vi.fn(),
   listenAgentAttention: vi.fn(),
   mergeRun: vi.fn(),
@@ -65,6 +67,11 @@ describe("App", () => {
     vi.mocked(tmuxRestoreStatus).mockResolvedValue(restoreStatus(true));
     vi.mocked(enableTmuxRestore).mockResolvedValue(restoreStatus(true));
     vi.mocked(chooseDirectory).mockResolvedValue(null);
+    vi.mocked(ignoredFilesPreview).mockResolvedValue({
+      fileCount: 0,
+      totalBytes: 0,
+      requiresConfirmation: false
+    });
     vi.mocked(repoSuggestions).mockResolvedValue([]);
     vi.mocked(runDiff).mockResolvedValue(emptyRunDiff("run-1"));
     vi.mocked(mobileBridgeStatus).mockResolvedValue(mobileStatus(false));
@@ -382,7 +389,8 @@ describe("App", () => {
         baseRef: "release",
         tag: "review",
         runName: "api-followup",
-        agent: "claude"
+        agent: "claude",
+        copyIgnoredFiles: true
       })
     );
   });

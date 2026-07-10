@@ -3,6 +3,46 @@ use std::{
     path::{Component, Path, PathBuf},
 };
 
+pub const LARGE_UNTRACKED_COPY_BYTES: u64 = 100 * 1024 * 1024;
+pub const LARGE_UNTRACKED_COPY_FILE_COUNT: usize = 10_000;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct UntrackedFilesPreview {
+    pub file_count: usize,
+    pub total_bytes: u64,
+}
+
+impl UntrackedFilesPreview {
+    pub fn requires_confirmation(&self) -> bool {
+        self.file_count >= LARGE_UNTRACKED_COPY_FILE_COUNT
+            || self.total_bytes >= LARGE_UNTRACKED_COPY_BYTES
+    }
+}
+
+pub fn preview_untracked_files(
+    source_root: &Path,
+    untracked_files: &str,
+) -> io::Result<UntrackedFilesPreview> {
+    let mut preview = UntrackedFilesPreview {
+        file_count: 0,
+        total_bytes: 0,
+    };
+
+    for relative_path in parse_untracked_paths(untracked_files)? {
+        let metadata = fs::symlink_metadata(source_root.join(relative_path))?;
+        if !metadata.is_file() {
+            continue;
+        }
+        preview.file_count += 1;
+        preview.total_bytes = preview
+            .total_bytes
+            .checked_add(metadata.len())
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "file sizes overflow u64"))?;
+    }
+
+    Ok(preview)
+}
+
 pub fn copy_untracked_files(
     source_root: &Path,
     worktree_root: &Path,
@@ -102,7 +142,10 @@ fn remove_empty_parent_dirs(root: &Path, start: Option<&Path>) -> io::Result<()>
 
 #[cfg(test)]
 mod tests {
-    use super::{copy_untracked_files, delete_untracked_files};
+    use super::{
+        copy_untracked_files, delete_untracked_files, preview_untracked_files,
+        UntrackedFilesPreview, LARGE_UNTRACKED_COPY_BYTES, LARGE_UNTRACKED_COPY_FILE_COUNT,
+    };
 
     #[test]
     fn copy_untracked_files_preserves_relative_paths() {
@@ -153,5 +196,56 @@ mod tests {
 
         assert!(!copied_file.exists());
         assert!(!worktree_root.path().join("notes").exists());
+    }
+
+    #[test]
+    fn preview_untracked_files_counts_regular_files_and_bytes() {
+        let source_root = tempfile::tempdir().expect("source root");
+        let env_file = source_root.path().join(".env");
+        let generated_file = source_root.path().join("generated").join("client.js");
+        std::fs::create_dir_all(generated_file.parent().expect("parent")).expect("mkdir");
+        std::fs::write(&env_file, "TOKEN=secret").expect("write env");
+        std::fs::write(&generated_file, "client").expect("write generated");
+
+        let preview = preview_untracked_files(source_root.path(), ".env\0generated/client.js\0")
+            .expect("preview");
+
+        assert_eq!(
+            preview,
+            UntrackedFilesPreview {
+                file_count: 2,
+                total_bytes: 18,
+            }
+        );
+        assert!(!preview.requires_confirmation());
+    }
+
+    #[test]
+    fn preview_requires_confirmation_at_either_large_copy_threshold() {
+        assert!(UntrackedFilesPreview {
+            file_count: LARGE_UNTRACKED_COPY_FILE_COUNT,
+            total_bytes: 1,
+        }
+        .requires_confirmation());
+        assert!(UntrackedFilesPreview {
+            file_count: 1,
+            total_bytes: LARGE_UNTRACKED_COPY_BYTES,
+        }
+        .requires_confirmation());
+        assert!(!UntrackedFilesPreview {
+            file_count: LARGE_UNTRACKED_COPY_FILE_COUNT - 1,
+            total_bytes: LARGE_UNTRACKED_COPY_BYTES - 1,
+        }
+        .requires_confirmation());
+    }
+
+    #[test]
+    fn preview_untracked_files_rejects_unsafe_paths() {
+        let source_root = tempfile::tempdir().expect("source root");
+
+        let err = preview_untracked_files(source_root.path(), "../outside\0")
+            .expect_err("unsafe path must fail");
+
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
     }
 }

@@ -78,6 +78,13 @@ export interface CreateRunPayload {
   tag: string;
   runName: string;
   agent: AgentKind;
+  copyIgnoredFiles: boolean;
+}
+
+export interface IgnoredFilesPreview {
+  fileCount: number;
+  totalBytes: number;
+  requiresConfirmation: boolean;
 }
 
 export interface CreateRunDefaults {

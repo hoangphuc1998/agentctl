@@ -1,5 +1,10 @@
 # Copy Untracked Files Design
 
+> **2026-07-10 update:** feat-051 extends this behavior with a default-enabled
+> New Run option that can include Git-ignored files, plus a count/size preview
+> and confirmation at 100 MiB or 10,000 files. The original non-ignored-only
+> behavior remains available when that option is disabled.
+
 ## Goal
 
 When a user creates a run from a repository, Agent Manager should copy the repository's non-ignored untracked files into the new worktree before launching the agent. When the run is ended, those non-ignored untracked files in the run worktree should be deleted as part of the existing worktree and branch cleanup.

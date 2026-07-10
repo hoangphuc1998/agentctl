@@ -1,8 +1,12 @@
-use agent_manager_desktop::models::{repo_tree_from_runs, RunDiffFileView, RunDiffView, RunView};
+use agent_manager_desktop::models::{
+    repo_tree_from_runs, CreateRunPayload, IgnoredFilesPreviewView, RunDiffFileView, RunDiffView,
+    RunView,
+};
 use agentctl_core::{
     agent::AgentKind,
     diff::{RunDiff, RunDiffFile},
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
+    untracked_files::UntrackedFilesPreview,
 };
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -135,5 +139,36 @@ fn run_diff_view_preserves_file_status_counts_and_patch_text() {
             patch: Some("@@ -1 +1 @@\n-old\n+new\n".to_string()),
             message: None,
         }]
+    );
+}
+
+#[test]
+fn create_run_payload_defaults_ignored_file_copy_to_disabled_for_compatibility() {
+    let payload: CreateRunPayload = serde_json::from_value(serde_json::json!({
+        "repoPath": "/repos/agent-manager",
+        "baseRef": "HEAD",
+        "tag": "default",
+        "runName": "copy-files",
+        "agent": "codex"
+    }))
+    .expect("payload");
+
+    assert!(!payload.copy_ignored_files);
+}
+
+#[test]
+fn ignored_file_preview_serializes_camel_case_size_and_confirmation() {
+    let view = IgnoredFilesPreviewView::from(UntrackedFilesPreview {
+        file_count: 12,
+        total_bytes: 2048,
+    });
+
+    assert_eq!(
+        serde_json::to_value(view).expect("serialize preview"),
+        serde_json::json!({
+            "fileCount": 12,
+            "totalBytes": 2048,
+            "requiresConfirmation": false
+        })
     );
 }

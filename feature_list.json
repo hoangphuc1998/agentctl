@@ -516,6 +516,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-02 13:22 +07: Added RED core coverage proving run diffs must ignore uncommitted worktree edits and untracked binary files, then changed the diff engine to compare base_commit to HEAD only. Verification passed: baseline ./init.sh, cargo test -p agentctl-core --test run_diff RED then GREEN, cargo fmt --check, cargo test -p agentctl-core, cargo test -p agent-manager-desktop run_diff_view_preserves_file_status_counts_and_patch_text, npm test -- src/App.test.tsx, git diff --check, and final ./init.sh with npm test, npm run build, and cargo test passing."
+    },
+    {
+      "id": "feat-051",
+      "name": "Bulk Ignored File Worktree Snapshot",
+      "description": "Let New Run copy all ignored untracked files into the worktree with a count/size preview and confirmation for large snapshots.",
+      "dependencies": [
+        "feat-050"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-10 13:04 +07: Added all-untracked and ignored-only Git enumeration, safe count/size previews with 100 MiB or 10,000-file confirmation thresholds, async Tauri preview/create commands, and a default-enabled New Run ignored-file snapshot toggle. RED core and React tests failed before implementation, then focused and full verification passed: 31 core tests, 5 desktop model tests, 12 CreateRunModal tests, 25 App tests, 74 total Vitest tests, npm build, cargo check with tauri-app, and ./init.sh. The feature-enabled mobile bridge runtime bind test failed only inside the sandbox and passed when rerun outside it."
     }
   ]
 }

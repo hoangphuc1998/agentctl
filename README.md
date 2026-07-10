@@ -39,6 +39,16 @@ npm run tauri:dev
 ./init.sh
 ```
 
+## Worktree File Snapshots
+
+New runs copy non-ignored untracked files into the worktree before the agent
+starts. The New Run modal also enables copying Git-ignored files by default so
+local `.env` files and generated artifacts are available in the worktree.
+
+The modal previews the ignored file count and size. Snapshots at or above
+100 MiB or 10,000 files require confirmation. This is a one-time copy: later
+changes in the source repository are not synchronized into the worktree.
+
 ## Android Companion
 
 The Android companion app lives in `android/`. It connects to the desktop app

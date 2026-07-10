@@ -1,8 +1,15 @@
-import { Bot, Folder, FolderOpen, GitBranch, Play, Tag, Type, X } from "lucide-react";
+import { Bot, Files, Folder, FolderOpen, GitBranch, Play, Tag, Type, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { chooseDirectory, createRun, repoSuggestions } from "../api";
+import { chooseDirectory, createRun, ignoredFilesPreview, repoSuggestions } from "../api";
 import { Chip } from "./Chip";
-import type { AgentKind, CreateRunDefaults, RunView } from "../types";
+import { ConfirmDialog } from "./ConfirmDialog";
+import type {
+  AgentKind,
+  CreateRunDefaults,
+  CreateRunPayload,
+  IgnoredFilesPreview,
+  RunView
+} from "../types";
 import type { Suggestion } from "../api";
 
 interface CreateRunModalProps {
@@ -33,6 +40,14 @@ export function CreateRunModal({
   const [repoPathFocused, setRepoPathFocused] = useState(false);
   const [repoPathOptions, setRepoPathOptions] = useState<Suggestion[]>([]);
   const [activeRepoPathOption, setActiveRepoPathOption] = useState(-1);
+  const [copyIgnoredFiles, setCopyIgnoredFiles] = useState(true);
+  const [ignoredPreview, setIgnoredPreview] = useState<IgnoredFilesPreview | null>(null);
+  const [ignoredPreviewLoading, setIgnoredPreviewLoading] = useState(false);
+  const [ignoredPreviewError, setIgnoredPreviewError] = useState<string | null>(null);
+  const [pendingLargeCopy, setPendingLargeCopy] = useState<{
+    payload: CreateRunPayload;
+    preview: IgnoredFilesPreview;
+  } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -46,6 +61,11 @@ export function CreateRunModal({
     setRepoPathFocused(false);
     setRepoPathOptions([]);
     setActiveRepoPathOption(-1);
+    setCopyIgnoredFiles(true);
+    setIgnoredPreview(null);
+    setIgnoredPreviewLoading(false);
+    setIgnoredPreviewError(null);
+    setPendingLargeCopy(null);
   }, [activeRepoPath, defaults, open]);
 
   useEffect(() => {
@@ -69,6 +89,40 @@ export function CreateRunModal({
     };
   }, [open, repoPath, repoPathFocused]);
 
+  useEffect(() => {
+    if (!open || !copyIgnoredFiles || !repoPath.trim()) {
+      setIgnoredPreview(null);
+      setIgnoredPreviewLoading(false);
+      setIgnoredPreviewError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timeout = window.setTimeout(() => {
+      setIgnoredPreviewLoading(true);
+      setIgnoredPreviewError(null);
+      ignoredFilesPreview(repoPath.trim())
+        .then((preview) => {
+          if (cancelled) return;
+          setIgnoredPreview(preview);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setIgnoredPreview(null);
+          setIgnoredPreviewError(`Could not inspect ignored files: ${errorMessage(err)}`);
+        })
+        .finally(() => {
+          if (cancelled) return;
+          setIgnoredPreviewLoading(false);
+        });
+    }, 300);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [copyIgnoredFiles, open, repoPath]);
+
   if (!open) return null;
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -79,16 +133,44 @@ export function CreateRunModal({
       onError(message);
       return;
     }
+    const payload: CreateRunPayload = {
+      repoPath: repoPath.trim(),
+      baseRef: baseRef.trim(),
+      tag: tag.trim(),
+      runName: runName.trim(),
+      agent,
+      copyIgnoredFiles
+    };
+
+    if (copyIgnoredFiles) {
+      setBusy(true);
+      setIgnoredPreviewError(null);
+      try {
+        const preview = await ignoredFilesPreview(payload.repoPath);
+        setIgnoredPreview(preview);
+        if (preview.requiresConfirmation) {
+          setPendingLargeCopy({ payload, preview });
+          return;
+        }
+      } catch (err) {
+        const message = `Could not inspect ignored files: ${errorMessage(err)}`;
+        setIgnoredPreview(null);
+        setIgnoredPreviewError(message);
+        onError(message);
+        return;
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    await performCreate(payload);
+  }
+
+  async function performCreate(payload: CreateRunPayload) {
     setBusy(true);
     setSubmitError(null);
     try {
-      const result = await createRun({
-        repoPath: repoPath.trim(),
-        baseRef: baseRef.trim(),
-        tag: tag.trim(),
-        runName: runName.trim(),
-        agent
-      });
+      const result = await createRun(payload);
       if (result.run) onCreated(result.run);
     } catch (err) {
       const message = errorMessage(err);
@@ -97,6 +179,12 @@ export function CreateRunModal({
     } finally {
       setBusy(false);
     }
+  }
+
+  function confirmLargeCopy() {
+    const pending = pendingLargeCopy;
+    setPendingLargeCopy(null);
+    if (pending) void performCreate(pending.payload);
   }
 
   async function browseRepoFolder() {
@@ -153,8 +241,9 @@ export function CreateRunModal({
   const showRepoPathOptions = repoPathFocused && repoPathOptions.length > 0;
 
   return (
-    <div className="modal-backdrop">
-      <form className="modal" onSubmit={submit}>
+    <>
+      <div className="modal-backdrop">
+        <form className="modal" onSubmit={submit}>
         <div className="modal-header">
           <div>
             <p className="eyebrow">New Run</p>
@@ -274,6 +363,40 @@ export function CreateRunModal({
             </div>
           </fieldset>
         </div>
+        <div className="ignored-copy-card">
+          <label className="ignored-copy-toggle">
+            <input
+              type="checkbox"
+              checked={copyIgnoredFiles}
+              onChange={(event) => setCopyIgnoredFiles(event.target.checked)}
+            />
+            <Files size={17} />
+            <span>
+              <strong>Copy ignored files</strong>
+              <small>Includes .env secrets, generated files, caches, and every Git-ignored file.</small>
+            </span>
+          </label>
+          {copyIgnoredFiles && (
+            <div className="ignored-copy-preview" aria-live="polite">
+              {ignoredPreviewLoading && <span>Scanning ignored files…</span>}
+              {!ignoredPreviewLoading && ignoredPreview && (
+                <span>
+                  {ignoredPreview.fileCount === 0
+                    ? "No ignored files found."
+                    : `${formatCount(ignoredPreview.fileCount)} ignored files · ${formatBytes(ignoredPreview.totalBytes)}`}
+                </span>
+              )}
+              {!ignoredPreviewLoading && ignoredPreview?.requiresConfirmation && (
+                <span className="ignored-copy-warning">Large snapshot—confirmation required.</span>
+              )}
+              {!ignoredPreviewLoading && ignoredPreviewError && (
+                <span className="ignored-copy-error" role="alert">
+                  {ignoredPreviewError}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
         {submitError && (
           <label className="field-full">
             Error details
@@ -294,8 +417,18 @@ export function CreateRunModal({
             Create
           </button>
         </div>
-      </form>
-    </div>
+        </form>
+      </div>
+      {pendingLargeCopy && (
+        <ConfirmDialog
+          title="Copy large snapshot?"
+          body={`This will copy ${formatCount(pendingLargeCopy.preview.fileCount)} ignored files (${formatBytes(pendingLargeCopy.preview.totalBytes)}) into the new worktree.`}
+          confirmLabel="Copy and create"
+          onCancel={() => setPendingLargeCopy(null)}
+          onConfirm={confirmLargeCopy}
+        />
+      )}
+    </>
   );
 }
 
@@ -316,4 +449,21 @@ function errorMessage(err: unknown): string {
     return String((err as { message: unknown }).message);
   }
   return "Create run failed.";
+}
+
+function formatCount(value: number): string {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  const units = ["KiB", "MiB", "GiB", "TiB"];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+  const formatted = value >= 10 || Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
+  return `${formatted} ${units[unitIndex]}`;
 }

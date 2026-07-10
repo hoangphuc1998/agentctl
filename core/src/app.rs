@@ -16,7 +16,10 @@ use crate::{
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
     registry::{RegistryResult, SqliteRegistry},
     tmux::window_list_contains,
-    untracked_files::{copy_untracked_files, delete_untracked_files},
+    untracked_files::{
+        copy_untracked_files, delete_untracked_files, preview_untracked_files,
+        UntrackedFilesPreview,
+    },
     worktree::{default_branch_name, default_sibling_worktree_path, sanitize_slug},
 };
 
@@ -78,6 +81,7 @@ pub struct NewRunRequest {
     pub tag: String,
     pub run_name: String,
     pub agent: AgentKind,
+    pub copy_ignored_files: bool,
 }
 
 pub trait CommandRunner {
@@ -351,23 +355,27 @@ where
         &request.base_ref,
     );
     runner.run(&add_worktree)?;
-    let untracked_files =
-        match runner.output(&git.nonignored_untracked_files(path_str(&request.repo_path))) {
-            Ok(untracked_files) => untracked_files,
-            Err(err) => {
-                rollback_created_resources(
-                    runner,
-                    &tmux,
-                    &git,
-                    &request.repo_path,
-                    &worktree_path,
-                    &branch,
-                    &tmux_window,
-                    false,
-                );
-                return Err(err.into());
-            }
-        };
+    let list_untracked_files = if request.copy_ignored_files {
+        git.all_untracked_files(path_str(&request.repo_path))
+    } else {
+        git.nonignored_untracked_files(path_str(&request.repo_path))
+    };
+    let untracked_files = match runner.output(&list_untracked_files) {
+        Ok(untracked_files) => untracked_files,
+        Err(err) => {
+            rollback_created_resources(
+                runner,
+                &tmux,
+                &git,
+                &request.repo_path,
+                &worktree_path,
+                &branch,
+                &tmux_window,
+                false,
+            );
+            return Err(err.into());
+        }
+    };
     if let Err(err) = copy_untracked_files(&request.repo_path, &worktree_path, &untracked_files) {
         rollback_created_resources(
             runner,
@@ -456,6 +464,18 @@ where
     }
     registry.set_active_repo_path(&run.repo_path)?;
     Ok(run)
+}
+
+pub fn preview_ignored_untracked_files<R>(
+    runner: &mut R,
+    repo_path: &Path,
+) -> RegistryResult<UntrackedFilesPreview>
+where
+    R: CommandRunner,
+{
+    let git = GitCommandBuilder::new();
+    let untracked_files = runner.output(&git.ignored_untracked_files(path_str(repo_path)))?;
+    Ok(preview_untracked_files(repo_path, &untracked_files)?)
 }
 
 fn ensure_tmux_window<R>(runner: &mut R, tmux: &TmuxCommandBuilder, window: &str) -> io::Result<()>
@@ -659,8 +679,8 @@ mod tests {
     use crate::{agent::AgentKind, registry::SqliteRegistry};
 
     use super::{
-        close_and_delete_run_with_registry, create_run_with_registry, path_str, AppConfig,
-        CommandRunner, NewRunRequest,
+        close_and_delete_run_with_registry, create_run_with_registry, path_str,
+        preview_ignored_untracked_files, AppConfig, CommandRunner, NewRunRequest,
     };
 
     #[derive(Default)]
@@ -734,6 +754,7 @@ mod tests {
                 tag: "default".to_string(),
                 run_name: "eventually-visible".to_string(),
                 agent: AgentKind::Codex,
+                copy_ignored_files: false,
             },
         )
         .expect("created run");
@@ -766,6 +787,7 @@ mod tests {
                 tag: "default".to_string(),
                 run_name: "quick-exit".to_string(),
                 agent: AgentKind::Codex,
+                copy_ignored_files: false,
             },
         );
 
@@ -806,6 +828,7 @@ mod tests {
                 tag: "default".to_string(),
                 run_name: "diff-review".to_string(),
                 agent: AgentKind::Codex,
+                copy_ignored_files: false,
             },
         )
         .expect("created run");
@@ -838,6 +861,7 @@ mod tests {
                 tag: "default".to_string(),
                 run_name: "active-run".to_string(),
                 agent: AgentKind::Codex,
+                copy_ignored_files: false,
             },
         )
         .expect("created run");
@@ -869,6 +893,7 @@ mod tests {
                 tag: "default".to_string(),
                 run_name: "feature/login".to_string(),
                 agent: AgentKind::Codex,
+                copy_ignored_files: false,
             },
         )
         .expect("created run");
@@ -916,6 +941,7 @@ mod tests {
                 tag: "default".to_string(),
                 run_name: "copy-files".to_string(),
                 agent: AgentKind::Codex,
+                copy_ignored_files: false,
             },
         )
         .expect("created run");
@@ -944,6 +970,75 @@ mod tests {
     }
 
     #[test]
+    fn preview_ignored_untracked_files_reports_git_candidates() {
+        let mut runner = RecordingRunner {
+            untracked_files_output: ".env\0generated/client.js\0".to_string(),
+            ..RecordingRunner::default()
+        };
+        let repo_root = tempfile::tempdir().expect("repo root");
+        let repo_path = repo_root.path().join("repo");
+        let generated_file = repo_path.join("generated").join("client.js");
+        std::fs::create_dir_all(generated_file.parent().expect("parent")).expect("mkdir");
+        std::fs::write(repo_path.join(".env"), "TOKEN=secret").expect("write env");
+        std::fs::write(&generated_file, "client").expect("write generated");
+
+        let preview = preview_ignored_untracked_files(&mut runner, &repo_path).expect("preview");
+
+        assert_eq!(preview.file_count, 2);
+        assert_eq!(preview.total_bytes, 18);
+        let command = runner.commands.last().expect("git command");
+        assert!(command_contains(command, "--ignored"));
+        assert!(command_contains(command, "--exclude-standard"));
+    }
+
+    #[test]
+    fn create_run_can_copy_ignored_untracked_files_before_launching_agent() {
+        let registry = SqliteRegistry::in_memory().expect("registry");
+        let mut runner = RecordingRunner {
+            created_window_visible_after_list_calls: Some(1),
+            untracked_files_output: ".env\0generated/client.js\0".to_string(),
+            ..RecordingRunner::default()
+        };
+        let repo_root = tempfile::tempdir().expect("repo root");
+        let repo_path = repo_root.path().join("repo");
+        let generated_file = repo_path.join("generated").join("client.js");
+        std::fs::create_dir_all(generated_file.parent().expect("parent")).expect("mkdir");
+        std::fs::write(repo_path.join(".env"), "TOKEN=secret").expect("write env");
+        std::fs::write(&generated_file, "client").expect("write generated");
+
+        let run = create_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            NewRunRequest {
+                repo_path: repo_path.clone(),
+                base_ref: "HEAD".to_string(),
+                tag: "default".to_string(),
+                run_name: "copy-ignored-files".to_string(),
+                agent: AgentKind::Codex,
+                copy_ignored_files: true,
+            },
+        )
+        .expect("created run");
+
+        assert_eq!(
+            std::fs::read_to_string(run.worktree_path.join(".env")).expect("read env"),
+            "TOKEN=secret"
+        );
+        assert_eq!(
+            std::fs::read_to_string(run.worktree_path.join("generated").join("client.js"))
+                .expect("read generated"),
+            "client"
+        );
+        let command = runner
+            .commands
+            .iter()
+            .find(|command| command_contains(command, "ls-files"))
+            .expect("list untracked command");
+        assert!(!command_contains(command, "--exclude-standard"));
+    }
+
+    #[test]
     fn close_and_delete_run_deletes_nonignored_untracked_files_before_removing_worktree() {
         let registry = SqliteRegistry::in_memory().expect("registry");
         let mut runner = RecordingRunner {
@@ -966,6 +1061,7 @@ mod tests {
                 tag: "default".to_string(),
                 run_name: "cleanup-files".to_string(),
                 agent: AgentKind::Codex,
+                copy_ignored_files: false,
             },
         )
         .expect("created run");
@@ -1021,6 +1117,7 @@ mod tests {
                 tag: "default".to_string(),
                 run_name: "diagnostic-pane".to_string(),
                 agent: AgentKind::Codex,
+                copy_ignored_files: false,
             },
         )
         .expect("created run");

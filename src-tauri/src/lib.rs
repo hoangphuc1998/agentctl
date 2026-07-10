@@ -131,6 +131,7 @@ pub fn run() {
         .manage(state::DesktopState::new())
         .invoke_handler(tauri::generate_handler![
             commands::dashboard_state,
+            commands::ignored_files_preview,
             commands::create_run,
             commands::restore_run,
             commands::stop_run,

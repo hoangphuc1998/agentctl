@@ -147,6 +147,30 @@ impl GitCommandBuilder {
         ]
     }
 
+    pub fn all_untracked_files(&self, repo_path: &str) -> Vec<String> {
+        vec![
+            "git".to_string(),
+            "-C".to_string(),
+            repo_path.to_string(),
+            "ls-files".to_string(),
+            "--others".to_string(),
+            "-z".to_string(),
+        ]
+    }
+
+    pub fn ignored_untracked_files(&self, repo_path: &str) -> Vec<String> {
+        vec![
+            "git".to_string(),
+            "-C".to_string(),
+            repo_path.to_string(),
+            "ls-files".to_string(),
+            "--others".to_string(),
+            "--ignored".to_string(),
+            "--exclude-standard".to_string(),
+            "-z".to_string(),
+        ]
+    }
+
     pub fn rev_parse_commit(&self, repo_path: &str, reference: &str) -> Vec<String> {
         vec![
             "git".to_string(),
@@ -577,6 +601,42 @@ mod tests {
                 "/repo".to_string(),
                 "ls-files".to_string(),
                 "--others".to_string(),
+                "--exclude-standard".to_string(),
+                "-z".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn all_untracked_files_command_includes_ignored_files() {
+        let command = GitCommandBuilder::new().all_untracked_files("/repo");
+
+        assert_eq!(
+            command,
+            vec![
+                "git".to_string(),
+                "-C".to_string(),
+                "/repo".to_string(),
+                "ls-files".to_string(),
+                "--others".to_string(),
+                "-z".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn ignored_untracked_files_command_uses_standard_git_excludes() {
+        let command = GitCommandBuilder::new().ignored_untracked_files("/repo");
+
+        assert_eq!(
+            command,
+            vec![
+                "git".to_string(),
+                "-C".to_string(),
+                "/repo".to_string(),
+                "ls-files".to_string(),
+                "--others".to_string(),
+                "--ignored".to_string(),
                 "--exclude-standard".to_string(),
                 "-z".to_string(),
             ]

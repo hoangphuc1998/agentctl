@@ -1217,6 +1217,67 @@ textarea:focus,
   color: #d9ecff;
 }
 
+.ignored-copy-card {
+  display: grid;
+  gap: 7px;
+  padding: 9px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  background: rgba(8, 12, 17, 0.72);
+}
+
+.ignored-copy-toggle {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.ignored-copy-toggle input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  accent-color: var(--info);
+}
+
+.ignored-copy-toggle > svg {
+  color: var(--info);
+}
+
+.ignored-copy-toggle span {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.ignored-copy-toggle strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.ignored-copy-toggle small,
+.ignored-copy-preview {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 550;
+}
+
+.ignored-copy-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding-left: 48px;
+}
+
+.ignored-copy-warning {
+  color: #ffe2a0;
+}
+
+.ignored-copy-error {
+  color: #ffd0d0;
+}
+
 .error-details-box {
   color: #ffd0d0;
   border-color: rgba(255, 133, 133, 0.42);

@@ -1,6 +1,7 @@
 use agent_manager_desktop::tmux_restore::{
-    refresh_tmux_restore_hook, rewrite_resurrect_state, stable_agent_manager_executable,
-    tmux_restore_status, upsert_agent_manager_tmux_config, TmuxRestorePaths,
+    refresh_tmux_restore_hook, restore_tmux_session_if_missing, rewrite_resurrect_state,
+    stable_agent_manager_executable, tmux_restore_needed, tmux_restore_status,
+    upsert_agent_manager_tmux_config, TmuxRestorePaths,
 };
 use agentctl_core::{
     agent::AgentKind,
@@ -253,4 +254,30 @@ fn tmux_restore_status_reports_configured_plugin_setup() {
     assert!(status.continuum_installed);
     assert!(status.saved_state_exists);
     assert_eq!(status.config_path, paths.config_path().to_string_lossy());
+}
+
+#[test]
+fn tmux_restore_requires_a_saved_snapshot_and_missing_session() {
+    let temp = tempfile::tempdir().unwrap();
+    let paths = TmuxRestorePaths::for_home(temp.path());
+    fs::create_dir_all(paths.tpm_dir()).unwrap();
+    fs::create_dir_all(paths.resurrect_dir()).unwrap();
+    fs::create_dir_all(paths.continuum_dir()).unwrap();
+    fs::write(
+        paths.config_path(),
+        upsert_agent_manager_tmux_config("", "/usr/bin/agent-manager"),
+    )
+    .unwrap();
+
+    let without_snapshot = tmux_restore_status(&paths);
+    assert!(without_snapshot.configured);
+    assert!(!without_snapshot.saved_state_exists);
+    assert!(!tmux_restore_needed(&without_snapshot, false));
+    restore_tmux_session_if_missing(&paths, "test-agentctl-no-snapshot").unwrap();
+
+    fs::create_dir_all(paths.resurrect_save_dir()).unwrap();
+    fs::write(paths.last_resurrect_file(), "pane\tagentctl\n").unwrap();
+    let with_snapshot = tmux_restore_status(&paths);
+    assert!(tmux_restore_needed(&with_snapshot, false));
+    assert!(!tmux_restore_needed(&with_snapshot, true));
 }

@@ -2,67 +2,61 @@
 
 ## Current State
 
-**Last Updated:** 2026-07-10 13:04 +07
-**Session ID:** bulk-ignored-file-worktree-snapshot
-**Active Feature:** feat-051 - Bulk Ignored File Worktree Snapshot
+**Last Updated:** 2026-07-15 10:44 +07
+**Session ID:** appimage-startup-registry-recovery
+**Active Feature:** feat-052 - Responsive AppImage Startup and Registry Recovery
 
 ## Status
 
 ### What is Done
 
-- [x] Confirmed the repo root, read AGENTS.md and README.md, reviewed feature_list.json, and checked recent commits.
-- [x] Ran baseline `./init.sh`; Rust tests passed and npm checks were skipped because `node_modules` was absent.
-- [x] Added Git commands for ignored-only previews and complete untracked snapshots.
-- [x] Added safe regular-file count/size previews and confirmation thresholds at 100 MiB or 10,000 files.
-- [x] Added `copy_ignored_files` to core and desktop create-run requests while preserving omitted-payload compatibility as disabled.
-- [x] Moved preview and create-run filesystem work onto Tauri blocking tasks.
-- [x] Added a default-enabled New Run toggle, debounced preview, stale-result protection, large-copy confirmation, and preview error handling.
-- [x] Documented one-time worktree snapshots and their secret/size implications.
+- [x] Confirmed the repo root, read AGENTS.md, README.md, and the clean-modular-code skill, reviewed feature_list.json, and checked recent commits.
+- [x] Ran baseline `./init.sh`; 74 frontend tests, the frontend build, and all default Rust tests passed.
+- [x] Confirmed the canonical registry still existed with 7 active runs across 4 repositories and 154 ended records.
+- [x] Reproduced the startup path: every synchronous dashboard poll attempted tmux restore even though no saved tmux-resurrect snapshot existed.
+- [x] Added a RED regression covering the restore eligibility policy and no-snapshot early return.
+- [x] Required both configured restore support and a saved snapshot before starting tmux restore.
+- [x] Moved the one-time restore attempt to a background startup task instead of repeating it on each dashboard refresh.
+- [x] Moved dashboard registry/tmux I/O onto Tauri's blocking runtime and retained registry rows when an individual tmux snapshot fails.
+- [x] Built and smoke-tested the corrected AppImage against the existing registry.
 
 ### What is In Progress
 
 - [x] Implementation is complete.
 - [x] Focused RED/GREEN coverage is complete.
-- [x] Full Rust/frontend verification is complete.
+- [x] Full Rust/frontend verification and AppImage packaging are complete.
 - [x] Feature tracker and continuity artifacts are updated.
 
 ### What is Next
 
-1. Optionally create a live run from a repository with an ignored `.env` and inspect the resulting worktree before agent launch.
+1. Launch `target/release/bundle/appimage/Agent Manager_0.1.0_amd64.AppImage`; the 7 retained runs should appear as restorable until their tmux session is restored.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
-- [ ] Live desktop inspection was not performed; behavior is covered by core, Tauri model, modal, and App tests.
-- [ ] Confirming the option can copy secrets and very large generated trees by design; the modal displays this warning and large snapshots require confirmation.
-- [ ] `npm install` reports existing audit findings: 3 moderate, 1 high, and 1 critical.
+- [ ] The current host has no `agentctl` tmux session, so the 7 retained active runs are classified as unknown/restorable during refresh; this is expected and does not delete them.
+- [ ] The first AppImage packaging attempt failed because linuxdeploy was restricted by the sandbox; the approved host-level rerun succeeded.
 
 ## Decisions Made
 
-- Keep the existing non-ignored snapshot behavior when the new toggle is disabled.
-- Enable ignored-file copying by default for each New Run without persisting the choice.
-- Preview only the additional Git-ignored candidates, but use `git ls-files --others -z` for the actual complete snapshot.
-- Require confirmation when ignored candidates are at least 100 MiB or 10,000 regular files; confirmed copies have no hard cap.
-- Preserve the existing safe-path, no-overwrite, symlink-skip, rollback, and forced worktree cleanup behavior.
-- Keep the registry schema unchanged because the selection affects creation only.
+- Treat the SQLite registry as the source of truth and tmux state as best-effort runtime observation.
+- Attempt automatic tmux restore only once during startup and only when an actual saved snapshot exists.
+- Never run blocking registry, subprocess, or tmux inspection work on Tauri's command/event-loop thread.
+- Preserve a run's stored observed state if its individual tmux snapshot command cannot execute.
 
 ## Files Modified This Session
 
-- Core Git/file policy and create-run orchestration for ignored previews and complete snapshots.
-- Tauri create/preview commands, wire models, and command registration.
-- New Run modal, API/types, styling, and React/App regression coverage.
-- README, prior snapshot design note, `feature_list.json`, and `progress.md`.
+- `src-tauri/src/tmux_restore.rs` and its integration regression.
+- `src-tauri/src/lib.rs` startup orchestration.
+- `src-tauri/src/commands.rs` asynchronous dashboard loading and best-effort tmux refresh.
+- `feature_list.json` and `progress.md`.
 
 ## Evidence of Completion
 
-- [x] RED: `cargo test -p agentctl-core untracked_files` failed because preview types/functions and all/ignored Git commands did not exist.
-- [x] RED: `cargo test -p agentctl-core ignored_untracked_files` failed because preview orchestration and `copy_ignored_files` did not exist.
-- [x] RED: `npm test -- src/components/CreateRunModal.test.tsx` failed four new snapshot UX tests before implementation.
-- [x] `npm install` completed after esbuild required execution outside the sandbox; it reported 5 existing vulnerabilities.
-- [x] `cargo test -p agentctl-core` passed with 31 unit tests plus registry and diff integration tests.
-- [x] `cargo test -p agent-manager-desktop --test desktop_models` passed with 5 tests.
+- [x] RED: `cargo test -p agent-manager-desktop --test tmux_restore tmux_restore_requires_a_saved_snapshot_and_missing_session` failed because `tmux_restore_needed` did not exist.
+- [x] GREEN: the focused restore-policy regression passed and verifies the no-snapshot path returns without invoking tmux.
 - [x] `cargo check -p agent-manager-desktop --features tauri-app` passed.
-- [x] `cargo test -p agent-manager-desktop --features tauri-app` passed all tests except the sandbox-restricted loopback bind; the failing `mobile_bridge_runtime` test passed outside the sandbox.
-- [x] `npm test` passed with 11 files and 74 tests.
-- [x] `npm run build`, `cargo fmt --check`, and `git diff --check` passed.
-- [x] Final `./init.sh` after artifact updates passed with 74 Vitest tests, npm build, and cargo test.
+- [x] `./init.sh` passed with 11 Vitest files/74 tests, npm build, 12 tmux restore tests, and all remaining Rust tests.
+- [x] `npm run tauri:build:appimage` succeeded outside the sandbox and repaired portable `.DirIcon` metadata.
+- [x] Built artifact: `target/release/bundle/appimage/Agent Manager_0.1.0_amd64.AppImage`, 89,209,336 bytes, SHA-256 `b3ebe7c9a6f5ca931bf23ea4aca9328919209a44476fc3805f9214ecca7d640d`.
+- [x] Live artifact smoke: the AppImage stayed running, accessed the canonical registry, and left 7 active plus 154 ended records intact; active rows became unknown/restorable because no tmux session was available.

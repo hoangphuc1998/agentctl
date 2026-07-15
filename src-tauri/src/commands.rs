@@ -28,40 +28,26 @@ use crate::{
     state::DesktopState,
     tmux_restore::{
         agent_manager_executable_from_environment,
-        enable_tmux_restore as enable_tmux_restore_setup, restore_tmux_session_best_effort,
-        save_tmux_restore_snapshot_best_effort, tmux_restore_status as current_tmux_restore_status,
-        TmuxRestorePaths, TmuxRestoreStatus,
+        enable_tmux_restore as enable_tmux_restore_setup, save_tmux_restore_snapshot_best_effort,
+        tmux_restore_status as current_tmux_restore_status, TmuxRestorePaths, TmuxRestoreStatus,
     },
 };
 
 const TMUX_SESSION: &str = "agentctl";
 
 #[tauri::command]
-pub fn dashboard_state(
+pub async fn dashboard_state(
     app_handle: AppHandle,
     state: State<'_, DesktopState>,
     selected_run_id: Option<String>,
 ) -> DesktopResult<DashboardState> {
-    restore_tmux_session_best_effort(TMUX_SESSION);
     if selected_run_id.is_some() {
         state.set_selected_run_id(selected_run_id)?;
     }
-    let registry = registry(&state)?;
-    let mut runs = refresh_active_runs(&registry, &app_handle)?;
+    let registry_path = state.registry_path().clone();
     let selected = state.selected_run_id()?;
-    if let Some(run) = mark_selected_run_seen(
-        &mut runs,
-        selected.as_deref(),
-        chrono::Utc::now().timestamp(),
-    ) {
-        registry.upsert_run(&run)?;
-    }
-    let dashboard = build_dashboard_state(
-        runs,
-        registry.active_repo_path()?,
-        host_tool_statuses(),
-        selected,
-    );
+    let dashboard =
+        blocking_task(move || load_dashboard(&registry_path, &app_handle, selected)).await?;
     state.set_selected_run_id(dashboard.selected_run_id.clone())?;
     Ok(dashboard)
 }
@@ -365,6 +351,28 @@ fn parse_uuid(value: &str) -> DesktopResult<Uuid> {
     Uuid::parse_str(value).map_err(|err| DesktopError::Message(err.to_string()))
 }
 
+fn load_dashboard(
+    registry_path: &std::path::Path,
+    app_handle: &AppHandle,
+    selected_run_id: Option<String>,
+) -> DesktopResult<DashboardState> {
+    let registry = SqliteRegistry::open(registry_path)?;
+    let mut runs = refresh_active_runs(&registry, app_handle)?;
+    if let Some(run) = mark_selected_run_seen(
+        &mut runs,
+        selected_run_id.as_deref(),
+        chrono::Utc::now().timestamp(),
+    ) {
+        registry.upsert_run(&run)?;
+    }
+    Ok(build_dashboard_state(
+        runs,
+        registry.active_repo_path()?,
+        host_tool_statuses(),
+        selected_run_id,
+    ))
+}
+
 fn refresh_active_runs(
     registry: &SqliteRegistry,
     app_handle: &AppHandle,
@@ -375,7 +383,16 @@ fn refresh_active_runs(
         let Some(window) = run.tmux_window.as_deref() else {
             continue;
         };
-        let snapshot = tmux.snapshot_window(window)?;
+        let snapshot = match tmux.snapshot_window(window) {
+            Ok(snapshot) => snapshot,
+            Err(err) => {
+                eprintln!(
+                    "failed to refresh tmux state for run {} ({}): {err}",
+                    run.id, window
+                );
+                continue;
+            }
+        };
         let previous_state = run.observed_state;
         let state = observed_state_after_refresh(
             detect_observed_state(&snapshot),

@@ -526,6 +526,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-10 13:04 +07: Added all-untracked and ignored-only Git enumeration, safe count/size previews with 100 MiB or 10,000-file confirmation thresholds, async Tauri preview/create commands, and a default-enabled New Run ignored-file snapshot toggle. RED core and React tests failed before implementation, then focused and full verification passed: 31 core tests, 5 desktop model tests, 12 CreateRunModal tests, 25 App tests, 74 total Vitest tests, npm build, cargo check with tauri-app, and ./init.sh. The feature-enabled mobile bridge runtime bind test failed only inside the sandbox and passed when rerun outside it."
+    },
+    {
+      "id": "feat-052",
+      "name": "Responsive AppImage Startup and Registry Recovery",
+      "description": "Keep AppImage startup responsive, load the existing run registry, and avoid repeatedly attempting tmux restore when no saved snapshot exists.",
+      "dependencies": [
+        "feat-051"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-15 10:44 +07: Confirmed ~/.local/share/agentctl/agentctl.sqlite3 still contained 7 active runs across 4 repositories. Added a RED restore-policy regression, required a saved tmux-resurrect snapshot before restore, moved the one-time restore attempt to a background startup task, moved dashboard registry/tmux I/O to Tauri's blocking runtime, and made per-run tmux refresh failures non-fatal. The focused regression, cargo check with tauri-app, and ./init.sh passed. Rebuilt the AppImage outside the sandbox after linuxdeploy was denied inside it; the exact artifact stayed running during a live smoke test, refreshed the canonical registry, and retained all 7 active runs as restorable when tmux was absent."
     }
   ]
 }

@@ -254,7 +254,11 @@ pub fn restore_tmux_session_if_missing(
     managed_session: &str,
 ) -> io::Result<()> {
     let status = tmux_restore_status(paths);
-    if !status.configured || tmux_has_session(managed_session)? {
+    if !status.configured || !status.saved_state_exists {
+        return Ok(());
+    }
+
+    if !tmux_restore_needed(&status, tmux_has_session(managed_session)?) {
         return Ok(());
     }
 
@@ -270,6 +274,10 @@ pub fn restore_tmux_session_if_missing(
         wait_for_tmux_session(managed_session)?;
     }
     Ok(())
+}
+
+pub fn tmux_restore_needed(status: &TmuxRestoreStatus, has_session: bool) -> bool {
+    status.configured && status.saved_state_exists && !has_session
 }
 
 pub fn restore_tmux_session_best_effort(managed_session: &str) {

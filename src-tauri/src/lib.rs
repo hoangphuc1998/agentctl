@@ -119,6 +119,13 @@ fn enforce_startup_window_state(app: &tauri::App) {
 }
 
 #[cfg(feature = "tauri-app")]
+fn restore_tmux_session_in_background() {
+    tauri::async_runtime::spawn_blocking(|| {
+        tmux_restore::restore_tmux_session_best_effort("agentctl");
+    });
+}
+
+#[cfg(feature = "tauri-app")]
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -126,6 +133,7 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             enforce_startup_window_state(app);
+            restore_tmux_session_in_background();
             Ok(())
         })
         .manage(state::DesktopState::new())

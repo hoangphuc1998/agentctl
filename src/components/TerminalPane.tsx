@@ -6,10 +6,16 @@ import {
   closeTerminal,
   listenTerminalClosed,
   listenTerminalOutput,
+  openTerminalLink,
   resizeTerminal,
   startTerminal,
   terminalInput
 } from "../api";
+import {
+  createTerminalLinkProvider,
+  terminalLinkTargetFromUri,
+  type TerminalLinkTarget
+} from "../terminalLinks";
 import { Chip } from "./Chip";
 import type { RunView } from "../types";
 
@@ -25,10 +31,21 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
   const fitRef = useRef<FitAddon | null>(null);
   const terminalIdRef = useRef<string | null>(null);
   const activeRef = useRef(active);
+  const selectedRunIdRef = useRef<string | null>(null);
   const [status, setStatus] = useState("Select a run to attach a terminal.");
   const selectedRunId = selectedRun?.id ?? null;
   const selectedRunName = selectedRun?.runName ?? null;
   const selectedRunRestorable = selectedRun?.restorable ?? false;
+  selectedRunIdRef.current = selectedRunId;
+
+  const openDetectedLink = useCallback(
+    (target: TerminalLinkTarget) => {
+      const runId = selectedRunIdRef.current;
+      if (!runId) return;
+      void openTerminalLink(runId, target).catch((err) => onError(errorMessage(err)));
+    },
+    [onError]
+  );
 
   const fitAndResizeTerminal = useCallback(() => {
     const fit = fitRef.current;
@@ -66,6 +83,13 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
       fontWeight: 400,
       fontWeightBold: 700,
       minimumContrastRatio: 4.5,
+      linkHandler: {
+        allowNonHttpProtocols: true,
+        activate: (_event, uri) => {
+          const target = terminalLinkTargetFromUri(uri);
+          if (target) openDetectedLink(target);
+        }
+      },
       theme: {
         background: "#030609",
         foreground: "#e6edf6",
@@ -75,6 +99,9 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
     });
     const fit = new FitAddon();
     terminal.loadAddon(fit);
+    const linkProvider = terminal.registerLinkProvider(
+      createTerminalLinkProvider(terminal, openDetectedLink)
+    );
     terminalRef.current = terminal;
     fitRef.current = fit;
     if (hostRef.current) {
@@ -89,11 +116,12 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
     });
     return () => {
       disposable.dispose();
+      linkProvider.dispose();
       terminal.dispose();
       terminalRef.current = null;
       fitRef.current = null;
     };
-  }, [fitAndResizeTerminal, onError]);
+  }, [fitAndResizeTerminal, onError, openDetectedLink]);
 
   useEffect(() => {
     const host = hostRef.current;

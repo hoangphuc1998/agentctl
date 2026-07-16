@@ -159,6 +159,7 @@ pub fn run() {
             commands::stop_mobile_bridge,
             commands::start_terminal,
             commands::terminal_input,
+            commands::open_terminal_link,
             commands::resize_terminal,
             commands::close_terminal
         ])

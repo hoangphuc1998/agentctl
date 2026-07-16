@@ -2,7 +2,10 @@ use std::{path::PathBuf, str::FromStr};
 
 use agentctl_core::{
     agent::AgentKind,
-    app::{preview_ignored_untracked_files, App, AppConfig, NewRunRequest, SystemCommandRunner},
+    app::{
+        preview_ignored_untracked_files, App, AppConfig, CommandRunner, NewRunRequest,
+        SystemCommandRunner,
+    },
     branches::{BranchLister, GitBranchLister},
     completion::{base_ref_candidates, repo_path_candidates},
     diff::load_run_diff,
@@ -26,6 +29,7 @@ use crate::{
         suggestions_from_candidates,
     },
     state::DesktopState,
+    terminal_plan::{terminal_link_command, TerminalLinkTarget},
     tmux_restore::{
         agent_manager_executable_from_environment,
         enable_tmux_restore as enable_tmux_restore_setup, save_tmux_restore_snapshot_best_effort,
@@ -308,6 +312,30 @@ pub fn terminal_input(
     data: String,
 ) -> DesktopResult<()> {
     state.terminals()?.input(&terminal_id, &data)
+}
+
+#[tauri::command]
+pub async fn open_terminal_link(
+    state: State<'_, DesktopState>,
+    run_id: String,
+    target: TerminalLinkTarget,
+) -> DesktopResult<()> {
+    let id = parse_uuid(&run_id)?;
+    let registry_path = state.registry_path().clone();
+    blocking_task(move || {
+        let registry = SqliteRegistry::open(&registry_path)?;
+        let Some(run) = registry.get_run(id)? else {
+            return Err(DesktopError::Message(format!("run not found: {run_id}")));
+        };
+        let command = terminal_link_command(&run, &target).map_err(DesktopError::Message)?;
+        let mut runner = SystemCommandRunner;
+        let mut args = Vec::with_capacity(command.args.len() + 1);
+        args.push(command.program);
+        args.extend(command.args);
+        runner.run(&args)?;
+        Ok(())
+    })
+    .await
 }
 
 #[tauri::command]

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   terminalOptions: [] as Array<Record<string, unknown>>,
   terminals: [] as Array<{
     emitData: (data: string) => void;
+    registerLinkProvider: ReturnType<typeof vi.fn>;
     write: ReturnType<typeof vi.fn>;
     reset: ReturnType<typeof vi.fn>;
     refresh: ReturnType<typeof vi.fn>;
@@ -23,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   }>,
   startTerminal: vi.fn(),
   terminalInput: vi.fn(),
+  openTerminalLink: vi.fn(),
   resizeTerminal: vi.fn(),
   closeTerminal: vi.fn(),
   listenTerminalOutput: vi.fn(),
@@ -45,12 +47,15 @@ vi.mock("@xterm/xterm", () => {
     public refresh = vi.fn();
     public focus = vi.fn();
     public dispose = vi.fn();
+    public registerLinkProvider = vi.fn(() => ({ dispose: vi.fn() }));
     public rows = 32;
+    public buffer = { active: { getLine: vi.fn() } };
 
     constructor(options: Record<string, unknown>) {
       mocks.terminalOptions.push(options);
       mocks.terminals.push({
         emitData: (data: string) => this.dataHandler?.(data),
+        registerLinkProvider: this.registerLinkProvider,
         write: this.write,
         reset: this.reset,
         refresh: this.refresh,
@@ -82,6 +87,7 @@ vi.mock("@xterm/addon-fit", () => ({
 vi.mock("../api", () => ({
   startTerminal: mocks.startTerminal,
   terminalInput: mocks.terminalInput,
+  openTerminalLink: mocks.openTerminalLink,
   resizeTerminal: mocks.resizeTerminal,
   closeTerminal: mocks.closeTerminal,
   listenTerminalOutput: mocks.listenTerminalOutput,
@@ -95,6 +101,7 @@ describe("TerminalPane", () => {
     mocks.resizeObservers.length = 0;
     mocks.startTerminal.mockReset().mockResolvedValue({ terminalId: "term-1", runId: "run-1" });
     mocks.terminalInput.mockReset().mockResolvedValue(undefined);
+    mocks.openTerminalLink.mockReset().mockResolvedValue(undefined);
     mocks.resizeTerminal.mockReset().mockResolvedValue(undefined);
     mocks.closeTerminal.mockReset().mockResolvedValue(undefined);
     mocks.outputHandler = null;
@@ -152,6 +159,27 @@ describe("TerminalPane", () => {
     mocks.terminals[0].emitData("\x1b[>0;276;0c");
 
     expect(mocks.terminalInput).not.toHaveBeenCalled();
+  });
+
+  it("registers detected terminal links and opens OSC hyperlinks for the selected run", async () => {
+    render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
+    await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
+
+    expect(mocks.terminals[0].registerLinkProvider).toHaveBeenCalledTimes(1);
+    const linkHandler = mocks.terminalOptions[0].linkHandler as {
+      allowNonHttpProtocols: boolean;
+      activate: (event: MouseEvent, text: string) => void;
+    };
+    expect(linkHandler.allowNonHttpProtocols).toBe(true);
+
+    linkHandler.activate(new MouseEvent("click"), "file:///repo/src/main.ts#L7:2");
+
+    expect(mocks.openTerminalLink).toHaveBeenCalledWith("run-1", {
+      kind: "file",
+      path: "/repo/src/main.ts",
+      line: 7,
+      column: 2
+    });
   });
 
   it("keeps tmux initial redraw output emitted before startTerminal resolves", async () => {

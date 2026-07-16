@@ -536,6 +536,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-15 10:44 +07: Confirmed ~/.local/share/agentctl/agentctl.sqlite3 still contained 7 active runs across 4 repositories. Added a RED restore-policy regression, required a saved tmux-resurrect snapshot before restore, moved the one-time restore attempt to a background startup task, moved dashboard registry/tmux I/O to Tauri's blocking runtime, and made per-run tmux refresh failures non-fatal. The focused regression, cargo check with tauri-app, and ./init.sh passed. Rebuilt the AppImage outside the sandbox after linuxdeploy was denied inside it; the exact artifact stayed running during a live smoke test, refreshed the canonical registry, and retained all 7 active runs as restorable when tmux was absent."
+    },
+    {
+      "id": "feat-053",
+      "name": "Embedded Terminal Clickable Links and Files",
+      "description": "Make web links, OSC 8 hyperlinks, and worktree file references clickable in the embedded tmux terminal, including optional line and column navigation.",
+      "dependencies": [
+        "feat-052"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-16 12:11 +07: Added pure terminal URL/file detection, an xterm link provider, OSC 8 activation, and a validated Tauri open command. HTTP(S) links launch through xdg-open; existing files contained by the selected run worktree launch in VS Code with optional line/column navigation. RED tests failed for the missing detector/provider/backend plan, then focused tests passed with 16 frontend and 5 terminal-plan tests. cargo fmt --check, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, npm run build, and final ./init.sh passed with 12 Vitest files/81 tests, npm build, and all default Rust tests."
     }
   ]
 }

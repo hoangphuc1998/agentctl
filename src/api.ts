@@ -13,6 +13,7 @@ import type {
   RunView,
   TmuxRestoreStatus
 } from "./types";
+import type { TerminalLinkTarget } from "./terminalLinks";
 
 export interface ActionResult {
   message: string;
@@ -137,6 +138,10 @@ export function startTerminal(runId: string, cols: number, rows: number): Promis
 
 export function terminalInput(terminalId: string, data: string): Promise<void> {
   return invoke("terminal_input", { terminalId, data });
+}
+
+export function openTerminalLink(runId: string, target: TerminalLinkTarget): Promise<void> {
+  return invoke("open_terminal_link", { runId, target });
 }
 
 export function resizeTerminal(terminalId: string, cols: number, rows: number): Promise<void> {

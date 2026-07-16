@@ -1,9 +1,25 @@
+use std::path::{Path, PathBuf};
+
 use agentctl_core::domain::RunRecord;
+use serde::Deserialize;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TerminalCommand {
     pub program: String,
     pub args: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum TerminalLinkTarget {
+    Url {
+        url: String,
+    },
+    File {
+        path: String,
+        line: Option<u32>,
+        column: Option<u32>,
+    },
 }
 
 pub fn tmux_attach_command(
@@ -29,4 +45,88 @@ pub fn tmux_attach_command(
             format!("{session}:{window}"),
         ],
     })
+}
+
+pub fn terminal_link_command(
+    run: &RunRecord,
+    target: &TerminalLinkTarget,
+) -> Result<TerminalCommand, String> {
+    match target {
+        TerminalLinkTarget::Url { url } => web_link_command(url),
+        TerminalLinkTarget::File { path, line, column } => {
+            file_link_command(run, path, *line, *column)
+        }
+    }
+}
+
+fn web_link_command(url: &str) -> Result<TerminalCommand, String> {
+    let authority = url
+        .strip_prefix("https://")
+        .or_else(|| url.strip_prefix("http://"))
+        .ok_or_else(|| "terminal links only support HTTP and HTTPS URLs".to_string())?;
+    if authority.is_empty()
+        || authority.starts_with('/')
+        || url
+            .chars()
+            .any(|character| character.is_control() || character.is_whitespace())
+    {
+        return Err("terminal link URL is invalid".to_string());
+    }
+
+    Ok(TerminalCommand {
+        program: "xdg-open".to_string(),
+        args: vec![url.to_string()],
+    })
+}
+
+fn file_link_command(
+    run: &RunRecord,
+    path: &str,
+    line: Option<u32>,
+    column: Option<u32>,
+) -> Result<TerminalCommand, String> {
+    if line == Some(0) || column == Some(0) || (column.is_some() && line.is_none()) {
+        return Err("terminal file link has an invalid location".to_string());
+    }
+
+    let worktree = run
+        .worktree_path
+        .canonicalize()
+        .map_err(|err| format!("failed to resolve run worktree: {err}"))?;
+    let requested = Path::new(path);
+    let candidate = if requested.is_absolute() {
+        requested.to_path_buf()
+    } else {
+        worktree.join(requested)
+    };
+    let file = canonical_worktree_file(&worktree, &candidate)?;
+    let file_target = match line {
+        Some(line) => match column {
+            Some(column) => format!("{}:{line}:{column}", file.display()),
+            None => format!("{}:{line}", file.display()),
+        },
+        None => file.display().to_string(),
+    };
+
+    Ok(TerminalCommand {
+        program: "code".to_string(),
+        args: if line.is_some() {
+            vec!["--goto".to_string(), file_target]
+        } else {
+            vec![file_target]
+        },
+    })
+}
+
+fn canonical_worktree_file(worktree: &Path, candidate: &Path) -> Result<PathBuf, String> {
+    let file = candidate
+        .canonicalize()
+        .map_err(|err| format!("terminal file link does not exist: {err}"))?;
+    if !file.starts_with(worktree) {
+        return Err("terminal file link points outside the run worktree".to_string());
+    }
+    if !file.is_file() {
+        return Err("terminal file link does not point to a regular file".to_string());
+    }
+    Ok(file)
 }

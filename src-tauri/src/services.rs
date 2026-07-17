@@ -1,9 +1,13 @@
 use std::path::PathBuf;
 
 use agentctl_core::{
+    agent::AgentKind,
+    codex_status::{observed_state_from_codex_status, select_thread_for_run, CodexThreadSnapshot},
     completion::CompletionCandidate,
-    domain::{mark_seen_on_select, ObservedState, RunRecord},
+    domain::{mark_seen_on_select, DetectionSource, ObservedState, RunRecord},
+    tmux::{detect_observed_state, detection_source_for, PaneSnapshot},
 };
+use uuid::Uuid;
 
 use crate::{
     models::{
@@ -13,6 +17,39 @@ use crate::{
 };
 
 pub use run_classification::{is_restorable_run, is_stale_run};
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct RunObservation {
+    pub state: ObservedState,
+    pub source: DetectionSource,
+    pub agent_session_id: Option<Uuid>,
+}
+
+pub fn observe_run(
+    run: &RunRecord,
+    pane: &PaneSnapshot,
+    codex_threads: &[CodexThreadSnapshot],
+) -> RunObservation {
+    if run.agent == AgentKind::Codex {
+        if let Some(thread) =
+            select_thread_for_run(codex_threads, run.agent_session_id, &run.worktree_path)
+        {
+            if let Some(state) = observed_state_from_codex_status(&thread.status) {
+                return RunObservation {
+                    state,
+                    source: DetectionSource::Provider,
+                    agent_session_id: Some(thread.id),
+                };
+            }
+        }
+    }
+
+    RunObservation {
+        state: detect_observed_state(pane),
+        source: detection_source_for(pane),
+        agent_session_id: run.agent_session_id,
+    }
+}
 
 pub fn build_dashboard_state(
     active_runs: Vec<RunRecord>,

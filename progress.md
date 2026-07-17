@@ -2,20 +2,21 @@
 
 ## Current State
 
-**Last Updated:** 2026-07-17 11:38 +07
-**Session ID:** stable-live-codex-status
-**Active Feature:** feat-055 - Stable Live Codex Status Notifications
+**Last Updated:** 2026-07-17 14:10 +07
+**Session ID:** official-codex-agent-status
+**Active Feature:** feat-056 - Official Codex Agent Status
 
 ## Status
 
 ### What is Done
 
-- [x] Confirmed the repo root, read AGENTS.md, README.md, the attention-notification design/plan, and the clean-modular-code skill, reviewed feature_list.json, and checked recent commits.
-- [x] Repaired the local npm dependency baseline after the existing `node_modules` directory lacked Vitest, then ran a clean baseline `./init.sh`.
-- [x] Captured live running and completed Codex panes to compare their current terminal markers.
-- [x] Identified that modern running Codex lines use `◦ Running` / `◦ Working (... esc to interrupt)`, while the classifier only recognized the older solid `•` marker.
-- [x] Added RED coverage proving stale Need input/completion transcript text overrode the live hollow work marker.
-- [x] Recognized both Codex status markers and the stable interrupt cue, and prioritized a current work marker over stale transcript attention phrases.
+- [x] Confirmed the repository startup workflow and clean baseline, reviewed product/design context, feature state, and recent commits.
+- [x] Reproduced that tmux only exposes the Codex process as `node` plus retained terminal text, so semantic Running/Input detection cannot be reliable from pane parsing.
+- [x] Verified the installed official Codex app-server schema exposes `ThreadStatus` and that direct standalone TUI sessions appear `notLoaded` to a separate server.
+- [x] Added a managed loopback Codex app-server and routed new/restored Codex TUI sessions through `codex --remote`.
+- [x] Added a bounded WebSocket `thread/list` client, official status mapping, session/worktree matching, and thread-ID persistence.
+- [x] Made official provider state authoritative while preserving terminal parsing for already-running direct sessions and app-server outages.
+- [x] Added legacy idle-composer recognition after active/completion checks so old sessions show Input without misclassifying foreground/background work.
 - [x] Completed focused and full repository verification.
 
 ### What is In Progress
@@ -26,29 +27,37 @@
 
 ### What is Next
 
-1. Rebuild/relaunch Agent Manager so dashboard polling uses the corrected classifier.
+1. Rebuild/relaunch Agent Manager. Existing direct Codex panes use the improved fallback until restored; new/restored panes use official status immediately.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
 - [ ] `npm install` continues to report the repository's existing 5 audit findings (3 moderate, 1 high, 1 critical); dependency remediation was outside this feature.
+- [ ] Codex app-server is an official integration surface but is primarily documented for deep integrations and may evolve; parsing is isolated in `core/src/codex_status.rs` and covered by schema-shaped tests.
 
 ## Decisions Made
 
-- Treat the current live Codex work line as stronger evidence than old transcript wording.
-- Recognize both the legacy `•` and current `◦` status markers so Codex display changes do not alter semantic state.
-- Keep genuine idle needs-user and completion heuristics unchanged when no active work marker is present.
-- Fix classification at the tmux domain boundary rather than suppressing legitimate transition notifications downstream.
+- Use official Codex `ThreadStatus` for managed sessions instead of inferring semantic state from display text.
+- Map `active` without waiting flags to Running; `active` with approval/user-input flags and `idle` to Input; `systemError` to Unknown.
+- Treat `notLoaded` as unavailable official state because it identifies standalone/legacy sessions, then use the tmux compatibility classifier.
+- Keep app-server in a separate `agentctl-codex` tmux session so it survives desktop restarts and does not appear as a managed run window.
+- Poll `thread/list` with a two-second socket timeout during existing dashboard refreshes; status notifications remain transition-based.
 
 ## Files Modified This Session
 
-- `core/src/tmux.rs` for modern Codex marker recognition, attention precedence, and regression coverage.
-- `feature_list.json` and `progress.md` for completion evidence and handoff state.
+- `core/src/codex_status.rs` and `core/tests/codex_status.rs` for official protocol parsing, mapping, and thread matching.
+- `core/src/commands.rs` and `core/src/app.rs` for managed app-server and remote Codex launch/restore commands.
+- `core/src/tmux.rs` for legacy idle composer fallback.
+- `src-tauri/src/codex_status_client.rs`, `commands.rs`, and `services.rs` for bounded official status polling and authoritative provider observations.
+- `src-tauri/src/lib.rs` and `tmux_restore.rs` for app-server startup and remote session restoration.
+- Rust regression tests, Cargo feature metadata/lockfile, `feature_list.json`, and `progress.md`.
 
 ## Evidence of Completion
 
-- [x] RED: `cargo test -p agentctl-core current_codex_work_marker_stays_running_when_transcript_mentions_completion` reported `CompletedUnchecked`, then `NeedsUser`, instead of `Running` before the two behavior changes.
-- [x] GREEN: `cargo test -p agentctl-core tmux::tests::` passed all 4 classifier tests.
-- [x] `cargo fmt --check` passed.
-- [x] `git diff --check` passed before artifact updates.
-- [x] Final `./init.sh` passed with 12 Vitest files/83 tests, npm build, 32 core tests, and all desktop Rust tests.
+- [x] RED/GREEN: official schema response parsing and status mapping tests pass in `core/tests/codex_status.rs`.
+- [x] RED/GREEN: official waiting status overrides misleading live terminal text in `desktop_state.rs`.
+- [x] RED/GREEN: legacy idle prompt and interruptible background work tests pass in `core/src/tmux.rs`.
+- [x] Codex remote launch, exact/fallback resume, managed service launch, and tmux-resurrect rewrite tests pass.
+- [x] `cargo check -p agent-manager-desktop --features tauri-app` passed.
+- [x] `cargo fmt --all -- --check` and `git diff --check` passed.
+- [x] Final `./init.sh` passed with 12 Vitest files/83 tests, npm build, 40 core tests, and all desktop Rust tests.

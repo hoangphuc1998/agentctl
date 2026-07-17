@@ -3,6 +3,9 @@ use std::env;
 
 const MANAGED_HISTORY_LIMIT: &str = "100000";
 const MANAGED_DEFAULT_TERMINAL: &str = "tmux-256color";
+pub const CODEX_APP_SERVER_TMUX_SESSION: &str = "agentctl-codex";
+pub const CODEX_APP_SERVER_URL: &str = "ws://127.0.0.1:17655";
+pub const CODEX_APP_SERVER_READY_URL: &str = "http://127.0.0.1:17655/readyz";
 const TERMINAL_COLOR_ENV_VARS: [&str; 6] = [
     "COLORTERM",
     "NO_COLOR",
@@ -273,6 +276,21 @@ impl TmuxCommandBuilder {
         ]
     }
 
+    pub fn new_service_session(&self, window_name: &str, cwd: &str, command: &str) -> Vec<String> {
+        vec![
+            "tmux".to_string(),
+            "new-session".to_string(),
+            "-d".to_string(),
+            "-s".to_string(),
+            self.session.clone(),
+            "-n".to_string(),
+            window_name.to_string(),
+            "-c".to_string(),
+            cwd.to_string(),
+            command.to_string(),
+        ]
+    }
+
     pub fn list_windows(&self) -> Vec<String> {
         vec![
             "tmux".to_string(),
@@ -519,7 +537,11 @@ impl AgentCommandBuilder {
 
     pub fn launch(&self, plan: LaunchPlan) -> Vec<String> {
         match plan.agent {
-            AgentKind::Codex => vec!["codex".to_string()],
+            AgentKind::Codex => vec![
+                "codex".to_string(),
+                "--remote".to_string(),
+                CODEX_APP_SERVER_URL.to_string(),
+            ],
             AgentKind::Claude => {
                 let mut command = vec!["claude".to_string()];
                 if let Some(session_id) = plan.session_id {
@@ -534,7 +556,12 @@ impl AgentCommandBuilder {
     pub fn restore(&self, plan: LaunchPlan) -> Vec<String> {
         match plan.agent {
             AgentKind::Codex => {
-                let mut command = vec!["codex".to_string(), "resume".to_string()];
+                let mut command = vec![
+                    "codex".to_string(),
+                    "--remote".to_string(),
+                    CODEX_APP_SERVER_URL.to_string(),
+                    "resume".to_string(),
+                ];
                 if let Some(session_id) = plan.session_id {
                     command.push(session_id.to_string());
                 } else {
@@ -564,9 +591,19 @@ pub fn shell_join(args: &[String]) -> String {
 }
 
 pub fn shell_command_with_failure_diagnostics(args: &[String]) -> String {
+    let agent_command = shell_join(args);
+    let launch_command = if args.first().map(String::as_str) == Some("codex")
+        && args.iter().any(|arg| arg == "--remote")
+    {
+        format!(
+            "attempt=0; while ! curl -fsS {CODEX_APP_SERVER_READY_URL} >/dev/null 2>&1; do attempt=$((attempt + 1)); if [ \"$attempt\" -ge 100 ]; then break; fi; sleep 0.1; done; if curl -fsS {CODEX_APP_SERVER_READY_URL} >/dev/null 2>&1; then {agent_command}; else false; fi"
+        )
+    } else {
+        agent_command
+    };
     format!(
         "{}; agent_status=$?; if [ \"$agent_status\" -ne 0 ]; then printf '\\nAgent command exited with status %s. Starting a shell so this pane stays open.\\n' \"$agent_status\"; exec \"${{SHELL:-/bin/sh}}\"; fi",
-        shell_join(args)
+        launch_command
     )
 }
 
@@ -587,7 +624,7 @@ mod tests {
 
     use crate::agent::{AgentKind, LaunchPlan};
 
-    use super::{AgentCommandBuilder, GitCommandBuilder};
+    use super::{AgentCommandBuilder, GitCommandBuilder, CODEX_APP_SERVER_URL};
 
     #[test]
     fn untracked_files_command_excludes_ignored_files_and_uses_null_output() {
@@ -674,6 +711,8 @@ mod tests {
             command,
             vec![
                 "codex".to_string(),
+                "--remote".to_string(),
+                CODEX_APP_SERVER_URL.to_string(),
                 "resume".to_string(),
                 session_id.to_string()
             ]
@@ -692,6 +731,8 @@ mod tests {
             command,
             vec![
                 "codex".to_string(),
+                "--remote".to_string(),
+                CODEX_APP_SERVER_URL.to_string(),
                 "resume".to_string(),
                 "--last".to_string()
             ]

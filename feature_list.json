@@ -566,6 +566,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-17 11:38 +07: Captured live Codex panes and found current active lines use the hollow ◦ marker while the classifier only recognized the older solid • marker, allowing stale transcript phrases such as Need input/completed to oscillate the run into attention states on refresh. Added a RED core regression using real modern Codex Running/Working output, recognized both status markers plus the stable esc-to-interrupt cue, and made current work markers authoritative over transcript heuristics. Focused tmux tests, cargo fmt --check, git diff --check, and final ./init.sh passed with 12 Vitest files/83 tests, npm build, 32 core tests, and all desktop Rust tests."
+    },
+    {
+      "id": "feat-056",
+      "name": "Official Codex Agent Status",
+      "description": "Use Codex app-server ThreadStatus as the primary dashboard status source, with terminal parsing only as a compatibility fallback for legacy direct sessions.",
+      "dependencies": [
+        "feat-055"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-17 14:10 +07: Traced incorrect Running/Input transitions to terminal transcript parsing: Codex runs as node, old prompt and completion text remains visible, and tmux exposes no semantic agent state. Verified the installed official Codex app-server protocol and generated schema expose ThreadStatus (active with waiting flags, idle, systemError, notLoaded), then added a managed loopback app-server, launched/restored Codex TUI sessions through --remote, queried thread/list with bounded WebSocket I/O, matched threads by persisted session ID or worktree, persisted discovered thread IDs, and made provider status authoritative. Idle and waiting flags map to Input; active without flags maps to Running; system errors map to Unknown; notLoaded or unavailable app-server falls back to the legacy tmux classifier. Added legacy idle-prompt fallback without overriding interruptible work. RED/GREEN official-status, tmux, launch, restore, and desktop observation tests passed; cargo check with tauri-app and final ./init.sh passed with 12 Vitest files/83 tests, npm build, 40 core tests, and all desktop Rust tests."
     }
   ]
 }

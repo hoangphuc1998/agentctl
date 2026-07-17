@@ -12,6 +12,7 @@ use crate::{
     commands::{
         shell_command_with_failure_diagnostics, shell_join, AgentCommandBuilder,
         EditorCommandBuilder, GitCommandBuilder, TerminalColorEnvironment, TmuxCommandBuilder,
+        CODEX_APP_SERVER_TMUX_SESSION, CODEX_APP_SERVER_URL,
     },
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
     registry::{RegistryResult, SqliteRegistry},
@@ -184,6 +185,9 @@ where
             &tmux,
             self.config.terminal_color_environment.as_ref(),
         )?;
+        if run.agent == AgentKind::Codex {
+            ensure_codex_app_server(&mut self.runner, &run.worktree_path)?;
+        }
 
         let command = AgentCommandBuilder::new().restore(LaunchPlan {
             agent: run.agent,
@@ -390,6 +394,22 @@ where
         return Err(err.into());
     }
 
+    if request.agent == AgentKind::Codex {
+        if let Err(err) = ensure_codex_app_server(runner, &worktree_path) {
+            rollback_created_resources(
+                runner,
+                &tmux,
+                &git,
+                &request.repo_path,
+                &worktree_path,
+                &branch,
+                &tmux_window,
+                false,
+            );
+            return Err(err.into());
+        }
+    }
+
     let agent_command = AgentCommandBuilder::new().launch(LaunchPlan {
         agent: request.agent,
         worktree_path: worktree_path.clone(),
@@ -509,6 +529,24 @@ where
         runner.run(&tmux.new_detached_session())?;
     }
     configure_tmux_terminal_setup(runner, tmux, terminal_color_environment)
+}
+
+pub fn ensure_codex_app_server<R>(runner: &mut R, cwd: &Path) -> io::Result<()>
+where
+    R: CommandRunner,
+{
+    let tmux = TmuxCommandBuilder::new(CODEX_APP_SERVER_TMUX_SESSION);
+    if runner.succeeds(&tmux.has_session())? {
+        return Ok(());
+    }
+
+    let command = shell_join(&[
+        "codex".to_string(),
+        "app-server".to_string(),
+        "--listen".to_string(),
+        CODEX_APP_SERVER_URL.to_string(),
+    ]);
+    runner.run(&tmux.new_service_session("app-server", path_str(cwd), &command))
 }
 
 fn configure_tmux_terminal_setup<R>(
@@ -676,7 +714,9 @@ fn command_error(command: &[String], output: &Output) -> io::Error {
 mod tests {
     use std::io;
 
-    use crate::{agent::AgentKind, registry::SqliteRegistry};
+    use crate::{
+        agent::AgentKind, commands::CODEX_APP_SERVER_TMUX_SESSION, registry::SqliteRegistry,
+    };
 
     use super::{
         close_and_delete_run_with_registry, create_run_with_registry, path_str,
@@ -1129,10 +1169,19 @@ mod tests {
             .expect("tmux new-window command");
         let shell_command = new_window.last().expect("tmux shell command");
 
-        assert!(shell_command.starts_with("codex; agent_status=$?;"));
+        assert!(shell_command.contains("curl -fsS http://127.0.0.1:17655/readyz"));
+        assert!(shell_command.contains("codex --remote ws://127.0.0.1:17655"));
         assert!(shell_command.contains("Agent command exited with status %s."));
         assert!(shell_command.contains("\"$agent_status\""));
         assert!(shell_command.contains("exec \"${SHELL:-/bin/sh}\""));
+
+        assert!(runner.commands.iter().any(|command| {
+            command_contains(command, "new-session")
+                && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION)
+                && command
+                    .last()
+                    .is_some_and(|part| part.contains("codex app-server --listen"))
+        }));
     }
 
     fn command_contains(command: &[String], needle: &str) -> bool {

@@ -61,6 +61,10 @@ pub fn detect_observed_state(snapshot: &PaneSnapshot) -> ObservedState {
         return ObservedState::CompletedUnchecked;
     }
 
+    if is_agent_runtime_command(&snapshot.current_command) && has_codex_input_prompt(&recent) {
+        return ObservedState::NeedsUser;
+    }
+
     if is_agent_runtime_command(&snapshot.current_command) {
         ObservedState::Running
     } else {
@@ -100,6 +104,13 @@ fn has_active_work_marker(text: &str) -> bool {
         status.starts_with("running ")
             || status.starts_with("working ")
             || status.contains("esc to interrupt")
+    })
+}
+
+fn has_codex_input_prompt(text: &str) -> bool {
+    text.lines().any(|line| {
+        let trimmed = line.trim_start();
+        trimmed == "›" || trimmed.starts_with("› ")
     })
 }
 
@@ -164,7 +175,13 @@ mod tests {
         let snapshot = PaneSnapshot {
             pane_active: true,
             current_command: "codex".to_string(),
-            visible_text: "Implementation complete.\nReady for review.\n".to_string(),
+            visible_text: concat!(
+                "Implementation complete.\n",
+                "Ready for review.\n",
+                "─ Worked for 2m 14s ─\n",
+                "› Find and fix a bug in @filename\n",
+            )
+            .to_string(),
         };
 
         assert_eq!(
@@ -172,6 +189,40 @@ mod tests {
             ObservedState::CompletedUnchecked
         );
         assert_eq!(detection_source_for(&snapshot), DetectionSource::Heuristic);
+    }
+
+    #[test]
+    fn idle_codex_prompt_reports_needs_user_without_attention_words() {
+        let snapshot = PaneSnapshot {
+            pane_active: true,
+            current_command: "node".to_string(),
+            visible_text: concat!(
+                "The implementation has two viable approaches. Which approach should I take?\n",
+                "› Use the safer approach\n",
+                "gpt-5.6-sol high · ~/project\n",
+            )
+            .to_string(),
+        };
+
+        assert_eq!(detect_observed_state(&snapshot), ObservedState::NeedsUser);
+        assert_eq!(detection_source_for(&snapshot), DetectionSource::Heuristic);
+    }
+
+    #[test]
+    fn interruptible_background_work_with_codex_prompt_stays_running() {
+        let snapshot = PaneSnapshot {
+            pane_active: true,
+            current_command: "node".to_string(),
+            visible_text: concat!(
+                "• Waiting for background terminal (16m 42s • esc to interrupt)\n",
+                "› Use /skills to list available skills\n",
+                "gpt-5.6-sol high · ~/project\n",
+            )
+            .to_string(),
+        };
+
+        assert_eq!(detect_observed_state(&snapshot), ObservedState::Running);
+        assert_eq!(detection_source_for(&snapshot), DetectionSource::Tmux);
     }
 
     #[test]

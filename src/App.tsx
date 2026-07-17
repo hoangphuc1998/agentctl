@@ -98,6 +98,7 @@ export function App() {
   const [mobileBridgeOpen, setMobileBridgeOpen] = useState(false);
   const [mobileBridgeError, setMobileBridgeError] = useState<string | null>(null);
   const selectedRunIdRef = useRef<string | null>(null);
+  const dashboardRequestIdRef = useRef(0);
 
   const selectedRun = useMemo(
     () =>
@@ -118,18 +119,24 @@ export function App() {
 
   const loadDashboard = useCallback(
     async (nextSelectedRunId?: string | null) => {
+      const requestId = ++dashboardRequestIdRef.current;
       setRefreshing(true);
       try {
         const requestedRunId =
           nextSelectedRunId === undefined ? selectedRunIdRef.current : nextSelectedRunId;
         const next = await dashboardState(requestedRunId);
+        if (requestId !== dashboardRequestIdRef.current) return;
         setDashboard(next);
         selectRun(next.selectedRunId);
         setError(null);
       } catch (err) {
-        setError(errorMessage(err));
+        if (requestId === dashboardRequestIdRef.current) {
+          setError(errorMessage(err));
+        }
       } finally {
-        setRefreshing(false);
+        if (requestId === dashboardRequestIdRef.current) {
+          setRefreshing(false);
+        }
       }
     },
     [selectRun]

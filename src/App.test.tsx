@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -101,6 +101,33 @@ describe("App", () => {
 
     expect(screen.getByRole("heading", { name: "api-cleanup" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "login-flow" })).not.toBeInTheDocument();
+  });
+
+  it("does not let an older dashboard refresh temporarily restore the previous run", async () => {
+    const staleRefresh = deferred<DashboardState>();
+    const selectedRunRefresh = deferred<DashboardState>();
+    vi.mocked(dashboardState)
+      .mockResolvedValueOnce(dashboard("run-1"))
+      .mockReturnValueOnce(staleRefresh.promise)
+      .mockReturnValueOnce(selectedRunRefresh.promise);
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "login-flow" });
+    await userEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(dashboardState).toHaveBeenCalledTimes(2));
+
+    await userEvent.click(screen.getByRole("treeitem", { name: /api-cleanup/i }));
+    expect(screen.getByRole("heading", { name: "api-cleanup" })).toBeInTheDocument();
+    await waitFor(() => expect(dashboardState).toHaveBeenCalledTimes(3));
+
+    await act(async () => staleRefresh.resolve(dashboard("run-1")));
+
+    expect(screen.getByRole("heading", { name: "api-cleanup" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "login-flow" })).not.toBeInTheDocument();
+
+    await act(async () => selectedRunRefresh.resolve(dashboard("run-2")));
+    expect(screen.getByRole("heading", { name: "api-cleanup" })).toBeInTheDocument();
   });
 
   it("resumes a restorable run instead of treating it as stale", async () => {
@@ -674,6 +701,14 @@ function dashboard(selectedRunId: string, runs: RunView[] = [run("run-1", "login
       { name: "tmux", available: true, detail: "available" }
     ]
   };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((nextResolve) => {
+    resolve = nextResolve;
+  });
+  return { promise, resolve };
 }
 
 function installNotificationMock(permission: NotificationPermission) {

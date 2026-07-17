@@ -556,6 +556,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-17 11:12 +07: Added RED coverage proving plain detected links and OSC 8 hyperlinks opened without Ctrl, provider adapters discarded mouse events, and no shared modifier policy existed. Added a shared Ctrl+primary-click policy, forwarded real xterm mouse events, tracked hovered plain/OSC targets, and intercepted the modified gesture during React capture before tmux mouse mode could consume it. Ordinary clicks remain available to tmux, and the terminal exposes a Ctrl+Click usage tooltip. Focused tests passed with 18 tests; npm run build, git diff --check, and final ./init.sh passed with 12 Vitest files/83 tests, npm build, and all default Rust tests."
+    },
+    {
+      "id": "feat-055",
+      "name": "Remove Terminal Ctrl+Click Tooltip",
+      "description": "Remove the browser tooltip from the embedded terminal while preserving Ctrl+Click link and file activation.",
+      "dependencies": [
+        "feat-054"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-17 11:44 +07: Added a RED TerminalPane regression proving the terminal host exposed the Ctrl+Click browser tooltip, then removed only the title attribute while preserving all Ctrl+Click capture handlers. The focused TerminalPane suite passed with 12 tests, and final ./init.sh passed with 12 Vitest files/84 tests, npm build, and all default Rust tests."
     }
   ]
 }

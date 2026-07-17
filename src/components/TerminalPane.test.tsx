@@ -154,6 +154,13 @@ describe("TerminalPane", () => {
     expect(mocks.startTerminal).toHaveBeenCalledTimes(1);
   });
 
+  it("does not show a browser tooltip over the terminal", async () => {
+    const { container } = render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
+    await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
+
+    expect(container.querySelector(".terminal-host")).not.toHaveAttribute("title");
+  });
+
   it("does not forward xterm device-attribute replies as command input", async () => {
     const run = runView();
     render(<TerminalPane selectedRun={run} onError={vi.fn()} />);

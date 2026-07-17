@@ -2,22 +2,21 @@
 
 ## Current State
 
-**Last Updated:** 2026-07-17 11:12 +07
-**Session ID:** embedded-terminal-ctrl-click
-**Active Feature:** feat-054 - Embedded Terminal Ctrl+Click Activation
+**Last Updated:** 2026-07-17 11:38 +07
+**Session ID:** stable-live-codex-status
+**Active Feature:** feat-055 - Stable Live Codex Status Notifications
 
 ## Status
 
 ### What is Done
 
-- [x] Confirmed the repo root, read AGENTS.md, README.md, and the clean-modular-code skill, reviewed feature_list.json, and checked recent commits.
-- [x] Ran baseline `./init.sh`; 81 frontend tests, the frontend build, and all default Rust tests passed.
-- [x] Reproduced the missing modifier policy with RED coverage through both the registered plain-text provider and the OSC 8 link handler.
-- [x] Added a pure Ctrl+primary-click activation rule and forwarded the real xterm mouse event through provider callbacks.
-- [x] Tracked the currently hovered detected/OSC target and added capture-phase mouse handling so the modified gesture opens before tmux mouse mode consumes it.
-- [x] Kept unmodified and non-primary clicks available to tmux.
-- [x] Added a terminal tooltip documenting “Ctrl+Click a link or file to open it.”
-- [x] Completed focused, production-build, and full repository verification.
+- [x] Confirmed the repo root, read AGENTS.md, README.md, the attention-notification design/plan, and the clean-modular-code skill, reviewed feature_list.json, and checked recent commits.
+- [x] Repaired the local npm dependency baseline after the existing `node_modules` directory lacked Vitest, then ran a clean baseline `./init.sh`.
+- [x] Captured live running and completed Codex panes to compare their current terminal markers.
+- [x] Identified that modern running Codex lines use `◦ Running` / `◦ Working (... esc to interrupt)`, while the classifier only recognized the older solid `•` marker.
+- [x] Added RED coverage proving stale Need input/completion transcript text overrode the live hollow work marker.
+- [x] Recognized both Codex status markers and the stable interrupt cue, and prioritized a current work marker over stale transcript attention phrases.
+- [x] Completed focused and full repository verification.
 
 ### What is In Progress
 
@@ -27,31 +26,29 @@
 
 ### What is Next
 
-1. Hover a detected URL or file in the embedded tmux terminal, hold Ctrl, and primary-click it.
+1. Rebuild/relaunch Agent Manager so dashboard polling uses the corrected classifier.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
-- [ ] URL opening still depends on the Linux host providing `xdg-open`.
-- [ ] File opening still depends on the existing `code` CLI integration and accepts only existing files inside the selected run worktree.
+- [ ] `npm install` continues to report the repository's existing 5 audit findings (3 moderate, 1 high, 1 critical); dependency remediation was outside this feature.
 
 ## Decisions Made
 
-- Use Ctrl+primary-click as the only open gesture; ordinary terminal clicks remain tmux input.
-- Keep modifier detection as a pure policy in `terminalLinks.ts`.
-- Preserve xterm’s activation callback as a fallback, while capture-phase hover activation guarantees tmux cannot swallow Ctrl+Click.
-- Stop the modified mouse down/up/click sequence after opening so it is not also sent into the terminal session.
+- Treat the current live Codex work line as stronger evidence than old transcript wording.
+- Recognize both the legacy `•` and current `◦` status markers so Codex display changes do not alter semantic state.
+- Keep genuine idle needs-user and completion heuristics unchanged when no active work marker is present.
+- Fix classification at the tmux domain boundary rather than suppressing legitimate transition notifications downstream.
 
 ## Files Modified This Session
 
-- `src/terminalLinks.ts` and `src/terminalLinks.test.ts` for event forwarding and the shared Ctrl+primary-click policy.
-- `src/components/TerminalPane.tsx` and its tests for hovered-target tracking, capture-phase activation, OSC handling, and usage guidance.
+- `core/src/tmux.rs` for modern Codex marker recognition, attention precedence, and regression coverage.
 - `feature_list.json` and `progress.md` for completion evidence and handoff state.
 
 ## Evidence of Completion
 
-- [x] RED: focused tests failed in four intended places: provider event forwarding, missing modifier policy, unmodified OSC activation, and unmodified detected-file activation.
-- [x] GREEN: `npm test -- src/terminalLinks.test.ts src/components/TerminalPane.test.tsx` passed with 2 files and 18 tests.
-- [x] `npm run build` passed.
-- [x] `git diff --check` passed.
-- [x] Final `./init.sh` passed with 12 Vitest files/83 tests, npm build, and all default Rust tests.
+- [x] RED: `cargo test -p agentctl-core current_codex_work_marker_stays_running_when_transcript_mentions_completion` reported `CompletedUnchecked`, then `NeedsUser`, instead of `Running` before the two behavior changes.
+- [x] GREEN: `cargo test -p agentctl-core tmux::tests::` passed all 4 classifier tests.
+- [x] `cargo fmt --check` passed.
+- [x] `git diff --check` passed before artifact updates.
+- [x] Final `./init.sh` passed with 12 Vitest files/83 tests, npm build, 32 core tests, and all desktop Rust tests.

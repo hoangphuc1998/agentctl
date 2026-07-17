@@ -23,6 +23,10 @@ pub fn detect_observed_state(snapshot: &PaneSnapshot) -> ObservedState {
 
     let recent = recent_activity_text(&snapshot.visible_text);
     let text = recent.to_ascii_lowercase();
+    if has_active_work_marker(&text) {
+        return ObservedState::Running;
+    }
+
     if contains_any(
         &text,
         &[
@@ -41,10 +45,6 @@ pub fn detect_observed_state(snapshot: &PaneSnapshot) -> ObservedState {
         ],
     ) {
         return ObservedState::NeedsUser;
-    }
-
-    if has_active_work_marker(&text) {
-        return ObservedState::Running;
     }
 
     if contains_any(
@@ -89,7 +89,17 @@ fn contains_any(haystack: &str, needles: &[&str]) -> bool {
 fn has_active_work_marker(text: &str) -> bool {
     text.lines().any(|line| {
         let trimmed = line.trim_start();
-        trimmed.starts_with("• running ") || trimmed.starts_with("• working ")
+        let Some(status) = trimmed
+            .strip_prefix('•')
+            .or_else(|| trimmed.strip_prefix('◦'))
+            .map(str::trim_start)
+        else {
+            return false;
+        };
+
+        status.starts_with("running ")
+            || status.starts_with("working ")
+            || status.contains("esc to interrupt")
     })
 }
 
@@ -126,6 +136,23 @@ mod tests {
             current_command: "codex".to_string(),
             visible_text: "• running tests\nImplemented the requested fix.\nAll tasks completed.\n"
                 .to_string(),
+        };
+
+        assert_eq!(detect_observed_state(&snapshot), ObservedState::Running);
+        assert_eq!(detection_source_for(&snapshot), DetectionSource::Tmux);
+    }
+
+    #[test]
+    fn current_codex_work_marker_stays_running_when_transcript_mentions_completion() {
+        let snapshot = PaneSnapshot {
+            pane_active: true,
+            current_command: "node".to_string(),
+            visible_text: concat!(
+                "Need input before declaring the implementation complete and ready for review.\n",
+                "◦ Running cargo test\n",
+                "◦ Working (3m 09s • esc to interrupt)\n",
+            )
+            .to_string(),
         };
 
         assert_eq!(detect_observed_state(&snapshot), ObservedState::Running);

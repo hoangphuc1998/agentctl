@@ -20,9 +20,7 @@
 
 ### What is In Progress
 
-- [x] Implementation is complete.
-- [x] Focused RED/GREEN coverage is complete.
-- [x] Full verification and continuity artifacts are complete.
+- [x] Implementation, verification, and continuity artifacts are complete.
 
 ### What is Next
 

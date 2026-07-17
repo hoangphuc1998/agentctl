@@ -337,7 +337,6 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
       <div
         className="terminal-host"
         ref={hostRef}
-        title="Ctrl+Click a link or file to open it"
         onMouseDownCapture={captureCtrlLinkMouseDown}
         onMouseUpCapture={captureCtrlLinkMouseEnd}
         onClickCapture={captureCtrlLinkMouseEnd}

@@ -3,20 +3,22 @@ use std::{path::PathBuf, str::FromStr};
 use agentctl_core::{
     agent::AgentKind,
     app::{
-        preview_ignored_untracked_files, App, AppConfig, CommandRunner, NewRunRequest,
-        SystemCommandRunner,
+        ensure_codex_app_server, preview_ignored_untracked_files, App, AppConfig, CommandRunner,
+        NewRunRequest, SystemCommandRunner,
     },
     branches::{BranchLister, GitBranchLister},
     completion::{base_ref_candidates, repo_path_candidates},
     diff::load_run_diff,
+    domain::DetectionSource,
     registry::SqliteRegistry,
-    tmux::{detect_observed_state, detection_source_for, Tmux},
+    tmux::{PaneSnapshot, Tmux},
 };
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_notification::NotificationExt;
 use uuid::Uuid;
 
 use crate::{
+    codex_status_client::load_codex_thread_statuses,
     error::{DesktopError, DesktopResult},
     mobile_bridge::{BridgeBind, MobileBridgeStatus, PairingCode, PairingTime},
     models::{
@@ -25,8 +27,8 @@ use crate::{
     },
     services::{
         agent_attention_event_for_transition, agent_system_notification_for_event,
-        build_dashboard_state, is_stale_run, mark_selected_run_seen, observed_state_after_refresh,
-        suggestions_from_candidates,
+        build_dashboard_state, is_stale_run, mark_selected_run_seen, observe_run,
+        observed_state_after_refresh, suggestions_from_candidates,
     },
     state::DesktopState,
     terminal_plan::{terminal_link_command, TerminalLinkTarget},
@@ -385,7 +387,17 @@ fn load_dashboard(
     selected_run_id: Option<String>,
 ) -> DesktopResult<DashboardState> {
     let registry = SqliteRegistry::open(registry_path)?;
-    let mut runs = refresh_active_runs(&registry, app_handle)?;
+    if let Ok(cwd) = std::env::current_dir() {
+        let mut runner = SystemCommandRunner;
+        if let Err(err) = ensure_codex_app_server(&mut runner, &cwd) {
+            eprintln!("failed to ensure Codex app-server before status refresh: {err}");
+        }
+    }
+    let codex_threads = load_codex_thread_statuses().unwrap_or_else(|err| {
+        eprintln!("failed to load official Codex status; using tmux fallback: {err}");
+        Vec::new()
+    });
+    let mut runs = refresh_active_runs(&registry, app_handle, &codex_threads)?;
     if let Some(run) = mark_selected_run_seen(
         &mut runs,
         selected_run_id.as_deref(),
@@ -404,43 +416,53 @@ fn load_dashboard(
 fn refresh_active_runs(
     registry: &SqliteRegistry,
     app_handle: &AppHandle,
+    codex_threads: &[agentctl_core::codex_status::CodexThreadSnapshot],
 ) -> DesktopResult<Vec<agentctl_core::domain::RunRecord>> {
     let tmux = Tmux::new(TMUX_SESSION);
     let mut runs = registry.list_active_runs()?;
     for run in &mut runs {
-        let Some(window) = run.tmux_window.as_deref() else {
-            continue;
-        };
-        let snapshot = match tmux.snapshot_window(window) {
-            Ok(snapshot) => snapshot,
-            Err(err) => {
-                eprintln!(
-                    "failed to refresh tmux state for run {} ({}): {err}",
-                    run.id, window
-                );
-                continue;
-            }
+        let snapshot = match run.tmux_window.as_deref() {
+            Some(window) => match tmux.snapshot_window(window) {
+                Ok(snapshot) => Some(snapshot),
+                Err(err) => {
+                    eprintln!(
+                        "failed to refresh tmux state for run {} ({}): {err}",
+                        run.id, window
+                    );
+                    None
+                }
+            },
+            None => None,
         };
         let previous_state = run.observed_state;
-        let state = observed_state_after_refresh(
-            detect_observed_state(&snapshot),
-            run.notification_seen_at,
+        let unavailable_snapshot = unavailable_pane_snapshot();
+        let observation = observe_run(
+            run,
+            snapshot.as_ref().unwrap_or(&unavailable_snapshot),
+            codex_threads,
         );
-        let source = detection_source_for(&snapshot);
-        registry.set_observed_state(
-            run.id,
-            state,
-            source,
-            run.notification_seen_at,
-            chrono::Utc::now().timestamp(),
-        )?;
+        if snapshot.is_none() && observation.source != DetectionSource::Provider {
+            continue;
+        }
+        let state = observed_state_after_refresh(observation.state, run.notification_seen_at);
         run.observed_state = state;
-        run.detection_source = source;
+        run.detection_source = observation.source;
+        run.agent_session_id = observation.agent_session_id;
+        run.updated_at = chrono::Utc::now().timestamp();
+        registry.upsert_run(run)?;
         if let Some(event) = agent_attention_event_for_transition(previous_state, run) {
             notify_agent_attention(app_handle, &event);
         }
     }
     Ok(runs)
+}
+
+fn unavailable_pane_snapshot() -> PaneSnapshot {
+    PaneSnapshot {
+        pane_active: false,
+        current_command: String::new(),
+        visible_text: String::new(),
+    }
 }
 
 fn notify_agent_attention(app_handle: &AppHandle, event: &crate::models::AgentAttentionEvent) {

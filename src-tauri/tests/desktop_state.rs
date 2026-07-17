@@ -3,13 +3,15 @@ use agent_manager_desktop::{
     services::{
         agent_attention_event_for_transition, agent_system_notification_for_event,
         build_dashboard_state, is_restorable_run, is_stale_run, mark_selected_run_seen,
-        observed_state_after_refresh, suggestions_from_candidates,
+        observe_run, observed_state_after_refresh, suggestions_from_candidates,
     },
 };
 use agentctl_core::{
     agent::AgentKind,
+    codex_status::{CodexThreadActiveFlag, CodexThreadSnapshot, CodexThreadStatus},
     completion::CompletionCandidate,
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
+    tmux::PaneSnapshot,
 };
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -97,6 +99,32 @@ fn dashboard_state_counts_attention_runs() {
     let state = build_dashboard_state(active, None, vec![], None);
 
     assert_eq!(state.attention_count, 2);
+}
+
+#[test]
+fn official_codex_status_overrides_misleading_terminal_text() {
+    let mut codex_run = run("copy-review", ObservedState::Running, DetectionSource::Tmux);
+    let thread_id = Uuid::new_v4();
+    codex_run.agent_session_id = Some(thread_id);
+    let pane = PaneSnapshot {
+        pane_active: true,
+        current_command: "node".to_string(),
+        visible_text: "◦ Working (12s • esc to interrupt)".to_string(),
+    };
+    let threads = vec![CodexThreadSnapshot {
+        id: thread_id,
+        cwd: codex_run.worktree_path.clone(),
+        updated_at: 42,
+        status: CodexThreadStatus::Active {
+            active_flags: vec![CodexThreadActiveFlag::WaitingOnUserInput],
+        },
+    }];
+
+    let observation = observe_run(&codex_run, &pane, &threads);
+
+    assert_eq!(observation.state, ObservedState::NeedsUser);
+    assert_eq!(observation.source, DetectionSource::Provider);
+    assert_eq!(observation.agent_session_id, Some(thread_id));
 }
 
 #[test]

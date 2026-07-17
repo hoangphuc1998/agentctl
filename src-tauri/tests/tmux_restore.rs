@@ -61,7 +61,10 @@ window\tagentctl\t1\t:agentctl__default__fix-restart__17164bd9\t1\t:* \tabcd\t:
 
     let output = rewrite_resurrect_state(input, &runs, "agentctl");
 
-    assert!(output.contains("\tnode\t:codex resume --last\n"));
+    assert!(output.contains("curl -fsS http://127.0.0.1:17655/readyz"));
+    assert!(output.contains(
+        "codex --remote ws://127.0.0.1:17655 --cd /repos/agent-manager-worktrees/fix-restart resume --last"
+    ));
     assert!(!output.contains(":node /home/me/.nvm/bin/codex"));
 }
 

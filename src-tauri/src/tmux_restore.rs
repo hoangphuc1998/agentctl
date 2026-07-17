@@ -10,8 +10,8 @@ use std::{
 };
 
 use agentctl_core::{
-    agent::LaunchPlan,
-    commands::{shell_join, AgentCommandBuilder},
+    agent::{AgentKind, LaunchPlan},
+    commands::{shell_command_with_failure_diagnostics, shell_join, AgentCommandBuilder},
     domain::{Lifecycle, RunRecord},
     registry::SqliteRegistry,
 };
@@ -518,7 +518,12 @@ fn resurrect_command(run: &RunRecord) -> String {
         worktree_path: run.worktree_path.clone(),
         session_id: run.agent_session_id,
     });
-    format!(":{}", shell_join(&command))
+    let command = if run.agent == AgentKind::Codex {
+        shell_command_with_failure_diagnostics(&command)
+    } else {
+        shell_join(&command)
+    };
+    format!(":{command}")
 }
 
 fn remove_resurrect_prefix(value: &str) -> &str {

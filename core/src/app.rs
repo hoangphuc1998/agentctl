@@ -1,5 +1,5 @@
 use std::{
-    io,
+    env, io,
     path::{Path, PathBuf},
     process::{Command, Output},
     time::Duration,
@@ -536,8 +536,13 @@ where
     R: CommandRunner,
 {
     let tmux = TmuxCommandBuilder::new(CODEX_APP_SERVER_TMUX_SESSION);
+    let server_cwd = codex_app_server_working_directory(cwd);
     if runner.succeeds(&tmux.has_session())? {
-        return Ok(());
+        let current_path = runner.output(&tmux.pane_current_path("app-server"))?;
+        if Path::new(current_path.trim()) == server_cwd {
+            return Ok(());
+        }
+        runner.run(&tmux.kill_session())?;
     }
 
     let command = login_shell_command(&[
@@ -546,7 +551,14 @@ where
         "--listen".to_string(),
         CODEX_APP_SERVER_URL.to_string(),
     ]);
-    runner.run(&tmux.new_service_session("app-server", path_str(cwd), &command))
+    runner.run(&tmux.new_service_session("app-server", path_str(&server_cwd), &command))
+}
+
+fn codex_app_server_working_directory(fallback: &Path) -> PathBuf {
+    env::var_os("HOME")
+        .map(PathBuf::from)
+        .filter(|path| path.is_dir())
+        .unwrap_or_else(|| fallback.to_path_buf())
 }
 
 fn configure_tmux_terminal_setup<R>(
@@ -719,8 +731,8 @@ mod tests {
     };
 
     use super::{
-        close_and_delete_run_with_registry, create_run_with_registry, path_str,
-        preview_ignored_untracked_files, AppConfig, CommandRunner, NewRunRequest,
+        close_and_delete_run_with_registry, create_run_with_registry, ensure_codex_app_server,
+        path_str, preview_ignored_untracked_files, AppConfig, CommandRunner, NewRunRequest,
     };
 
     #[derive(Default)]
@@ -731,6 +743,8 @@ mod tests {
         list_windows_calls: usize,
         rev_parse_output: String,
         untracked_files_output: String,
+        codex_server_exists: bool,
+        codex_server_path: Option<String>,
     }
 
     impl CommandRunner for RecordingRunner {
@@ -744,7 +758,9 @@ mod tests {
 
         fn succeeds(&mut self, command: &[String]) -> io::Result<bool> {
             self.commands.push(command.to_vec());
-            Ok(false)
+            Ok(self.codex_server_exists
+                && command_contains(command, "has-session")
+                && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION))
         }
 
         fn output(&mut self, command: &[String]) -> io::Result<String> {
@@ -770,8 +786,36 @@ mod tests {
                     }
                 }
             }
+            if command_contains(command, "display-message")
+                && command
+                    .iter()
+                    .any(|part| part.contains(CODEX_APP_SERVER_TMUX_SESSION))
+            {
+                return Ok(self.codex_server_path.clone().unwrap_or_default());
+            }
             Ok("dashboard\n".to_string())
         }
+    }
+
+    #[test]
+    fn codex_app_server_replaces_session_from_stale_appimage_directory() {
+        let mut runner = RecordingRunner {
+            codex_server_exists: true,
+            codex_server_path: Some("/tmp/.mount_Agent-old/usr\n".to_string()),
+            ..RecordingRunner::default()
+        };
+
+        ensure_codex_app_server(&mut runner, std::path::Path::new("/repo"))
+            .expect("replace stale server");
+
+        assert!(runner
+            .commands
+            .iter()
+            .any(|command| command_contains(command, "kill-session")));
+        assert!(runner.commands.iter().any(|command| {
+            command_contains(command, "new-session")
+                && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION)
+        }));
     }
 
     #[test]

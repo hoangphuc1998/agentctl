@@ -2,21 +2,21 @@
 
 ## Current State
 
-**Last Updated:** 2026-07-17 14:45 +07
-**Session ID:** nvm-codex-launch-environment
-**Active Feature:** feat-057 - NVM Codex Launch Environment
+**Last Updated:** 2026-07-17 15:15 +07
+**Session ID:** remote-codex-worktree-context
+**Active Feature:** feat-058 - Remote Codex Worktree Context
 
 ## Status
 
 ### What is Done
 
 - [x] Confirmed the repository startup workflow and clean baseline, reviewed product/design context, feature state, and recent commits.
-- [x] Reproduced the screenshot failure: tmux launches commands with non-interactive zsh, which does not source the NVM setup and reports `command not found: codex`.
-- [x] Confirmed the user's interactive login shell resolves `/home/phuctth/.nvm/versions/node/v22.18.0/bin/codex` and runs Codex 0.144.5.
-- [x] Added RED coverage requiring the generated remote launch to cross the interactive login-shell boundary.
-- [x] Added a reusable pure login-shell wrapper and applied it to Codex/Claude launches, restores, and the managed Codex app-server.
-- [x] Extended managed app-server launch coverage to require the same environment boundary.
-- [x] Smoke-tested the exact nested-shell pattern and confirmed it runs `codex --version` successfully.
+- [x] Inspected the live app-server and found cwd `/usr` plus inherited `PWD=/tmp/.mount_Agent.../usr`, whose AppImage mount no longer exists.
+- [x] Verified the affected worktree has no broken project Codex configuration and Codex doctor found no path override.
+- [x] Started an isolated fresh app-server and proved both this repository and the affected worktree can start remote TUI threads successfully.
+- [x] Proved a remote TUI without `--cd` adopts the app-server cwd, while Codex's supported `--cd` keeps the intended worktree through bootstrap.
+- [x] Added RED/GREEN coverage and passed the worktree explicitly for fresh and resumed remote Codex sessions.
+- [x] Anchored app-server startup at `$HOME` and replaced only an existing service whose pane cwd differs from that stable anchor.
 - [x] Completed focused and full repository verification.
 
 ### What is In Progress
@@ -27,7 +27,7 @@
 
 ### What is Next
 
-1. Rebuild/relaunch Agent Manager, then restore the failed run or create a new one. The existing failed pane remains a shell by design.
+1. Rebuild/relaunch Agent Manager, then restore the failed run. Startup/dashboard refresh replaces the stale AppImage-backed server; restored/new sessions target their own worktrees.
 
 ## Blockers / Risks
 
@@ -37,22 +37,24 @@
 
 ## Decisions Made
 
-- Resolve runtime-managed tools through `"${SHELL:-/bin/sh}" -lic` instead of assuming the desktop or tmux server inherited the user's interactive `PATH`.
-- Wrap the complete argument-safe command string once at the shell boundary so agent command builders remain pure and unchanged.
-- Use the same boundary for the app-server; fixing only the TUI would leave official status unavailable after a clean restart.
+- Treat the app-server as a shared process whose cwd must be stable and independent of any AppImage mount or deletable run worktree.
+- Pass `--cd <worktree>` on every remote Codex launch/restore because the remote server, not the local TUI process, creates the thread.
+- Compare the managed service pane cwd with `$HOME`; preserve a matching healthy server and replace a mismatched legacy server.
 
 ## Files Modified This Session
 
-- `core/src/commands.rs` for the login-shell wrapper and Codex launch regression.
-- `core/src/app.rs` for login-shell app-server startup and service coverage.
+- `core/src/commands.rs` for explicit remote worktree arguments and tmux service inspection/replacement commands.
+- `core/src/app.rs` for stable-home app-server lifecycle and stale AppImage-server coverage.
+- `src-tauri/tests/tmux_restore.rs` for worktree-preserving restored commands.
 - `feature_list.json` and `progress.md` for completion evidence and handoff state.
 
 ## Evidence of Completion
 
-- [x] RED: `codex_launch_uses_login_shell_environment_for_nvm_installations` failed while the generated command invoked raw `codex` from tmux.
-- [x] GREEN: agent launch and managed app-server commands now use the interactive login shell.
-- [x] Nested-shell smoke check returned `codex-cli 0.144.5`.
+- [x] RED: `codex_remote_launch_targets_the_run_worktree` showed remote launch omitted `--cd`.
+- [x] GREEN: fresh and resume commands include the exact worktree, including tmux-resurrect rewrites.
+- [x] RED/GREEN: stale AppImage-anchored app-server sessions are replaced before use.
+- [x] Live isolated-server smoke tests confirmed `--cd` preserves the affected worktree through remote bootstrap.
 - [x] All core tests and all 12 tmux-restore tests passed.
 - [x] `cargo check -p agent-manager-desktop --features tauri-app` passed.
 - [x] `cargo fmt --all -- --check` and `git diff --check` passed.
-- [x] Final `./init.sh` passed with 12 Vitest files/83 tests, npm build, 41 core tests, and all desktop Rust tests.
+- [x] Final `./init.sh` passed with 12 Vitest files/83 tests, npm build, 43 core tests, and all desktop Rust tests.

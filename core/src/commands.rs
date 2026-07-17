@@ -324,6 +324,26 @@ impl TmuxCommandBuilder {
         ]
     }
 
+    pub fn pane_current_path(&self, window_name: &str) -> Vec<String> {
+        vec![
+            "tmux".to_string(),
+            "display-message".to_string(),
+            "-p".to_string(),
+            "-t".to_string(),
+            format!("{}:{window_name}", self.session),
+            "#{pane_current_path}".to_string(),
+        ]
+    }
+
+    pub fn kill_session(&self) -> Vec<String> {
+        vec![
+            "tmux".to_string(),
+            "kill-session".to_string(),
+            "-t".to_string(),
+            self.session.clone(),
+        ]
+    }
+
     pub fn terminal_setup_commands(&self) -> Vec<Vec<String>> {
         vec![
             self.set_option("default-terminal", MANAGED_DEFAULT_TERMINAL),
@@ -541,6 +561,8 @@ impl AgentCommandBuilder {
                 "codex".to_string(),
                 "--remote".to_string(),
                 CODEX_APP_SERVER_URL.to_string(),
+                "--cd".to_string(),
+                plan.worktree_path.to_string_lossy().into_owned(),
             ],
             AgentKind::Claude => {
                 let mut command = vec!["claude".to_string()];
@@ -560,6 +582,8 @@ impl AgentCommandBuilder {
                     "codex".to_string(),
                     "--remote".to_string(),
                     CODEX_APP_SERVER_URL.to_string(),
+                    "--cd".to_string(),
+                    plan.worktree_path.to_string_lossy().into_owned(),
                     "resume".to_string(),
                 ];
                 if let Some(session_id) = plan.session_id {
@@ -646,8 +670,29 @@ mod tests {
             },
         ));
 
-        assert!(command
-            .contains("then \"${SHELL:-/bin/sh}\" -lic 'codex --remote ws://127.0.0.1:17655'"));
+        assert!(command.contains(
+            "then \"${SHELL:-/bin/sh}\" -lic 'codex --remote ws://127.0.0.1:17655 --cd /repo-worktree'"
+        ));
+    }
+
+    #[test]
+    fn codex_remote_launch_targets_the_run_worktree() {
+        let command = AgentCommandBuilder::new().launch(LaunchPlan {
+            agent: AgentKind::Codex,
+            worktree_path: "/repo-worktree".into(),
+            session_id: None,
+        });
+
+        assert_eq!(
+            command,
+            vec![
+                "codex".to_string(),
+                "--remote".to_string(),
+                CODEX_APP_SERVER_URL.to_string(),
+                "--cd".to_string(),
+                "/repo-worktree".to_string(),
+            ]
+        );
     }
 
     #[test]
@@ -737,6 +782,8 @@ mod tests {
                 "codex".to_string(),
                 "--remote".to_string(),
                 CODEX_APP_SERVER_URL.to_string(),
+                "--cd".to_string(),
+                "/repo-worktree".to_string(),
                 "resume".to_string(),
                 session_id.to_string()
             ]
@@ -757,6 +804,8 @@ mod tests {
                 "codex".to_string(),
                 "--remote".to_string(),
                 CODEX_APP_SERVER_URL.to_string(),
+                "--cd".to_string(),
+                "/repo-worktree".to_string(),
                 "resume".to_string(),
                 "--last".to_string()
             ]

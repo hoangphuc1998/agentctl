@@ -586,6 +586,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-17 14:45 +07: Reproduced the reported new-run failure: tmux's non-interactive zsh command could not resolve Codex, while zsh -lic resolved /home/phuctth/.nvm/versions/node/v22.18.0/bin/codex. Added a pure login-shell command wrapper and applied it to both remote agent launches/restores and the managed Codex app-server. RED coverage failed against the raw codex command and passed after wrapping; the existing service-launch test now also requires the login-shell boundary. An executable nested-shell smoke check returned codex-cli 0.144.5. Focused core, tmux restore, tauri-app checks and final ./init.sh passed with 12 Vitest files/83 tests, npm build, 41 core tests, and all desktop Rust tests."
+    },
+    {
+      "id": "feat-058",
+      "name": "Remote Codex Worktree Context",
+      "description": "Pass each managed worktree explicitly to remote Codex TUI sessions and replace app-servers anchored to ephemeral AppImage directories.",
+      "dependencies": [
+        "feat-057"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-17 15:15 +07: Diagnosed the reported thread/start configuration failure against the live process. The managed app-server had cwd /usr but inherited PWD=/tmp/.mount_Agent.../usr from an already-unmounted AppImage. Controlled loopback tests proved a fresh server could start the same affected worktree, while a remote TUI without --cd adopted the server's cwd; Codex's supported --cd override preserved the intended worktree. Added RED/GREEN command coverage and now include --cd <worktree> for fresh and resumed remote sessions. App-server startup is anchored to the user's stable home directory, and ensure logic replaces only sessions whose pane cwd differs from that stable anchor, migrating the broken AppImage-backed server. Core tests, all tmux-restore tests, tauri-app compilation, formatting, diff checks, and final ./init.sh passed with 12 Vitest files/83 tests, npm build, 43 core tests, and all desktop Rust tests."
     }
   ]
 }

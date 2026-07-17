@@ -596,6 +596,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-17 15:15 +07: Diagnosed the reported thread/start configuration failure against the live process. The managed app-server had cwd /usr but inherited PWD=/tmp/.mount_Agent.../usr from an already-unmounted AppImage. Controlled loopback tests proved a fresh server could start the same affected worktree, while a remote TUI without --cd adopted the server's cwd; Codex's supported --cd override preserved the intended worktree. Added RED/GREEN command coverage and now include --cd <worktree> for fresh and resumed remote sessions. App-server startup is anchored to the user's stable home directory, and ensure logic replaces only sessions whose pane cwd differs from that stable anchor, migrating the broken AppImage-backed server. Core tests, all tmux-restore tests, tauri-app compilation, formatting, diff checks, and final ./init.sh passed with 12 Vitest files/83 tests, npm build, 43 core tests, and all desktop Rust tests."
+    },
+    {
+      "id": "feat-059",
+      "name": "Stable Run Selection During Refresh",
+      "description": "Keep a newly selected run visible when an older overlapping dashboard refresh finishes out of order.",
+      "dependencies": [
+        "feat-058"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-17 15:50 +07: Reproduced the previous-run flash with controlled out-of-order dashboard promises: an old refresh completed after a run click and temporarily restored its selectedRunId before the click refresh completed. Added latest-request sequencing to dashboard loading so stale success, error, and completion state cannot overwrite the current request. The RED regression failed on the old-run rollback and passed after the fix; all 26 App tests and final ./init.sh passed with 12 Vitest files/84 tests, npm build, and all Rust tests."
     }
   ]
 }

@@ -556,6 +556,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-17 11:12 +07: Added RED coverage proving plain detected links and OSC 8 hyperlinks opened without Ctrl, provider adapters discarded mouse events, and no shared modifier policy existed. Added a shared Ctrl+primary-click policy, forwarded real xterm mouse events, tracked hovered plain/OSC targets, and intercepted the modified gesture during React capture before tmux mouse mode could consume it. Ordinary clicks remain available to tmux, and the terminal exposes a Ctrl+Click usage tooltip. Focused tests passed with 18 tests; npm run build, git diff --check, and final ./init.sh passed with 12 Vitest files/83 tests, npm build, and all default Rust tests."
+    },
+    {
+      "id": "feat-055",
+      "name": "Stable Live Codex Status Notifications",
+      "description": "Keep current Codex panes classified as running from modern live work markers so stale transcript phrases do not repeatedly trigger attention notifications.",
+      "dependencies": [
+        "feat-054"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-17 11:38 +07: Captured live Codex panes and found current active lines use the hollow ◦ marker while the classifier only recognized the older solid • marker, allowing stale transcript phrases such as Need input/completed to oscillate the run into attention states on refresh. Added a RED core regression using real modern Codex Running/Working output, recognized both status markers plus the stable esc-to-interrupt cue, and made current work markers authoritative over transcript heuristics. Focused tmux tests, cargo fmt --check, git diff --check, and final ./init.sh passed with 12 Vitest files/83 tests, npm build, 32 core tests, and all desktop Rust tests."
     }
   ]
 }

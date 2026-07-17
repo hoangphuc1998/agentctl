@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { TerminalPane, shouldForwardTerminalInput } from "./TerminalPane";
 import type { RunView } from "../types";
@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   terminalOptions: [] as Array<Record<string, unknown>>,
   terminals: [] as Array<{
     emitData: (data: string) => void;
+    getLine: ReturnType<typeof vi.fn>;
     registerLinkProvider: ReturnType<typeof vi.fn>;
     write: ReturnType<typeof vi.fn>;
     reset: ReturnType<typeof vi.fn>;
@@ -49,12 +50,14 @@ vi.mock("@xterm/xterm", () => {
     public dispose = vi.fn();
     public registerLinkProvider = vi.fn(() => ({ dispose: vi.fn() }));
     public rows = 32;
-    public buffer = { active: { getLine: vi.fn() } };
+    public getLine = vi.fn();
+    public buffer = { active: { getLine: this.getLine } };
 
     constructor(options: Record<string, unknown>) {
       mocks.terminalOptions.push(options);
       mocks.terminals.push({
         emitData: (data: string) => this.dataHandler?.(data),
+        getLine: this.getLine,
         registerLinkProvider: this.registerLinkProvider,
         write: this.write,
         reset: this.reset,
@@ -161,24 +164,78 @@ describe("TerminalPane", () => {
     expect(mocks.terminalInput).not.toHaveBeenCalled();
   });
 
-  it("registers detected terminal links and opens OSC hyperlinks for the selected run", async () => {
-    render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
+  it("opens OSC hyperlinks only with Ctrl+primary-click", async () => {
+    const { container } = render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
     await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
 
     expect(mocks.terminals[0].registerLinkProvider).toHaveBeenCalledTimes(1);
     const linkHandler = mocks.terminalOptions[0].linkHandler as {
       allowNonHttpProtocols: boolean;
       activate: (event: MouseEvent, text: string) => void;
+      hover: (event: MouseEvent, text: string) => void;
     };
     expect(linkHandler.allowNonHttpProtocols).toBe(true);
 
-    linkHandler.activate(new MouseEvent("click"), "file:///repo/src/main.ts#L7:2");
+    linkHandler.activate(new MouseEvent("click", { button: 0 }), "file:///repo/src/main.ts#L7:2");
+
+    expect(mocks.openTerminalLink).not.toHaveBeenCalled();
+
+    linkHandler.hover(new MouseEvent("mousemove"), "file:///repo/src/main.ts#L7:2");
+    const host = container.querySelector(".terminal-host");
+    expect(host).not.toBeNull();
+    fireEvent.mouseDown(host as Element, { button: 0, ctrlKey: true });
 
     expect(mocks.openTerminalLink).toHaveBeenCalledWith("run-1", {
       kind: "file",
       path: "/repo/src/main.ts",
       line: 7,
       column: 2
+    });
+  });
+
+  it("opens detected file references only with Ctrl+primary-click", async () => {
+    const { container } = render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
+    await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
+    mocks.terminals[0].getLine.mockReturnValue({
+      translateToString: () => "Edit src/main.ts:9"
+    });
+    const provider = mocks.terminals[0].registerLinkProvider.mock.calls[0][0] as {
+      provideLinks: (line: number, callback: (links: Array<{
+        text: string;
+        activate: (event: MouseEvent, text: string) => void;
+        hover?: (event: MouseEvent, text: string) => void;
+      }> | undefined) => void) => void;
+    };
+    let links: Array<{
+      text: string;
+      activate: (event: MouseEvent, text: string) => void;
+      hover?: (event: MouseEvent, text: string) => void;
+    }> | undefined;
+    provider.provideLinks(1, (provided) => {
+      links = provided;
+    });
+    const link = links?.[0];
+    expect(link).toBeDefined();
+
+    link?.activate(new MouseEvent("click", { button: 0 }), link.text);
+    expect(mocks.openTerminalLink).not.toHaveBeenCalled();
+
+    link?.activate(new MouseEvent("click", { button: 0, ctrlKey: true }), link.text);
+    expect(mocks.openTerminalLink).toHaveBeenCalledWith("run-1", {
+      kind: "file",
+      path: "src/main.ts",
+      line: 9
+    });
+
+    mocks.openTerminalLink.mockClear();
+    link?.hover?.(new MouseEvent("mousemove"), link.text);
+    const host = container.querySelector(".terminal-host");
+    expect(host).not.toBeNull();
+    fireEvent.mouseDown(host as Element, { button: 0, ctrlKey: true });
+    expect(mocks.openTerminalLink).toHaveBeenCalledWith("run-1", {
+      kind: "file",
+      path: "src/main.ts",
+      line: 9
     });
   });
 

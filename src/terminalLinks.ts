@@ -21,6 +21,12 @@ interface TerminalBufferReader {
   };
 }
 
+interface TerminalLinkInteraction {
+  activate(target: TerminalLinkTarget, event: MouseEvent): void;
+  hover?(target: TerminalLinkTarget): void;
+  leave?(target: TerminalLinkTarget): void;
+}
+
 const TERMINAL_TOKEN = /\S+/g;
 const FILE_LOCATION = /(?::(\d+)(?::(\d+))?|#L(\d+)(?::?C?(\d+))?)$/i;
 const FILE_NAME = /(?:^|\/)(?:[^/]+\.[a-z][a-z0-9_-]{0,15}|Dockerfile|Makefile)$/i;
@@ -77,7 +83,7 @@ export function terminalLinkTargetFromUri(uri: string): TerminalLinkTarget | nul
 
 export function createTerminalLinkProvider(
   terminal: TerminalBufferReader,
-  activate: (target: TerminalLinkTarget) => void
+  interaction: TerminalLinkInteraction
 ): ILinkProvider {
   return {
     provideLinks(bufferLineNumber, callback) {
@@ -93,11 +99,19 @@ export function createTerminalLinkProvider(
           start: { x: link.startIndex + 1, y: bufferLineNumber },
           end: { x: link.endIndex, y: bufferLineNumber }
         },
-        activate: () => activate(link.target)
+        activate: (event) => interaction.activate(link.target, event),
+        hover: () => interaction.hover?.(link.target),
+        leave: () => interaction.leave?.(link.target)
       }));
       callback(links.length ? links : undefined);
     }
   };
+}
+
+export function shouldOpenTerminalLink(
+  event: Pick<MouseEvent, "button" | "ctrlKey">
+): boolean {
+  return event.button === 0 && event.ctrlKey;
 }
 
 function targetFromToken(token: string): TerminalLinkTarget | null {

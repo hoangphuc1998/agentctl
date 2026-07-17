@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createTerminalLinkProvider,
   detectTerminalLinks,
+  shouldOpenTerminalLink,
   terminalLinkTargetFromUri
 } from "./terminalLinks";
 
@@ -83,7 +84,7 @@ describe("createTerminalLinkProvider", () => {
           }
         }
       },
-      activate
+      { activate }
     );
     const callback = vi.fn();
 
@@ -95,11 +96,27 @@ describe("createTerminalLinkProvider", () => {
       start: { x: 6, y: 3 },
       end: { x: 18, y: 3 }
     });
-    links[0].activate(new MouseEvent("click"), links[0].text);
-    expect(activate).toHaveBeenCalledWith({
-      kind: "file",
-      path: "src/main.ts",
-      line: 9
-    });
+    const event = new MouseEvent("click", { button: 0, ctrlKey: true });
+    links[0].activate(event, links[0].text);
+    expect(activate).toHaveBeenCalledWith(
+      {
+        kind: "file",
+        path: "src/main.ts",
+        line: 9
+      },
+      event
+    );
+  });
+});
+
+describe("shouldOpenTerminalLink", () => {
+  it("accepts Ctrl+primary-click and rejects unmodified or non-primary clicks", () => {
+    expect(shouldOpenTerminalLink(new MouseEvent("click", { button: 0, ctrlKey: true }))).toBe(
+      true
+    );
+    expect(shouldOpenTerminalLink(new MouseEvent("click", { button: 0 }))).toBe(false);
+    expect(shouldOpenTerminalLink(new MouseEvent("click", { button: 1, ctrlKey: true }))).toBe(
+      false
+    );
   });
 });

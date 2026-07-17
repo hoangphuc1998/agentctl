@@ -1,7 +1,7 @@
 import { FitAddon } from "@xterm/addon-fit";
 import { Terminal } from "@xterm/xterm";
 import { Terminal as TerminalIcon } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   closeTerminal,
   listenTerminalClosed,
@@ -13,6 +13,7 @@ import {
 } from "../api";
 import {
   createTerminalLinkProvider,
+  shouldOpenTerminalLink,
   terminalLinkTargetFromUri,
   type TerminalLinkTarget
 } from "../terminalLinks";
@@ -32,13 +33,14 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
   const terminalIdRef = useRef<string | null>(null);
   const activeRef = useRef(active);
   const selectedRunIdRef = useRef<string | null>(null);
+  const hoveredLinkRef = useRef<TerminalLinkTarget | null>(null);
   const [status, setStatus] = useState("Select a run to attach a terminal.");
   const selectedRunId = selectedRun?.id ?? null;
   const selectedRunName = selectedRun?.runName ?? null;
   const selectedRunRestorable = selectedRun?.restorable ?? false;
   selectedRunIdRef.current = selectedRunId;
 
-  const openDetectedLink = useCallback(
+  const openLinkTarget = useCallback(
     (target: TerminalLinkTarget) => {
       const runId = selectedRunIdRef.current;
       if (!runId) return;
@@ -46,6 +48,33 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
     },
     [onError]
   );
+
+  const activateDetectedLink = useCallback(
+    (target: TerminalLinkTarget, event: MouseEvent) => {
+      if (!shouldOpenTerminalLink(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openLinkTarget(target);
+    },
+    [openLinkTarget]
+  );
+
+  const captureCtrlLinkMouseDown = useCallback(
+    (event: ReactMouseEvent<HTMLDivElement>) => {
+      const target = hoveredLinkRef.current;
+      if (!target || !shouldOpenTerminalLink(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      openLinkTarget(target);
+    },
+    [openLinkTarget]
+  );
+
+  const captureCtrlLinkMouseEnd = useCallback((event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!hoveredLinkRef.current || !shouldOpenTerminalLink(event)) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
 
   const fitAndResizeTerminal = useCallback(() => {
     const fit = fitRef.current;
@@ -85,9 +114,15 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
       minimumContrastRatio: 4.5,
       linkHandler: {
         allowNonHttpProtocols: true,
-        activate: (_event, uri) => {
+        activate: (event, uri) => {
           const target = terminalLinkTargetFromUri(uri);
-          if (target) openDetectedLink(target);
+          if (target) activateDetectedLink(target, event);
+        },
+        hover: (_event, uri) => {
+          hoveredLinkRef.current = terminalLinkTargetFromUri(uri);
+        },
+        leave: () => {
+          hoveredLinkRef.current = null;
         }
       },
       theme: {
@@ -100,7 +135,15 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
     const fit = new FitAddon();
     terminal.loadAddon(fit);
     const linkProvider = terminal.registerLinkProvider(
-      createTerminalLinkProvider(terminal, openDetectedLink)
+      createTerminalLinkProvider(terminal, {
+        activate: activateDetectedLink,
+        hover: (target) => {
+          hoveredLinkRef.current = target;
+        },
+        leave: () => {
+          hoveredLinkRef.current = null;
+        }
+      })
     );
     terminalRef.current = terminal;
     fitRef.current = fit;
@@ -121,7 +164,7 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
       terminalRef.current = null;
       fitRef.current = null;
     };
-  }, [fitAndResizeTerminal, onError, openDetectedLink]);
+  }, [activateDetectedLink, fitAndResizeTerminal, onError]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -291,7 +334,14 @@ export function TerminalPane({ selectedRun, active = true, onError }: TerminalPa
           </Chip>
         </span>
       </div>
-      <div className="terminal-host" ref={hostRef} />
+      <div
+        className="terminal-host"
+        ref={hostRef}
+        title="Ctrl+Click a link or file to open it"
+        onMouseDownCapture={captureCtrlLinkMouseDown}
+        onMouseUpCapture={captureCtrlLinkMouseEnd}
+        onClickCapture={captureCtrlLinkMouseEnd}
+      />
     </section>
   );
 }

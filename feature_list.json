@@ -546,6 +546,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-16 12:11 +07: Added pure terminal URL/file detection, an xterm link provider, OSC 8 activation, and a validated Tauri open command. HTTP(S) links launch through xdg-open; existing files contained by the selected run worktree launch in VS Code with optional line/column navigation. RED tests failed for the missing detector/provider/backend plan, then focused tests passed with 16 frontend and 5 terminal-plan tests. cargo fmt --check, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, npm run build, and final ./init.sh passed with 12 Vitest files/81 tests, npm build, and all default Rust tests."
+    },
+    {
+      "id": "feat-054",
+      "name": "Embedded Terminal Ctrl+Click Activation",
+      "description": "Require Ctrl+primary-click to open detected terminal URLs, file references, and OSC 8 hyperlinks while leaving unmodified clicks available to tmux.",
+      "dependencies": [
+        "feat-053"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-17 11:12 +07: Added RED coverage proving plain detected links and OSC 8 hyperlinks opened without Ctrl, provider adapters discarded mouse events, and no shared modifier policy existed. Added a shared Ctrl+primary-click policy, forwarded real xterm mouse events, tracked hovered plain/OSC targets, and intercepted the modified gesture during React capture before tmux mouse mode could consume it. Ordinary clicks remain available to tmux, and the terminal exposes a Ctrl+Click usage tooltip. Focused tests passed with 18 tests; npm run build, git diff --check, and final ./init.sh passed with 12 Vitest files/83 tests, npm build, and all default Rust tests."
     }
   ]
 }

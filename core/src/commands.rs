@@ -590,8 +590,15 @@ pub fn shell_join(args: &[String]) -> String {
         .join(" ")
 }
 
+pub fn login_shell_command(args: &[String]) -> String {
+    format!(
+        "\"${{SHELL:-/bin/sh}}\" -lic {}",
+        shell_quote(&shell_join(args))
+    )
+}
+
 pub fn shell_command_with_failure_diagnostics(args: &[String]) -> String {
-    let agent_command = shell_join(args);
+    let agent_command = login_shell_command(args);
     let launch_command = if args.first().map(String::as_str) == Some("codex")
         && args.iter().any(|arg| arg == "--remote")
     {
@@ -624,7 +631,24 @@ mod tests {
 
     use crate::agent::{AgentKind, LaunchPlan};
 
-    use super::{AgentCommandBuilder, GitCommandBuilder, CODEX_APP_SERVER_URL};
+    use super::{
+        shell_command_with_failure_diagnostics, AgentCommandBuilder, GitCommandBuilder,
+        CODEX_APP_SERVER_URL,
+    };
+
+    #[test]
+    fn codex_launch_uses_login_shell_environment_for_nvm_installations() {
+        let command = shell_command_with_failure_diagnostics(&AgentCommandBuilder::new().launch(
+            LaunchPlan {
+                agent: AgentKind::Codex,
+                worktree_path: "/repo-worktree".into(),
+                session_id: None,
+            },
+        ));
+
+        assert!(command
+            .contains("then \"${SHELL:-/bin/sh}\" -lic 'codex --remote ws://127.0.0.1:17655'"));
+    }
 
     #[test]
     fn untracked_files_command_excludes_ignored_files_and_uses_null_output() {

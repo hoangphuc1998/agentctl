@@ -10,9 +10,9 @@ use uuid::Uuid;
 use crate::{
     agent::{AgentKind, LaunchPlan},
     commands::{
-        shell_command_with_failure_diagnostics, shell_join, AgentCommandBuilder,
-        EditorCommandBuilder, GitCommandBuilder, TerminalColorEnvironment, TmuxCommandBuilder,
-        CODEX_APP_SERVER_TMUX_SESSION, CODEX_APP_SERVER_URL,
+        login_shell_command, shell_command_with_failure_diagnostics, shell_join,
+        AgentCommandBuilder, EditorCommandBuilder, GitCommandBuilder, TerminalColorEnvironment,
+        TmuxCommandBuilder, CODEX_APP_SERVER_TMUX_SESSION, CODEX_APP_SERVER_URL,
     },
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
     registry::{RegistryResult, SqliteRegistry},
@@ -540,7 +540,7 @@ where
         return Ok(());
     }
 
-    let command = shell_join(&[
+    let command = login_shell_command(&[
         "codex".to_string(),
         "app-server".to_string(),
         "--listen".to_string(),
@@ -1178,9 +1178,10 @@ mod tests {
         assert!(runner.commands.iter().any(|command| {
             command_contains(command, "new-session")
                 && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION)
-                && command
-                    .last()
-                    .is_some_and(|part| part.contains("codex app-server --listen"))
+                && command.last().is_some_and(|part| {
+                    part.contains("\"${SHELL:-/bin/sh}\" -lic")
+                        && part.contains("codex app-server --listen")
+                })
         }));
     }
 

@@ -606,6 +606,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-17 15:50 +07: Reproduced the previous-run flash with controlled out-of-order dashboard promises: an old refresh completed after a run click and temporarily restored its selectedRunId before the click refresh completed. Added latest-request sequencing to dashboard loading so stale success, error, and completion state cannot overwrite the current request. The RED regression failed on the old-run rollback and passed after the fix; all 26 App tests and final ./init.sh passed with 12 Vitest files/84 tests, npm build, and all Rust tests."
+    },
+    {
+      "id": "feat-060",
+      "name": "Codex App-Server Health Recovery",
+      "description": "Replace a restored or crashed managed Codex app-server tmux session when its readiness endpoint is unavailable so new Codex panels can start.",
+      "dependencies": [
+        "feat-059"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-21 10:39 +07: Live tmux inspection found agentctl-codex restored as an idle zsh while startup accepted the matching $HOME session without checking /readyz, causing every remote panel wrapper to exit 1 after its readiness wait. Added RED/GREEN core coverage for unhealthy and healthy stable-directory sessions, then made ensure_codex_app_server require both the stable pane cwd and a bounded /readyz probe before reusing a session; unhealthy sessions are killed and recreated. Focused tests, cargo fmt, tauri-app cargo check, git diff checks, and final ./init.sh passed with 12 Vitest files/85 tests, npm build, 39 core unit tests, and all Rust tests. Live recovery also succeeded: /readyz returned success and the replacement pane runs the Codex app-server node process from /home/phuctth."
     }
   ]
 }

@@ -12,7 +12,8 @@ use crate::{
     commands::{
         login_shell_command, shell_command_with_failure_diagnostics, shell_join,
         AgentCommandBuilder, EditorCommandBuilder, GitCommandBuilder, TerminalColorEnvironment,
-        TmuxCommandBuilder, CODEX_APP_SERVER_TMUX_SESSION, CODEX_APP_SERVER_URL,
+        TmuxCommandBuilder, CODEX_APP_SERVER_READY_URL, CODEX_APP_SERVER_TMUX_SESSION,
+        CODEX_APP_SERVER_URL,
     },
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
     registry::{RegistryResult, SqliteRegistry},
@@ -539,7 +540,9 @@ where
     let server_cwd = codex_app_server_working_directory(cwd);
     if runner.succeeds(&tmux.has_session())? {
         let current_path = runner.output(&tmux.pane_current_path("app-server"))?;
-        if Path::new(current_path.trim()) == server_cwd {
+        if Path::new(current_path.trim()) == server_cwd
+            && runner.succeeds(&codex_app_server_ready_command())?
+        {
             return Ok(());
         }
         runner.run(&tmux.kill_session())?;
@@ -552,6 +555,18 @@ where
         CODEX_APP_SERVER_URL.to_string(),
     ]);
     runner.run(&tmux.new_service_session("app-server", path_str(&server_cwd), &command))
+}
+
+fn codex_app_server_ready_command() -> Vec<String> {
+    vec![
+        "curl".to_string(),
+        "--fail".to_string(),
+        "--silent".to_string(),
+        "--show-error".to_string(),
+        "--max-time".to_string(),
+        "1".to_string(),
+        CODEX_APP_SERVER_READY_URL.to_string(),
+    ]
 }
 
 fn codex_app_server_working_directory(fallback: &Path) -> PathBuf {
@@ -727,7 +742,9 @@ mod tests {
     use std::io;
 
     use crate::{
-        agent::AgentKind, commands::CODEX_APP_SERVER_TMUX_SESSION, registry::SqliteRegistry,
+        agent::AgentKind,
+        commands::{CODEX_APP_SERVER_READY_URL, CODEX_APP_SERVER_TMUX_SESSION},
+        registry::SqliteRegistry,
     };
 
     use super::{
@@ -744,6 +761,7 @@ mod tests {
         rev_parse_output: String,
         untracked_files_output: String,
         codex_server_exists: bool,
+        codex_server_ready: bool,
         codex_server_path: Option<String>,
     }
 
@@ -758,9 +776,14 @@ mod tests {
 
         fn succeeds(&mut self, command: &[String]) -> io::Result<bool> {
             self.commands.push(command.to_vec());
-            Ok(self.codex_server_exists
-                && command_contains(command, "has-session")
-                && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION))
+            if command_contains(command, "has-session")
+                && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION)
+            {
+                return Ok(self.codex_server_exists);
+            }
+            Ok(self.codex_server_ready
+                && command_contains(command, "curl")
+                && command_contains(command, CODEX_APP_SERVER_READY_URL))
         }
 
         fn output(&mut self, command: &[String]) -> io::Result<String> {
@@ -816,6 +839,60 @@ mod tests {
             command_contains(command, "new-session")
                 && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION)
         }));
+    }
+
+    #[test]
+    fn codex_app_server_replaces_unhealthy_session_from_stable_directory() {
+        let fallback = std::path::Path::new("/repo");
+        let stable_path = super::codex_app_server_working_directory(fallback);
+        let mut runner = RecordingRunner {
+            codex_server_exists: true,
+            codex_server_ready: false,
+            codex_server_path: Some(format!("{}\n", stable_path.display())),
+            ..RecordingRunner::default()
+        };
+
+        ensure_codex_app_server(&mut runner, fallback).expect("replace unhealthy server");
+
+        assert!(runner.commands.iter().any(|command| {
+            command_contains(command, "curl")
+                && command_contains(command, CODEX_APP_SERVER_READY_URL)
+        }));
+        assert!(runner
+            .commands
+            .iter()
+            .any(|command| command_contains(command, "kill-session")));
+        assert!(runner.commands.iter().any(|command| {
+            command_contains(command, "new-session")
+                && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION)
+        }));
+    }
+
+    #[test]
+    fn codex_app_server_preserves_healthy_session_from_stable_directory() {
+        let fallback = std::path::Path::new("/repo");
+        let stable_path = super::codex_app_server_working_directory(fallback);
+        let mut runner = RecordingRunner {
+            codex_server_exists: true,
+            codex_server_ready: true,
+            codex_server_path: Some(format!("{}\n", stable_path.display())),
+            ..RecordingRunner::default()
+        };
+
+        ensure_codex_app_server(&mut runner, fallback).expect("preserve healthy server");
+
+        assert!(runner.commands.iter().any(|command| {
+            command_contains(command, "curl")
+                && command_contains(command, CODEX_APP_SERVER_READY_URL)
+        }));
+        assert!(!runner
+            .commands
+            .iter()
+            .any(|command| command_contains(command, "kill-session")));
+        assert!(!runner
+            .commands
+            .iter()
+            .any(|command| command_contains(command, "new-session")));
     }
 
     #[test]

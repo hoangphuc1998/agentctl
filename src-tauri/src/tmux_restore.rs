@@ -305,7 +305,7 @@ pub fn rewrite_saved_resurrect_state(
         return Ok(());
     }
     let registry = SqliteRegistry::open(registry_path)?;
-    let runs = registry.list_active_runs()?;
+    let runs = registry.list_active_sessions()?;
     let current = fs::read_to_string(paths.last_resurrect_file())?;
     let rewritten = rewrite_resurrect_state(&current, &runs, managed_session);
     if rewritten != current {

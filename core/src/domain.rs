@@ -6,6 +6,21 @@ use uuid::Uuid;
 use crate::agent::AgentKind;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+pub enum WorkspaceKind {
+    Worktree,
+    Folder,
+}
+
+impl WorkspaceKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Worktree => "worktree",
+            Self::Folder => "folder",
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
 pub enum Lifecycle {
     Active,
     Stopped,
@@ -105,6 +120,7 @@ impl DetectionSource {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RunRecord {
     pub id: Uuid,
+    pub workspace_kind: WorkspaceKind,
     pub repo_path: PathBuf,
     pub repo_name: String,
     pub tag: String,
@@ -124,6 +140,20 @@ pub struct RunRecord {
     pub notification_seen_at: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
+}
+
+impl RunRecord {
+    pub fn workspace_path(&self) -> &std::path::Path {
+        &self.worktree_path
+    }
+
+    pub fn is_worktree(&self) -> bool {
+        self.workspace_kind == WorkspaceKind::Worktree
+    }
+
+    pub fn is_folder(&self) -> bool {
+        self.workspace_kind == WorkspaceKind::Folder
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

@@ -7,6 +7,7 @@ import {
   Command,
   Copy,
   FileDiff,
+  Folder,
   FolderGit2,
   GitBranch,
   GitMerge,
@@ -79,6 +80,7 @@ const emptyDashboard: DashboardState = {
   staleCount: 0,
   restorableCount: 0,
   activeRepoPath: null,
+  activeFolderPath: null,
   hostTools: []
 };
 
@@ -183,7 +185,8 @@ export function App() {
   const openCreateRunFromRepo = useCallback(
     (repo: RepoNode) => {
       openCreateRun({
-        repoPath: repo.repoPath,
+        workspaceKind: repo.workspaceKind,
+        repoPath: repo.workspacePath,
         baseRef: "HEAD",
         tag: "default",
         agent: "codex"
@@ -195,7 +198,9 @@ export function App() {
   const openCreateRunFromRun = useCallback(
     (run: RunView) => {
       openCreateRun({
-        repoPath: run.repoPath,
+        workspaceKind: run.workspaceKind,
+        repoPath:
+          run.workspaceKind === "folder" ? run.workspacePath : run.repoPath,
         baseRef: run.baseRef,
         tag: run.tag,
         agent: run.agent
@@ -258,6 +263,12 @@ export function App() {
         console.warn("Failed to update app icon badge count.", err);
       });
   }, [dashboard.attentionCount]);
+
+  useEffect(() => {
+    if (selectedRun?.workspaceKind === "folder" && activeRunView === "diff") {
+      setActiveRunView("terminal");
+    }
+  }, [activeRunView, selectedRun?.workspaceKind]);
 
   useEffect(() => {
     function handleGlobalShortcut(event: KeyboardEvent) {
@@ -406,12 +417,17 @@ export function App() {
       return "This preserves worktrees and branches while hiding active runs whose tmux windows are unavailable.";
     }
     if (action.kind === "end") {
+      if (action.run.workspaceKind === "folder") {
+        return `This stops and forgets the managed session. ${action.run.workspacePath} and all files inside it will be preserved.`;
+      }
       return `This removes ${action.run.worktreePath} and deletes branch ${action.run.branch}.`;
     }
     if (action.kind === "merge") {
       return `This merges branch ${action.run.branch} into the repository default branch. Both trees must be clean.`;
     }
-    return "This stops the tmux window and keeps the worktree and branch restorable.";
+    return action.run.workspaceKind === "folder"
+      ? "This stops the tmux window and preserves the folder and all files."
+      : "This stops the tmux window and keeps the worktree and branch restorable.";
   }
 
   return (
@@ -514,7 +530,7 @@ export function App() {
               <Search size={16} />
               <span>Workspaces</span>
             </span>
-            <Chip tone="neutral">{dashboard.repos.length} repos</Chip>
+            <Chip tone="neutral">{dashboard.repos.length} workspaces</Chip>
           </div>
           <div className="repo-run-tree-scroll">
             <RepoRunTree
@@ -537,7 +553,17 @@ export function App() {
                     <h2>{selectedRun.runName}</h2>
                   </div>
                   <div className="run-chip-row" aria-label="Selected run metadata">
-                    <Chip tone="neutral" icon={<FolderGit2 size={14} />} title={selectedRun.repoPath}>
+                    <Chip
+                      tone="neutral"
+                      icon={
+                        selectedRun.workspaceKind === "folder" ? (
+                          <Folder size={14} />
+                        ) : (
+                          <FolderGit2 size={14} />
+                        )
+                      }
+                      title={selectedRun.workspacePath}
+                    >
                       {selectedRun.repoName}
                     </Chip>
                     <Chip tone="info" icon={<Tag size={14} />}>
@@ -546,9 +572,19 @@ export function App() {
                     <Chip tone="neutral" icon={agentIcon(selectedRun.agent)}>
                       {selectedRun.agent}
                     </Chip>
-                    <Chip tone="neutral" icon={<GitBranch size={14} />} title={selectedRun.worktreePath}>
-                      {selectedRun.baseRef} -&gt; {selectedRun.branch}
-                    </Chip>
+                    {selectedRun.workspaceKind === "worktree" ? (
+                      <Chip
+                        tone="neutral"
+                        icon={<GitBranch size={14} />}
+                        title={selectedRun.worktreePath}
+                      >
+                        {selectedRun.baseRef} -&gt; {selectedRun.branch}
+                      </Chip>
+                    ) : (
+                      <Chip tone="neutral" icon={<Folder size={14} />} title={selectedRun.workspacePath}>
+                        direct folder
+                      </Chip>
+                    )}
                   </div>
                 </div>
                 <div className="run-actions">
@@ -560,13 +596,15 @@ export function App() {
                   <button className="icon-button" onClick={openCode} title="Open in VS Code">
                     <Monitor size={18} />
                   </button>
-                  <button
-                    className="icon-button"
-                    onClick={() => setPendingAction({ kind: "merge", run: selectedRun })}
-                    title="Merge"
-                  >
-                    <GitMerge size={18} />
-                  </button>
+                  {selectedRun.workspaceKind === "worktree" && (
+                    <button
+                      className="icon-button"
+                      onClick={() => setPendingAction({ kind: "merge", run: selectedRun })}
+                      title="Merge"
+                    >
+                      <GitMerge size={18} />
+                    </button>
+                  )}
                   <button
                     className="icon-button"
                     onClick={() => setPendingAction({ kind: "stop", run: selectedRun })}
@@ -614,28 +652,38 @@ export function App() {
                 <Terminal size={15} />
                 Terminal
               </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeRunView === "diff"}
-                className={activeRunView === "diff" ? "selected" : ""}
-                onClick={() => setActiveRunView("diff")}
-              >
-                <FileDiff size={15} />
-                Diff
-              </button>
+              {selectedRun.workspaceKind === "worktree" && (
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeRunView === "diff"}
+                  className={activeRunView === "diff" ? "selected" : ""}
+                  onClick={() => setActiveRunView("diff")}
+                >
+                  <FileDiff size={15} />
+                  Diff
+                </button>
+              )}
             </div>
           )}
 
           <div className="run-view-stack">
-            <div className="run-view-panel" hidden={activeRunView !== "terminal"}>
+            <div
+              className="run-view-panel"
+              hidden={
+                activeRunView !== "terminal" && selectedRun?.workspaceKind !== "folder"
+              }
+            >
               <TerminalPane
                 selectedRun={selectedRun}
-                active={activeRunView === "terminal"}
+                active={activeRunView === "terminal" || selectedRun?.workspaceKind === "folder"}
                 onError={setError}
               />
             </div>
-            <div className="run-view-panel" hidden={activeRunView !== "diff"}>
+            <div
+              className="run-view-panel"
+              hidden={activeRunView !== "diff" || selectedRun?.workspaceKind === "folder"}
+            >
               <RunDiffPane
                 selectedRun={selectedRun}
                 active={activeRunView === "diff"}
@@ -649,6 +697,7 @@ export function App() {
       <CreateRunModal
         open={createOpen}
         activeRepoPath={dashboard.activeRepoPath}
+        activeFolderPath={dashboard.activeFolderPath}
         defaults={createDefaults}
         onClose={closeCreateRun}
         onCreated={(run) => {

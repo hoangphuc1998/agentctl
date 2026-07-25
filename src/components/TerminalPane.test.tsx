@@ -335,6 +335,8 @@ describe("shouldForwardTerminalInput", () => {
 function runView(): RunView {
   return {
     id: "run-1",
+    workspaceKind: "worktree",
+    workspacePath: "/repo-worktrees/terminal-fix",
     repoPath: "/repo",
     repoName: "repo",
     tag: "feature",

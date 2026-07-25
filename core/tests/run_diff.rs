@@ -6,7 +6,7 @@ use std::{
 use agentctl_core::{
     agent::AgentKind,
     diff::load_run_diff,
-    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
+    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord, WorkspaceKind},
 };
 use tempfile::TempDir;
 use uuid::Uuid;
@@ -88,6 +88,7 @@ fn git_repo() -> TempDir {
 fn run_record(worktree_path: &Path, base_commit: &str) -> RunRecord {
     RunRecord {
         id: Uuid::new_v4(),
+        workspace_kind: WorkspaceKind::Worktree,
         repo_path: PathBuf::from(worktree_path),
         repo_name: "repo".to_string(),
         tag: "feature".to_string(),

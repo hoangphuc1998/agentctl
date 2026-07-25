@@ -180,6 +180,20 @@ async fn resume_run(
     let id =
         Uuid::parse_str(&run_id).map_err(|err| BridgeApiError::bad_request(err.to_string()))?;
     let registry = registry(&state)?;
+    let Some(run) = registry
+        .get_run(id)
+        .map_err(|err| BridgeApiError::internal(err.to_string()))?
+    else {
+        return Ok(Json(ActionResult {
+            message: format!("Run not found: {run_id}"),
+            run: None,
+        }));
+    };
+    if run.is_folder() {
+        return Err(BridgeApiError::bad_request(
+            "folder sessions are desktop-only",
+        ));
+    }
     let mut app = App::new(registry, SystemCommandRunner, AppConfig::from_environment());
     let run = app
         .restore_run(id)
@@ -325,6 +339,11 @@ fn attach_terminal(
             })
         }
     };
+    if run.is_folder() {
+        return Some(StreamServerMessage::Error {
+            message: "folder sessions are desktop-only".to_string(),
+        });
+    }
     if let Some(window) = run.tmux_window.as_deref() {
         let session = run.tmux_session.as_deref().unwrap_or(TMUX_SESSION);
         if let Ok(snapshot) = Tmux::new(session).snapshot_window(window) {
@@ -570,6 +589,7 @@ fn build_mobile_dashboard(state: &BridgeServerState) -> Result<DashboardState, B
     Ok(build_dashboard_state(
         active,
         active_repo_path,
+        None,
         host_tool_statuses(),
         None,
     ))

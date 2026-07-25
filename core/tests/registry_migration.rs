@@ -1,5 +1,10 @@
-use agentctl_core::registry::SqliteRegistry;
+use agentctl_core::{
+    agent::AgentKind,
+    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord, WorkspaceKind},
+    registry::SqliteRegistry,
+};
 use rusqlite::{params, Connection};
+use std::path::PathBuf;
 use uuid::Uuid;
 
 #[test]
@@ -79,4 +84,52 @@ fn registry_migration_adds_nullable_base_commit_to_existing_runs() {
     assert_eq!(runs.len(), 1);
     assert_eq!(runs[0].run_name, "diff-review");
     assert_eq!(runs[0].base_commit, None);
+}
+
+#[test]
+fn folder_sessions_are_persisted_outside_the_legacy_runs_table() {
+    let registry = SqliteRegistry::in_memory().expect("registry");
+    let id = Uuid::new_v4();
+    let folder = PathBuf::from("/workspace/product");
+    let session = RunRecord {
+        id,
+        workspace_kind: WorkspaceKind::Folder,
+        repo_path: folder.clone(),
+        repo_name: "product".to_string(),
+        tag: "default".to_string(),
+        run_name: "investigate".to_string(),
+        agent: AgentKind::Claude,
+        lifecycle: Lifecycle::Active,
+        observed_state: ObservedState::Running,
+        detection_source: DetectionSource::Tmux,
+        branch: String::new(),
+        base_ref: String::new(),
+        base_commit: None,
+        worktree_path: folder.clone(),
+        tmux_session: Some("agentctl".to_string()),
+        tmux_window: Some("product__default__investigate__12345678".to_string()),
+        tmux_pane: None,
+        agent_session_id: Some(Uuid::new_v4()),
+        notification_seen_at: None,
+        created_at: 1,
+        updated_at: 2,
+    };
+
+    registry
+        .upsert_run(&session)
+        .expect("persist folder session");
+    registry
+        .set_active_folder_path(&folder)
+        .expect("active folder");
+
+    assert!(registry.list_active_runs().expect("legacy runs").is_empty());
+    assert_eq!(
+        registry.list_active_sessions().expect("managed sessions"),
+        vec![session.clone()]
+    );
+    assert_eq!(registry.get_run(id).expect("session"), Some(session));
+    assert_eq!(
+        registry.active_folder_path().expect("active folder"),
+        Some(folder)
+    );
 }

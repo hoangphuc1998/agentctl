@@ -616,6 +616,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-21 10:39 +07: Live tmux inspection found agentctl-codex restored as an idle zsh while startup accepted the matching $HOME session without checking /readyz, causing every remote panel wrapper to exit 1 after its readiness wait. Added RED/GREEN core coverage for unhealthy and healthy stable-directory sessions, then made ensure_codex_app_server require both the stable pane cwd and a bounded /readyz probe before reusing a session; unhealthy sessions are killed and recreated. Focused tests, cargo fmt, tauri-app cargo check, git diff checks, and final ./init.sh passed with 12 Vitest files/85 tests, npm build, 39 core unit tests, and all Rust tests. Live recovery also succeeded: /readyz returned success and the replacement pane runs the Codex app-server node process from /home/phuctth."
+    },
+    {
+      "id": "feat-061",
+      "name": "Direct Folder Agent Sessions",
+      "description": "Launch and manage multiple named Codex or Claude desktop sessions directly in an existing folder without creating or deleting Git worktrees.",
+      "dependencies": [
+        "feat-060"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-25 23:13 +07: Added desktop-only direct folder sessions with a Worktree/Folder New Run selector, separate SQLite persistence, recent-folder suggestions, multiple named Codex/Claude sessions per directory, tmux restart rewriting, and one-to-one Codex provider-thread assignment for shared working directories. Folder actions omit Git diff/merge, and Stop/End preserve the directory and files; Mobile Bridge lists and accepts only legacy worktree runs. Added core, migration, desktop-state, model, and React regression coverage plus README guidance. Verification passed: npm test (12 files/87 tests), npm run build, cargo test --workspace, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --all -- --check, git diff --check, and final ./init.sh."
     }
   ]
 }

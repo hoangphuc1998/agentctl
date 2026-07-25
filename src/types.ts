@@ -1,4 +1,5 @@
 export type AgentKind = "codex" | "claude";
+export type WorkspaceKind = "worktree" | "folder";
 export type Lifecycle = "active" | "stopped" | "ended";
 export type ObservedState =
   | "running"
@@ -9,6 +10,8 @@ export type ObservedState =
 
 export interface RunView {
   id: string;
+  workspaceKind: WorkspaceKind;
+  workspacePath: string;
   repoPath: string;
   repoName: string;
   tag: string;
@@ -26,6 +29,8 @@ export interface RunView {
 }
 
 export interface RepoNode {
+  workspaceKind: WorkspaceKind;
+  workspacePath: string;
   repoName: string;
   repoPath: string;
   runs: RunView[];
@@ -45,6 +50,7 @@ export interface DashboardState {
   staleCount: number;
   restorableCount: number;
   activeRepoPath: string | null;
+  activeFolderPath: string | null;
   hostTools: HostToolStatus[];
 }
 
@@ -81,6 +87,13 @@ export interface CreateRunPayload {
   copyIgnoredFiles: boolean;
 }
 
+export interface CreateFolderSessionPayload {
+  folderPath: string;
+  tag: string;
+  runName: string;
+  agent: AgentKind;
+}
+
 export interface IgnoredFilesPreview {
   fileCount: number;
   totalBytes: number;
@@ -88,6 +101,7 @@ export interface IgnoredFilesPreview {
 }
 
 export interface CreateRunDefaults {
+  workspaceKind?: WorkspaceKind;
   repoPath?: string;
   baseRef?: string;
   tag?: string;

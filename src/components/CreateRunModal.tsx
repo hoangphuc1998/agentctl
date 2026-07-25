@@ -1,20 +1,30 @@
-import { Bot, Files, Folder, FolderOpen, GitBranch, Play, Tag, Type, X } from "lucide-react";
+import { Bot, Files, Folder, FolderGit2, FolderOpen, GitBranch, Play, Tag, Type, X } from "lucide-react";
 import { useEffect, useState } from "react";
-import { chooseDirectory, createRun, ignoredFilesPreview, repoSuggestions } from "../api";
+import {
+  chooseDirectory,
+  createFolderSession,
+  createRun,
+  folderSuggestions,
+  ignoredFilesPreview,
+  repoSuggestions
+} from "../api";
 import { Chip } from "./Chip";
 import { ConfirmDialog } from "./ConfirmDialog";
 import type {
   AgentKind,
+  CreateFolderSessionPayload,
   CreateRunDefaults,
   CreateRunPayload,
   IgnoredFilesPreview,
-  RunView
+  RunView,
+  WorkspaceKind
 } from "../types";
 import type { Suggestion } from "../api";
 
 interface CreateRunModalProps {
   open: boolean;
   activeRepoPath: string | null;
+  activeFolderPath?: string | null;
   defaults?: CreateRunDefaults | null;
   onClose: () => void;
   onCreated: (run: RunView) => void;
@@ -24,17 +34,25 @@ interface CreateRunModalProps {
 export function CreateRunModal({
   open,
   activeRepoPath,
+  activeFolderPath,
   defaults,
   onClose,
   onCreated,
   onError
 }: CreateRunModalProps) {
-  const initialValues = createInitialValues(defaults, activeRepoPath);
+  const initialValues = createInitialValues(
+    defaults,
+    activeRepoPath,
+    activeFolderPath ?? null
+  );
   const [repoPath, setRepoPath] = useState(initialValues.repoPath);
   const [baseRef, setBaseRef] = useState(initialValues.baseRef);
   const [tag, setTag] = useState(initialValues.tag);
   const [runName, setRunName] = useState("");
   const [agent, setAgent] = useState<AgentKind>(initialValues.agent);
+  const [workspaceKind, setWorkspaceKind] = useState<WorkspaceKind>(
+    initialValues.workspaceKind
+  );
   const [busy, setBusy] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [repoPathFocused, setRepoPathFocused] = useState(false);
@@ -51,11 +69,12 @@ export function CreateRunModal({
 
   useEffect(() => {
     if (!open) return;
-    const next = createInitialValues(defaults, activeRepoPath);
+    const next = createInitialValues(defaults, activeRepoPath, activeFolderPath ?? null);
     setRepoPath(next.repoPath);
     setBaseRef(next.baseRef);
     setTag(next.tag);
     setAgent(next.agent);
+    setWorkspaceKind(next.workspaceKind);
     setRunName("");
     setSubmitError(null);
     setRepoPathFocused(false);
@@ -66,13 +85,15 @@ export function CreateRunModal({
     setIgnoredPreviewLoading(false);
     setIgnoredPreviewError(null);
     setPendingLargeCopy(null);
-  }, [activeRepoPath, defaults, open]);
+  }, [activeFolderPath, activeRepoPath, defaults, open]);
 
   useEffect(() => {
     if (!open || !repoPathFocused) return;
     let cancelled = false;
 
-    repoSuggestions(repoPath)
+    const suggestions =
+      workspaceKind === "folder" ? folderSuggestions(repoPath) : repoSuggestions(repoPath);
+    suggestions
       .then((suggestions) => {
         if (cancelled) return;
         setRepoPathOptions(suggestions);
@@ -87,10 +108,10 @@ export function CreateRunModal({
     return () => {
       cancelled = true;
     };
-  }, [open, repoPath, repoPathFocused]);
+  }, [open, repoPath, repoPathFocused, workspaceKind]);
 
   useEffect(() => {
-    if (!open || !copyIgnoredFiles || !repoPath.trim()) {
+    if (!open || workspaceKind !== "worktree" || !copyIgnoredFiles || !repoPath.trim()) {
       setIgnoredPreview(null);
       setIgnoredPreviewLoading(false);
       setIgnoredPreviewError(null);
@@ -121,16 +142,33 @@ export function CreateRunModal({
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [copyIgnoredFiles, open, repoPath]);
+  }, [copyIgnoredFiles, open, repoPath, workspaceKind]);
 
   if (!open) return null;
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!repoPath.trim() || !baseRef.trim() || !tag.trim() || !runName.trim()) {
-      const message = "Repo, base, tag, and run name are required.";
+    const missingRequired =
+      !repoPath.trim() ||
+      !tag.trim() ||
+      !runName.trim() ||
+      (workspaceKind === "worktree" && !baseRef.trim());
+    if (missingRequired) {
+      const message =
+        workspaceKind === "folder"
+          ? "Folder, tag, and session name are required."
+          : "Repo, base, tag, and run name are required.";
       setSubmitError(message);
       onError(message);
+      return;
+    }
+    if (workspaceKind === "folder") {
+      await performFolderCreate({
+        folderPath: repoPath.trim(),
+        tag: tag.trim(),
+        runName: runName.trim(),
+        agent
+      });
       return;
     }
     const payload: CreateRunPayload = {
@@ -164,6 +202,21 @@ export function CreateRunModal({
     }
 
     await performCreate(payload);
+  }
+
+  async function performFolderCreate(payload: CreateFolderSessionPayload) {
+    setBusy(true);
+    setSubmitError(null);
+    try {
+      const result = await createFolderSession(payload);
+      if (result.run) onCreated(result.run);
+    } catch (err) {
+      const message = errorMessage(err);
+      setSubmitError(message);
+      onError(message);
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function performCreate(payload: CreateRunPayload) {
@@ -207,6 +260,15 @@ export function CreateRunModal({
     setActiveRepoPathOption(-1);
   }
 
+  function selectWorkspaceKind(kind: WorkspaceKind) {
+    setWorkspaceKind(kind);
+    setRepoPath(kind === "folder" ? activeFolderPath ?? "" : activeRepoPath ?? "");
+    setRepoPathFocused(false);
+    setRepoPathOptions([]);
+    setActiveRepoPathOption(-1);
+    setSubmitError(null);
+  }
+
   function handleRepoPathKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (!repoPathFocused || repoPathOptions.length === 0) return;
 
@@ -239,6 +301,8 @@ export function CreateRunModal({
 
   const repoPathListId = "create-run-repo-path-suggestions";
   const showRepoPathOptions = repoPathFocused && repoPathOptions.length > 0;
+  const activeWorkspacePath =
+    workspaceKind === "folder" ? activeFolderPath : activeRepoPath;
 
   return (
     <>
@@ -247,11 +311,15 @@ export function CreateRunModal({
         <div className="modal-header">
           <div>
             <p className="eyebrow">New Run</p>
-            <h2>Create worktree and launch agent</h2>
-            {activeRepoPath && (
+            <h2>
+              {workspaceKind === "folder"
+                ? "Launch agent in existing folder"
+                : "Create worktree and launch agent"}
+            </h2>
+            {activeWorkspacePath && (
               <div className="modal-header-chips">
-                <Chip tone="neutral" icon={<Folder size={14} />} title={activeRepoPath}>
-                  active repo
+                <Chip tone="neutral" icon={<Folder size={14} />} title={activeWorkspacePath}>
+                  {workspaceKind === "folder" ? "active folder" : "active repo"}
                 </Chip>
               </div>
             )}
@@ -261,8 +329,32 @@ export function CreateRunModal({
           </button>
         </div>
 
+        <fieldset className="workspace-kind-field">
+          <legend>Workspace mode</legend>
+          <div className="workspace-kind-control" role="group" aria-label="Workspace mode">
+            <button
+              type="button"
+              className={workspaceKind === "worktree" ? "workspace-kind active" : "workspace-kind"}
+              aria-pressed={workspaceKind === "worktree"}
+              onClick={() => selectWorkspaceKind("worktree")}
+            >
+              <FolderGit2 size={16} />
+              <span>Worktree</span>
+            </button>
+            <button
+              type="button"
+              className={workspaceKind === "folder" ? "workspace-kind active" : "workspace-kind"}
+              aria-pressed={workspaceKind === "folder"}
+              onClick={() => selectWorkspaceKind("folder")}
+            >
+              <Folder size={16} />
+              <span>Folder</span>
+            </button>
+          </div>
+        </fieldset>
+
         <label className="field-full">
-          Repo path
+          {workspaceKind === "folder" ? "Folder path" : "Repo path"}
           <div className="repo-path-picker">
             <div className="input-with-icon repo-path-input">
               <Folder size={16} />
@@ -290,8 +382,8 @@ export function CreateRunModal({
                 type="button"
                 className="icon-button repo-browse-button"
                 onClick={browseRepoFolder}
-                title="Browse repo folder"
-                aria-label="Browse repo folder"
+                title={workspaceKind === "folder" ? "Browse folder" : "Browse repo folder"}
+                aria-label={workspaceKind === "folder" ? "Browse folder" : "Browse repo folder"}
               >
                 <FolderOpen size={16} />
               </button>
@@ -323,7 +415,7 @@ export function CreateRunModal({
           </div>
         </label>
         <label className="field-full">
-          Run name
+          {workspaceKind === "folder" ? "Session name" : "Run name"}
           <div className="input-with-icon">
             <Type size={16} />
             <input value={runName} onChange={(event) => setRunName(event.target.value)} autoFocus />
@@ -331,13 +423,15 @@ export function CreateRunModal({
         </label>
 
         <div className="modal-field-grid">
-          <label>
-            Base ref
-            <div className="input-with-icon">
-              <GitBranch size={16} />
-              <input value={baseRef} onChange={(event) => setBaseRef(event.target.value)} />
-            </div>
-          </label>
+          {workspaceKind === "worktree" && (
+            <label>
+              Base ref
+              <div className="input-with-icon">
+                <GitBranch size={16} />
+                <input value={baseRef} onChange={(event) => setBaseRef(event.target.value)} />
+              </div>
+            </label>
+          )}
           <label>
             Tag
             <div className="input-with-icon">
@@ -363,7 +457,7 @@ export function CreateRunModal({
             </div>
           </fieldset>
         </div>
-        <div className="ignored-copy-card">
+        {workspaceKind === "worktree" && <div className="ignored-copy-card">
           <label className="ignored-copy-toggle">
             <input
               type="checkbox"
@@ -396,7 +490,7 @@ export function CreateRunModal({
               )}
             </div>
           )}
-        </div>
+        </div>}
         {submitError && (
           <label className="field-full">
             Error details
@@ -434,9 +528,18 @@ export function CreateRunModal({
 
 const agentOptions: AgentKind[] = ["codex", "claude"];
 
-function createInitialValues(defaults: CreateRunDefaults | null | undefined, activeRepoPath: string | null) {
+function createInitialValues(
+  defaults: CreateRunDefaults | null | undefined,
+  activeRepoPath: string | null,
+  activeFolderPath: string | null
+) {
+  const workspaceKind = defaults?.workspaceKind ?? "worktree";
   return {
-    repoPath: defaults?.repoPath ?? activeRepoPath ?? "",
+    workspaceKind,
+    repoPath:
+      defaults?.repoPath ??
+      (workspaceKind === "folder" ? activeFolderPath : activeRepoPath) ??
+      "",
     baseRef: defaults?.baseRef ?? "HEAD",
     tag: defaults?.tag ?? "default",
     agent: defaults?.agent ?? "codex"

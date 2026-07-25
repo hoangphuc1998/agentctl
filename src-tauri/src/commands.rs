@@ -4,7 +4,7 @@ use agentctl_core::{
     agent::AgentKind,
     app::{
         ensure_codex_app_server, preview_ignored_untracked_files, App, AppConfig, CommandRunner,
-        NewRunRequest, SystemCommandRunner,
+        NewFolderSessionRequest, NewRunRequest, SystemCommandRunner,
     },
     branches::{BranchLister, GitBranchLister},
     completion::{base_ref_candidates, repo_path_candidates},
@@ -22,13 +22,14 @@ use crate::{
     error::{DesktopError, DesktopResult},
     mobile_bridge::{BridgeBind, MobileBridgeStatus, PairingCode, PairingTime},
     models::{
-        host_tool_statuses, ActionResult, CreateRunPayload, DashboardState,
-        IgnoredFilesPreviewView, MergeActionResult, RunDiffView, Suggestion, TerminalStarted,
+        host_tool_statuses, ActionResult, CreateFolderSessionPayload, CreateRunPayload,
+        DashboardState, IgnoredFilesPreviewView, MergeActionResult, RunDiffView, Suggestion,
+        TerminalStarted,
     },
     services::{
         agent_attention_event_for_transition, agent_system_notification_for_event,
-        build_dashboard_state, is_stale_run, mark_selected_run_seen, observe_run,
-        observed_state_after_refresh, suggestions_from_candidates,
+        build_dashboard_state, codex_thread_assignments, is_stale_run, mark_selected_run_seen,
+        observe_run_with_thread, observed_state_after_refresh, suggestions_from_candidates,
     },
     state::DesktopState,
     terminal_plan::{terminal_link_command, TerminalLinkTarget},
@@ -88,6 +89,34 @@ pub async fn create_run(
 }
 
 #[tauri::command]
+pub async fn create_folder_session(
+    state: State<'_, DesktopState>,
+    payload: CreateFolderSessionPayload,
+) -> DesktopResult<ActionResult> {
+    let registry_path = state.registry_path().clone();
+    let agent = AgentKind::from_str(&payload.agent).map_err(DesktopError::Message)?;
+    let request = NewFolderSessionRequest {
+        folder_path: PathBuf::from(payload.folder_path),
+        tag: payload.tag,
+        run_name: payload.run_name,
+        agent,
+    };
+    let session = blocking_task(move || {
+        let registry = SqliteRegistry::open(&registry_path)?;
+        let mut app = App::new(registry, SystemCommandRunner, AppConfig::from_environment());
+        app.create_folder_session(request)
+            .map_err(DesktopError::from)
+    })
+    .await?;
+    save_tmux_restore_snapshot_best_effort();
+    state.set_selected_run_id(Some(session.id.to_string()))?;
+    Ok(ActionResult {
+        message: format!("Created folder session `{}`.", session.run_name),
+        run: Some(session.into()),
+    })
+}
+
+#[tauri::command]
 pub async fn ignored_files_preview(repo_path: String) -> DesktopResult<IgnoredFilesPreviewView> {
     blocking_task(move || {
         let repo_path = PathBuf::from(repo_path);
@@ -123,10 +152,19 @@ pub fn restore_run(state: State<'_, DesktopState>, run_id: String) -> DesktopRes
 pub fn stop_run(state: State<'_, DesktopState>, run_id: String) -> DesktopResult<ActionResult> {
     let id = parse_uuid(&run_id)?;
     let mut app = app(&state)?;
+    let is_folder = app
+        .registry()
+        .get_run(id)?
+        .map(|run| run.is_folder())
+        .unwrap_or(false);
     app.stop_run(id)?;
     save_tmux_restore_snapshot_best_effort();
     Ok(ActionResult {
-        message: "Stopped run. Worktree and branch preserved.".to_string(),
+        message: if is_folder {
+            "Stopped folder session. Folder and files preserved.".to_string()
+        } else {
+            "Stopped run. Worktree and branch preserved.".to_string()
+        },
         run: None,
     })
 }
@@ -135,10 +173,19 @@ pub fn stop_run(state: State<'_, DesktopState>, run_id: String) -> DesktopResult
 pub fn end_run(state: State<'_, DesktopState>, run_id: String) -> DesktopResult<ActionResult> {
     let id = parse_uuid(&run_id)?;
     let mut app = app(&state)?;
+    let is_folder = app
+        .registry()
+        .get_run(id)?
+        .map(|run| run.is_folder())
+        .unwrap_or(false);
     app.end_run(id)?;
     save_tmux_restore_snapshot_best_effort();
     Ok(ActionResult {
-        message: "Ended run. Worktree and branch removed.".to_string(),
+        message: if is_folder {
+            "Ended folder session. Folder and files preserved.".to_string()
+        } else {
+            "Ended run. Worktree and branch removed.".to_string()
+        },
         run: None,
     })
 }
@@ -170,7 +217,7 @@ pub fn open_in_vscode(
     let mut app = app(&state)?;
     let run = app.open_run_in_vscode(id)?;
     Ok(ActionResult {
-        message: "Opened run worktree in VS Code.".to_string(),
+        message: "Opened run workspace in VS Code.".to_string(),
         run: run.map(Into::into),
     })
 }
@@ -185,13 +232,18 @@ pub fn run_diff(
     let Some(run) = registry.get_run(id)? else {
         return Ok(None);
     };
+    if run.is_folder() {
+        return Err(DesktopError::Message(
+            "folder sessions do not support Git diff".to_string(),
+        ));
+    }
     Ok(Some(load_run_diff(&run)?.into()))
 }
 
 #[tauri::command]
 pub fn cleanup_stale_runs(state: State<'_, DesktopState>) -> DesktopResult<ActionResult> {
     let registry = registry(&state)?;
-    let runs = registry.list_active_runs()?;
+    let runs = registry.list_active_sessions()?;
     let ids = runs
         .iter()
         .filter(|run| is_stale_run(run))
@@ -228,6 +280,16 @@ pub fn repo_suggestions(
 ) -> DesktopResult<Vec<Suggestion>> {
     let registry = registry(&state)?;
     let candidates = repo_path_candidates(&input, &registry.recent_repo_paths()?);
+    Ok(suggestions_from_candidates(candidates))
+}
+
+#[tauri::command]
+pub fn folder_suggestions(
+    state: State<'_, DesktopState>,
+    input: String,
+) -> DesktopResult<Vec<Suggestion>> {
+    let registry = registry(&state)?;
+    let candidates = repo_path_candidates(&input, &registry.recent_folder_paths()?);
     Ok(suggestions_from_candidates(candidates))
 }
 
@@ -408,6 +470,7 @@ fn load_dashboard(
     Ok(build_dashboard_state(
         runs,
         registry.active_repo_path()?,
+        registry.active_folder_path()?,
         host_tool_statuses(),
         selected_run_id,
     ))
@@ -419,7 +482,8 @@ fn refresh_active_runs(
     codex_threads: &[agentctl_core::codex_status::CodexThreadSnapshot],
 ) -> DesktopResult<Vec<agentctl_core::domain::RunRecord>> {
     let tmux = Tmux::new(TMUX_SESSION);
-    let mut runs = registry.list_active_runs()?;
+    let mut runs = registry.list_active_sessions()?;
+    let assignments = codex_thread_assignments(&runs, codex_threads);
     for run in &mut runs {
         let snapshot = match run.tmux_window.as_deref() {
             Some(window) => match tmux.snapshot_window(window) {
@@ -436,10 +500,13 @@ fn refresh_active_runs(
         };
         let previous_state = run.observed_state;
         let unavailable_snapshot = unavailable_pane_snapshot();
-        let observation = observe_run(
+        let assigned_thread = assignments
+            .get(&run.id)
+            .and_then(|thread_id| codex_threads.iter().find(|thread| thread.id == *thread_id));
+        let observation = observe_run_with_thread(
             run,
             snapshot.as_ref().unwrap_or(&unavailable_snapshot),
-            codex_threads,
+            assigned_thread,
         );
         if snapshot.is_none() && observation.source != DetectionSource::Provider {
             continue;

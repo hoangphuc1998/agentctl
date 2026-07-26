@@ -2,15 +2,16 @@ use agent_manager_desktop::{
     models::{AgentAttentionEvent, RunView},
     services::{
         agent_attention_event_for_transition, agent_system_notification_for_event,
-        build_dashboard_state, is_restorable_run, is_stale_run, mark_selected_run_seen,
-        observe_run, observed_state_after_refresh, suggestions_from_candidates,
+        build_dashboard_state, codex_thread_assignments, is_restorable_run, is_stale_run,
+        mark_selected_run_seen, observe_run, observed_state_after_refresh,
+        suggestions_from_candidates,
     },
 };
 use agentctl_core::{
     agent::AgentKind,
     codex_status::{CodexThreadActiveFlag, CodexThreadSnapshot, CodexThreadStatus},
     completion::CompletionCandidate,
-    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
+    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord, WorkspaceKind},
     tmux::PaneSnapshot,
 };
 use std::path::PathBuf;
@@ -19,6 +20,7 @@ use uuid::Uuid;
 fn run(name: &str, state: ObservedState, source: DetectionSource) -> RunRecord {
     RunRecord {
         id: Uuid::new_v4(),
+        workspace_kind: WorkspaceKind::Worktree,
         repo_path: PathBuf::from("/repos/agent-manager"),
         repo_name: "agent-manager".to_string(),
         tag: "feature".to_string(),
@@ -54,6 +56,7 @@ fn dashboard_state_counts_active_runs_and_restorable_unknown_runs() {
     let state = build_dashboard_state(
         active,
         Some(PathBuf::from("/repos/agent-manager")),
+        None,
         vec![],
         None,
     );
@@ -96,7 +99,7 @@ fn dashboard_state_counts_attention_runs() {
         ),
     ];
 
-    let state = build_dashboard_state(active, None, vec![], None);
+    let state = build_dashboard_state(active, None, None, vec![], None);
 
     assert_eq!(state.attention_count, 2);
 }
@@ -125,6 +128,49 @@ fn official_codex_status_overrides_misleading_terminal_text() {
     assert_eq!(observation.state, ObservedState::NeedsUser);
     assert_eq!(observation.source, DetectionSource::Provider);
     assert_eq!(observation.agent_session_id, Some(thread_id));
+}
+
+#[test]
+fn same_folder_codex_sessions_claim_distinct_provider_threads() {
+    let folder = PathBuf::from("/workspace/product");
+    let mut older = run("older", ObservedState::Running, DetectionSource::Tmux);
+    older.workspace_kind = WorkspaceKind::Folder;
+    older.repo_path = folder.clone();
+    older.worktree_path = folder.clone();
+    older.created_at = 10;
+    let older_thread = Uuid::new_v4();
+    older.agent_session_id = Some(older_thread);
+
+    let mut newer = run("newer", ObservedState::Running, DetectionSource::Tmux);
+    newer.workspace_kind = WorkspaceKind::Folder;
+    newer.repo_path = folder.clone();
+    newer.worktree_path = folder.clone();
+    newer.created_at = 20;
+    let newer_thread = Uuid::new_v4();
+
+    let threads = vec![
+        CodexThreadSnapshot {
+            id: older_thread,
+            cwd: folder.clone(),
+            updated_at: 30,
+            status: CodexThreadStatus::Active {
+                active_flags: vec![],
+            },
+        },
+        CodexThreadSnapshot {
+            id: newer_thread,
+            cwd: folder,
+            updated_at: 40,
+            status: CodexThreadStatus::Active {
+                active_flags: vec![],
+            },
+        },
+    ];
+
+    let assignments = codex_thread_assignments(&[older.clone(), newer.clone()], &threads);
+
+    assert_eq!(assignments.get(&older.id), Some(&older_thread));
+    assert_eq!(assignments.get(&newer.id), Some(&newer_thread));
 }
 
 #[test]
@@ -212,7 +258,7 @@ fn selecting_completed_run_marks_it_seen_before_building_dashboard() {
     assert!(marked.is_some());
     assert_eq!(active[1].observed_state, ObservedState::CompletedSeen);
     assert_eq!(active[1].notification_seen_at, Some(42));
-    let state = build_dashboard_state(active, None, vec![], Some(selected.clone()));
+    let state = build_dashboard_state(active, None, None, vec![], Some(selected.clone()));
     assert_eq!(state.selected_run_id, Some(selected));
     assert_eq!(state.attention_count, 0);
     assert_eq!(state.repos[0].runs[0].observed_state, "completed-seen");
@@ -254,7 +300,7 @@ fn dashboard_state_can_reuse_existing_selected_run() {
     ];
     let selected = RunView::from(active[1].clone()).id;
 
-    let state = build_dashboard_state(active, None, vec![], Some(selected.clone()));
+    let state = build_dashboard_state(active, None, None, vec![], Some(selected.clone()));
 
     assert_eq!(state.selected_run_id, Some(selected));
 }

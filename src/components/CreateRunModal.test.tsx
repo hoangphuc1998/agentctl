@@ -1,7 +1,13 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createRun, ignoredFilesPreview, repoSuggestions } from "../api";
+import {
+  createFolderSession,
+  createRun,
+  folderSuggestions,
+  ignoredFilesPreview,
+  repoSuggestions
+} from "../api";
 import { CreateRunModal } from "./CreateRunModal";
 
 const { chooseDirectoryMock } = vi.hoisted(() => ({
@@ -10,7 +16,9 @@ const { chooseDirectoryMock } = vi.hoisted(() => ({
 
 vi.mock("../api", () => ({
   chooseDirectory: chooseDirectoryMock,
+  createFolderSession: vi.fn(),
   createRun: vi.fn(),
+  folderSuggestions: vi.fn(),
   ignoredFilesPreview: vi.fn(),
   repoSuggestions: vi.fn()
 }));
@@ -23,6 +31,45 @@ describe("CreateRunModal", () => {
       totalBytes: 0,
       requiresConfirmation: false
     });
+  });
+
+  it("switches to direct-folder mode and submits only folder session fields", async () => {
+    vi.mocked(createFolderSession).mockResolvedValue({
+      message: "Created folder session.",
+      run: null
+    });
+    vi.mocked(folderSuggestions).mockResolvedValue([]);
+
+    render(
+      <CreateRunModal
+        open
+        activeRepoPath="/repo/agent-manager"
+        activeFolderPath="/workspace/product"
+        onClose={vi.fn()}
+        onCreated={vi.fn()}
+        onError={vi.fn()}
+      />
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /^folder$/i }));
+    expect(screen.getByLabelText(/folder path/i)).toHaveValue("/workspace/product");
+    expect(screen.queryByLabelText(/base ref/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/copy ignored files/i)).not.toBeInTheDocument();
+
+    await userEvent.type(screen.getByLabelText(/session name/i), "investigate");
+    await userEvent.click(screen.getByRole("button", { name: /claude/i }));
+    await userEvent.click(screen.getByRole("button", { name: /create/i }));
+
+    await waitFor(() =>
+      expect(createFolderSession).toHaveBeenCalledWith({
+        folderPath: "/workspace/product",
+        tag: "default",
+        runName: "investigate",
+        agent: "claude"
+      })
+    );
+    expect(createRun).not.toHaveBeenCalled();
+    expect(ignoredFilesPreview).not.toHaveBeenCalledWith("/workspace/product");
   });
 
   it("prefills editable create fields from defaults", () => {

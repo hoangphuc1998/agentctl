@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import type {
   AgentAttentionEvent,
+  CreateFolderSessionPayload,
   CreateRunPayload,
   DashboardState,
   IgnoredFilesPreview,
@@ -53,6 +54,12 @@ export function dashboardState(selectedRunId?: string | null): Promise<Dashboard
 
 export function createRun(payload: CreateRunPayload): Promise<ActionResult> {
   return invoke("create_run", { payload });
+}
+
+export function createFolderSession(
+  payload: CreateFolderSessionPayload
+): Promise<ActionResult> {
+  return invoke("create_folder_session", { payload });
 }
 
 export function ignoredFilesPreview(repoPath: string): Promise<IgnoredFilesPreview> {
@@ -117,6 +124,10 @@ export function revokeMobileDevice(deviceId: string): Promise<MobileBridgeStatus
 
 export function repoSuggestions(input: string): Promise<Suggestion[]> {
   return invoke("repo_suggestions", { input });
+}
+
+export function folderSuggestions(input: string): Promise<Suggestion[]> {
+  return invoke("folder_suggestions", { input });
 }
 
 export function baseRefSuggestions(repoPath: string, input: string): Promise<Suggestion[]> {

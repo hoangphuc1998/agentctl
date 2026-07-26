@@ -1,5 +1,15 @@
 import { useState } from "react";
-import { Bell, Bot, ChevronDown, ChevronRight, GitBranch, Plus, Tag } from "lucide-react";
+import {
+  Bell,
+  Bot,
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderGit2,
+  GitBranch,
+  Plus,
+  Tag
+} from "lucide-react";
 import type { RepoNode, RunView } from "../types";
 import { Chip } from "./Chip";
 import { StatusBadge } from "./StatusBadge";
@@ -35,13 +45,13 @@ export function RepoRunTree({
     return <div className="empty-tree">No runs yet.</div>;
   }
 
-  function toggleRepo(repoPath: string) {
+  function toggleRepo(workspaceKey: string) {
     setCollapsedRepos((previous) => {
       const next = new Set(previous);
-      if (next.has(repoPath)) {
-        next.delete(repoPath);
+      if (next.has(workspaceKey)) {
+        next.delete(workspaceKey);
       } else {
-        next.add(repoPath);
+        next.add(workspaceKey);
       }
       return next;
     });
@@ -50,10 +60,11 @@ export function RepoRunTree({
   return (
     <div className="repo-run-tree" role="tree" aria-label="Repositories and runs">
       {repos.map((repo) => {
-        const expanded = !collapsedRepos.has(repo.repoPath);
+        const workspaceKey = `${repo.workspaceKind}:${repo.workspacePath}`;
+        const expanded = !collapsedRepos.has(workspaceKey);
 
         return (
-          <div className="repo-group" key={repo.repoPath}>
+          <div className="repo-group" key={workspaceKey}>
             <div
               className="repo-row"
               role="treeitem"
@@ -66,10 +77,17 @@ export function RepoRunTree({
                 aria-expanded={expanded}
                 aria-label={`${expanded ? "Collapse" : "Expand"} ${repo.repoName}`}
                 title={`${expanded ? "Collapse" : "Expand"} ${repo.repoName}`}
-                onClick={() => toggleRepo(repo.repoPath)}
+                onClick={() => toggleRepo(workspaceKey)}
               >
                 {expanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
               </button>
+              <span className="workspace-kind-icon" aria-hidden="true">
+                {repo.workspaceKind === "folder" ? (
+                  <Folder size={15} />
+                ) : (
+                  <FolderGit2 size={15} />
+                )}
+              </span>
               <span>{repo.repoName}</span>
               <span className="repo-count">{repo.runs.length}</span>
               <button
@@ -119,9 +137,15 @@ export function RepoRunTree({
                           <Chip tone="info" icon={<Tag size={13} />}>
                             #{run.tag}
                           </Chip>
-                          <Chip tone="neutral" icon={<GitBranch size={13} />}>
-                            {run.baseRef} -&gt; {run.branch}
-                          </Chip>
+                          {run.workspaceKind === "worktree" ? (
+                            <Chip tone="neutral" icon={<GitBranch size={13} />}>
+                              {run.baseRef} -&gt; {run.branch}
+                            </Chip>
+                          ) : (
+                            <Chip tone="neutral" icon={<Folder size={13} />}>
+                              direct
+                            </Chip>
+                          )}
                         </span>
                       </span>
                       <Chip tone="neutral" icon={<Bot size={13} />}>

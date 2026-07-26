@@ -1,5 +1,5 @@
 use std::{
-    env, io,
+    env, fs, io,
     path::{Path, PathBuf},
     process::{Command, Output},
     time::Duration,
@@ -15,7 +15,7 @@ use crate::{
         TmuxCommandBuilder, CODEX_APP_SERVER_READY_URL, CODEX_APP_SERVER_TMUX_SESSION,
         CODEX_APP_SERVER_URL,
     },
-    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
+    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord, WorkspaceKind},
     registry::{RegistryResult, SqliteRegistry},
     tmux::window_list_contains,
     untracked_files::{
@@ -86,6 +86,14 @@ pub struct NewRunRequest {
     pub copy_ignored_files: bool,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewFolderSessionRequest {
+    pub folder_path: PathBuf,
+    pub tag: String,
+    pub run_name: String,
+    pub agent: AgentKind,
+}
+
 pub trait CommandRunner {
     fn run(&mut self, command: &[String]) -> io::Result<()>;
     fn succeeds(&mut self, command: &[String]) -> io::Result<bool>;
@@ -149,6 +157,13 @@ where
 
     pub fn create_run(&mut self, request: NewRunRequest) -> RegistryResult<RunRecord> {
         create_run_with_registry(&self.registry, &mut self.runner, &self.config, request)
+    }
+
+    pub fn create_folder_session(
+        &mut self,
+        request: NewFolderSessionRequest,
+    ) -> RegistryResult<RunRecord> {
+        create_folder_session_with_registry(&self.registry, &mut self.runner, &self.config, request)
     }
 
     pub fn end_run(&mut self, id: Uuid) -> RegistryResult<()> {
@@ -283,6 +298,9 @@ where
     let Some(run) = registry.get_run(id)? else {
         return Ok(None);
     };
+    if run.is_folder() {
+        return Err("folder sessions do not support Git merge".into());
+    }
     let git = GitCommandBuilder::new();
     ensure_clean(runner, &git, &run.repo_path, "repository")?;
     ensure_clean(runner, &git, &run.worktree_path, "worktree")?;
@@ -313,12 +331,16 @@ where
             .kill_window(window);
             let _ = runner.run(&command);
         }
-        let git = GitCommandBuilder::new();
-        let untracked_files =
-            runner.output(&git.nonignored_untracked_files(path_str(&run.worktree_path)))?;
-        delete_untracked_files(&run.worktree_path, &untracked_files)?;
-        runner.run(&git.remove_worktree(path_str(&run.repo_path), path_str(&run.worktree_path)))?;
-        runner.run(&git.delete_branch(path_str(&run.repo_path), &run.branch))?;
+        if run.is_worktree() {
+            let git = GitCommandBuilder::new();
+            let untracked_files =
+                runner.output(&git.nonignored_untracked_files(path_str(&run.worktree_path)))?;
+            delete_untracked_files(&run.worktree_path, &untracked_files)?;
+            runner.run(
+                &git.remove_worktree(path_str(&run.repo_path), path_str(&run.worktree_path)),
+            )?;
+            runner.run(&git.delete_branch(path_str(&run.repo_path), &run.branch))?;
+        }
     }
     registry.set_lifecycle(id, Lifecycle::Ended, now)
 }
@@ -450,6 +472,7 @@ where
 
     let run = RunRecord {
         id,
+        workspace_kind: WorkspaceKind::Worktree,
         repo_path: request.repo_path,
         repo_name,
         tag,
@@ -485,6 +508,91 @@ where
     }
     registry.set_active_repo_path(&run.repo_path)?;
     Ok(run)
+}
+
+pub fn create_folder_session_with_registry<R>(
+    registry: &SqliteRegistry,
+    runner: &mut R,
+    config: &AppConfig,
+    request: NewFolderSessionRequest,
+) -> RegistryResult<RunRecord>
+where
+    R: CommandRunner,
+{
+    let folder_path = fs::canonicalize(&request.folder_path).map_err(|err| {
+        io::Error::new(
+            err.kind(),
+            format!(
+                "failed to resolve folder {}: {err}",
+                request.folder_path.display()
+            ),
+        )
+    })?;
+    if !folder_path.is_dir() {
+        return Err(format!("folder path is not a directory: {}", folder_path.display()).into());
+    }
+
+    let now = now_ts();
+    let id = Uuid::new_v4();
+    let folder_name = workspace_name(&folder_path);
+    let tag = sanitize_slug(&request.tag);
+    let run_slug = sanitize_slug(&request.run_name);
+    let tmux_window = window_name(&folder_name, &tag, &run_slug, id);
+    let agent_session_id = match request.agent {
+        AgentKind::Codex => None,
+        AgentKind::Claude => Some(Uuid::new_v4()),
+    };
+    let tmux = TmuxCommandBuilder::new(&config.tmux_session);
+    ensure_tmux_session(runner, &tmux, config.terminal_color_environment.as_ref())?;
+    if request.agent == AgentKind::Codex {
+        ensure_codex_app_server(runner, &folder_path)?;
+    }
+
+    let agent_command = AgentCommandBuilder::new().launch(LaunchPlan {
+        agent: request.agent,
+        worktree_path: folder_path.clone(),
+        session_id: agent_session_id,
+    });
+    let new_window = tmux.new_window(
+        &tmux_window,
+        path_str(&folder_path),
+        &shell_command_with_failure_diagnostics(&agent_command),
+    );
+    runner.run(&new_window)?;
+    if let Err(err) = ensure_tmux_window(runner, &tmux, &tmux_window) {
+        let _ = runner.run(&tmux.kill_window(&tmux_window));
+        return Err(err.into());
+    }
+
+    let session = RunRecord {
+        id,
+        workspace_kind: WorkspaceKind::Folder,
+        repo_path: folder_path.clone(),
+        repo_name: folder_name,
+        tag,
+        run_name: request.run_name,
+        agent: request.agent,
+        lifecycle: Lifecycle::Active,
+        observed_state: ObservedState::Running,
+        detection_source: DetectionSource::Tmux,
+        branch: String::new(),
+        base_ref: String::new(),
+        base_commit: None,
+        worktree_path: folder_path.clone(),
+        tmux_session: Some(config.tmux_session.clone()),
+        tmux_window: Some(tmux_window.clone()),
+        tmux_pane: None,
+        agent_session_id,
+        notification_seen_at: None,
+        created_at: now,
+        updated_at: now,
+    };
+    if let Err(err) = registry.upsert_run(&session) {
+        let _ = runner.run(&tmux.kill_window(&tmux_window));
+        return Err(err);
+    }
+    registry.set_active_folder_path(&folder_path)?;
+    Ok(session)
 }
 
 pub fn preview_ignored_untracked_files<R>(
@@ -691,6 +799,14 @@ fn repo_name(path: &Path) -> String {
         .to_string()
 }
 
+fn workspace_name(path: &Path) -> String {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.is_empty())
+        .unwrap_or_else(|| path.to_str().unwrap_or("folder"))
+        .to_string()
+}
+
 fn window_name(repo_name: &str, tag: &str, run_slug: &str, id: Uuid) -> String {
     let id = id.simple().to_string();
     format!(
@@ -748,8 +864,10 @@ mod tests {
     };
 
     use super::{
-        close_and_delete_run_with_registry, create_run_with_registry, ensure_codex_app_server,
-        path_str, preview_ignored_untracked_files, AppConfig, CommandRunner, NewRunRequest,
+        close_and_delete_run_with_registry, create_folder_session_with_registry,
+        create_run_with_registry, ensure_codex_app_server, merge_run_with_registry,
+        open_run_in_vscode_with_registry, path_str, preview_ignored_untracked_files, AppConfig,
+        CommandRunner, NewFolderSessionRequest, NewRunRequest,
     };
 
     #[derive(Default)]
@@ -966,6 +1084,73 @@ mod tests {
             .commands
             .iter()
             .any(|command| command_contains(command, "branch") && command_contains(command, "-D")));
+    }
+
+    #[test]
+    fn folder_session_launch_and_end_never_run_git_or_delete_folder_files() {
+        let registry = SqliteRegistry::in_memory().expect("registry");
+        let mut runner = RecordingRunner {
+            created_window_visible_after_list_calls: Some(1),
+            ..RecordingRunner::default()
+        };
+        let folder = tempfile::tempdir().expect("folder");
+        let source = folder.path().join("notes.txt");
+        std::fs::write(&source, "keep me").expect("source");
+
+        let session = create_folder_session_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            NewFolderSessionRequest {
+                folder_path: folder.path().to_path_buf(),
+                tag: "local".to_string(),
+                run_name: "investigate".to_string(),
+                agent: AgentKind::Claude,
+            },
+        )
+        .expect("folder session");
+
+        assert!(session.is_folder());
+        assert_eq!(
+            session.worktree_path,
+            folder.path().canonicalize().expect("canonical folder")
+        );
+        assert!(runner
+            .commands
+            .iter()
+            .all(|command| command.first().map(String::as_str) != Some("git")));
+
+        let opened = open_run_in_vscode_with_registry(&registry, &mut runner, session.id)
+            .expect("open folder in editor")
+            .expect("folder session");
+        assert_eq!(opened.id, session.id);
+        let merge_error = merge_run_with_registry(&registry, &mut runner, session.id)
+            .expect_err("folder merge must be rejected");
+        assert!(merge_error
+            .to_string()
+            .contains("folder sessions do not support Git merge"));
+        assert!(runner
+            .commands
+            .iter()
+            .all(|command| command.first().map(String::as_str) != Some("git")));
+
+        close_and_delete_run_with_registry(
+            &registry,
+            &mut runner,
+            &AppConfig::for_session("agentctl-test"),
+            session.id,
+        )
+        .expect("end folder session");
+
+        assert_eq!(
+            std::fs::read_to_string(source).expect("preserved"),
+            "keep me"
+        );
+        assert!(runner
+            .commands
+            .iter()
+            .all(|command| command.first().map(String::as_str) != Some("git")));
+        assert!(registry.list_active_sessions().expect("active").is_empty());
     }
 
     #[test]

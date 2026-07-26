@@ -2,53 +2,60 @@
 
 ## Current State
 
-**Last Updated:** 2026-07-21 10:39 +07
-**Session ID:** codex-app-server-health-recovery
-**Active Feature:** feat-060 - Codex App-Server Health Recovery
+**Last Updated:** 2026-07-25 23:13 +07
+**Session ID:** direct-folder-agent-sessions
+**Active Feature:** feat-061 - Direct Folder Agent Sessions
 
 ## Status
 
 ### What is Done
 
-- [x] Confirmed the repository startup workflow, installed missing npm dependencies, and passed the baseline `./init.sh`.
-- [x] Inspected host tmux state and found `agentctl-codex` restored as an idle `zsh` while every remote panel waited for an unavailable `/readyz` endpoint and exited 1.
-- [x] Added RED coverage proving a matching stable-directory session was incorrectly reused without a health check.
-- [x] Required both the stable server cwd and a bounded `/readyz` probe before preserving a managed app-server session.
-- [x] Added GREEN coverage for restarting unhealthy sessions and preserving healthy sessions.
-- [x] Repaired the live service and confirmed the replacement pane runs the Codex app-server process from `/home/phuctth` with `/readyz` available.
-- [x] Completed focused and full repository verification.
+- [x] Passed the baseline startup workflow before implementation.
+- [x] Added a separate folder-session registry table while preserving the CLI-compatible worktree `runs` table.
+- [x] Added direct Codex and Claude launch, restore, observation, stop, end, and editor-open behavior for existing folders.
+- [x] Kept Git diff, merge, worktree deletion, branch deletion, and file deletion out of folder-session flows.
+- [x] Added a Worktree/Folder selector to the existing New Run modal with recent-folder suggestions and contextual defaults.
+- [x] Supported multiple named sessions in one folder and assigned Codex provider threads one-to-one.
+- [x] Kept direct folder sessions out of the Mobile Bridge dashboard, resume route, and terminal stream.
+- [x] Documented the desktop folder workflow and completed focused and full verification.
 
 ### What is In Progress
 
-- [x] Implementation, live recovery, verification, and continuity artifacts are complete.
+- [x] Implementation, tests, documentation, verification, and continuity artifacts are complete.
 
 ### What is Next
 
-1. Rebuild/relaunch Agent Manager to retain automatic app-server recovery in the installed application after future tmux restores.
-2. Existing failed panes remain shells by design; create a new Codex panel or restore the affected run.
+1. Rebuild/relaunch Agent Manager to use direct folder sessions in the installed desktop application.
+2. Create multiple named sessions against one folder to validate the desired real-world Codex/Claude workflow.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
-- [ ] `npm install` continues to report the repository's existing 5 audit findings (3 moderate, 1 high, 1 critical); dependency remediation was outside this feature.
-- [ ] The currently installed application was not repackaged during this source fix; the live service is healthy now, while durable recovery requires the rebuilt application.
+- [ ] `npm install` reports 6 existing audit findings (3 moderate, 2 high, 1 critical); dependency remediation was outside this feature.
+- [ ] The currently installed desktop package was not rebuilt during this source change.
 
 ## Decisions Made
 
-- Treat tmux session existence as insufficient evidence that the Codex app-server is running because tmux-resurrect can recreate the service session as a plain shell.
-- Reuse the managed service only when its pane cwd remains the stable home directory and its bounded readiness probe succeeds.
-- Keep the lifecycle check in core orchestration where launch, restore, startup, and dashboard refresh already converge.
+- Store direct folders separately so older CLI/mobile code continues to see only Git worktree runs.
+- Reuse the existing run model at desktop boundaries with an explicit workspace kind and workspace path.
+- Allow several sessions in the same folder; preserve exact Codex thread IDs first, then assign unclaimed matching threads newest-first.
+- Treat folders as desktop-only and reject direct folder IDs even if a mobile caller guesses one.
+- End means kill and forget the folder session record from active views, never delete its folder or files.
 
 ## Files Modified This Session
 
-- `core/src/app.rs` for app-server readiness probing, unhealthy-session replacement, and regression coverage.
-- `feature_list.json` and `progress.md` for completion evidence and handoff state.
+- `core/src/{domain,registry,app}.rs` for workspace typing, folder persistence, orchestration, and safe lifecycle behavior.
+- `src-tauri/src/{commands,models,services,tmux_restore,mobile_bridge_server}.rs` for desktop exposure, grouping, status matching, restart restore, and mobile exclusion.
+- `src/{App,api,types}.ts*` and `src/components/*` for the direct-folder creation and management UI.
+- Rust and React fixtures/tests for folder persistence, lifecycle safety, shared-folder Codex matching, UI creation, and hidden Git actions.
+- `README.md`, `feature_list.json`, and `progress.md` for usage and completion evidence.
 
 ## Evidence of Completion
 
-- [x] RED: `codex_app_server_replaces_unhealthy_session_from_stable_directory` failed because no `/readyz` command ran and the idle shell session was preserved.
-- [x] GREEN: unhealthy stable-directory sessions are killed/recreated, while healthy matching sessions are preserved.
-- [x] Focused app-server recovery tests passed (3 tests).
-- [x] `cargo fmt --all -- --check`, `cargo check -p agent-manager-desktop --features tauri-app`, and `git diff --check` passed.
-- [x] Final `./init.sh` passed with 12 Vitest files/85 tests, npm build, 39 core unit tests, and all Rust tests.
-- [x] Live host validation passed: `/readyz` succeeded and tmux reported `agentctl-codex:app-server` running `node` from `/home/phuctth`.
+- [x] Folder lifecycle coverage proves launch/editor/end issue no Git commands, merge is rejected, and an existing file remains unchanged.
+- [x] Migration coverage proves folder sessions persist outside the legacy `runs` table and remain available to the desktop session query.
+- [x] Desktop-state coverage proves two Codex sessions in one folder claim distinct provider threads.
+- [x] React coverage proves folder-mode payloads and folder-safe controls without Diff or Merge.
+- [x] `npm test` passed with 12 files and 87 tests; `npm run build` passed.
+- [x] `cargo test --workspace`, `cargo check -p agent-manager-desktop --features tauri-app`, `cargo fmt --all -- --check`, and `git diff --check` passed.
+- [x] Final `./init.sh` passed with 12 Vitest files/87 tests, npm build, 40 core tests, and all desktop Rust tests.

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
   chooseDirectory,
+  createFolderSession,
   createRun,
   dashboardState,
   enableTmuxRestore,
@@ -13,6 +14,7 @@ import {
   listenAgentAttention,
   mergeRun,
   mobileBridgeStatus,
+  folderSuggestions,
   repoSuggestions,
   runDiff,
   startMobileBridge,
@@ -29,6 +31,7 @@ const tauriWindowMocks = vi.hoisted(() => ({
 vi.mock("./api", () => ({
   chooseDirectory: vi.fn(),
   cleanupStaleRuns: vi.fn(),
+  createFolderSession: vi.fn(),
   createRun: vi.fn(),
   dashboardState: vi.fn(),
   enableTmuxRestore: vi.fn(),
@@ -39,6 +42,7 @@ vi.mock("./api", () => ({
   mergeRun: vi.fn(),
   mobileBridgeStatus: vi.fn(),
   openInVsCode: vi.fn(),
+  folderSuggestions: vi.fn(),
   repoSuggestions: vi.fn(),
   restoreRun: vi.fn(),
   runDiff: vi.fn(),
@@ -73,6 +77,7 @@ describe("App", () => {
       requiresConfirmation: false
     });
     vi.mocked(repoSuggestions).mockResolvedValue([]);
+    vi.mocked(folderSuggestions).mockResolvedValue([]);
     vi.mocked(runDiff).mockResolvedValue(emptyRunDiff("run-1"));
     vi.mocked(mobileBridgeStatus).mockResolvedValue(mobileStatus(false));
     vi.mocked(startMobileBridge).mockResolvedValue(mobileStatus(true));
@@ -679,14 +684,39 @@ describe("App", () => {
 
     expect(await within(dialog).findByRole("alert")).toHaveTextContent("Address already in use");
   });
+
+  it("shows safe folder-session controls without Git actions", async () => {
+    const session = folderRun();
+    vi.mocked(dashboardState).mockResolvedValue(dashboard(session.id, [session]));
+
+    render(<App />);
+
+    await screen.findByRole("heading", { name: "investigate" });
+    expect(screen.getByText("direct folder")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /merge/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /diff/i })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /end/i }));
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "/workspace/product and all files inside it will be preserved"
+    );
+  });
 });
 
 function dashboard(selectedRunId: string, runs: RunView[] = [run("run-1", "login-flow"), run("run-2", "api-cleanup")]): DashboardState {
+  const firstRun = runs[0];
+  const workspaceKind = firstRun?.workspaceKind ?? "worktree";
+  const workspacePath =
+    workspaceKind === "folder"
+      ? firstRun.workspacePath
+      : firstRun?.repoPath ?? "/repo/agent-manager";
   return {
     repos: [
       {
-        repoName: "agent-manager",
-        repoPath: "/repo/agent-manager",
+        workspaceKind,
+        workspacePath,
+        repoName: firstRun?.repoName ?? "agent-manager",
+        repoPath: firstRun?.repoPath ?? "/repo/agent-manager",
         runs
       }
     ],
@@ -696,10 +726,33 @@ function dashboard(selectedRunId: string, runs: RunView[] = [run("run-1", "login
     staleCount: 0,
     restorableCount: runs.filter((run) => run.restorable).length,
     activeRepoPath: "/repo/agent-manager",
+    activeFolderPath: workspaceKind === "folder" ? workspacePath : null,
     hostTools: [
       { name: "git", available: true, detail: "available" },
       { name: "tmux", available: true, detail: "available" }
     ]
+  };
+}
+
+function folderRun(): RunView {
+  return {
+    id: "folder-1",
+    workspaceKind: "folder",
+    workspacePath: "/workspace/product",
+    repoPath: "/workspace/product",
+    repoName: "product",
+    tag: "local",
+    runName: "investigate",
+    agent: "claude",
+    lifecycle: "active",
+    observedState: "running",
+    detectionSource: "tmux",
+    branch: "",
+    baseRef: "",
+    worktreePath: "/workspace/product",
+    restorable: false,
+    createdAt: 3,
+    updatedAt: 4
   };
 }
 
@@ -734,6 +787,8 @@ function installNotificationMock(permission: NotificationPermission) {
 function run(id: string, runName: string): RunView {
   return {
     id,
+    workspaceKind: "worktree",
+    workspacePath: `/repo/worktrees/${runName}`,
     repoPath: "/repo/agent-manager",
     repoName: "agent-manager",
     tag: "default",

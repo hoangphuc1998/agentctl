@@ -3,7 +3,7 @@ use agent_manager_desktop::terminal_plan::{
 };
 use agentctl_core::{
     agent::AgentKind,
-    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
+    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord, WorkspaceKind},
 };
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -11,6 +11,7 @@ use uuid::Uuid;
 fn run() -> RunRecord {
     RunRecord {
         id: Uuid::new_v4(),
+        workspace_kind: WorkspaceKind::Worktree,
         repo_path: PathBuf::from("/repos/agent-manager"),
         repo_name: "agent-manager".to_string(),
         tag: "feature".to_string(),

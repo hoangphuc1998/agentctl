@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, path::PathBuf, process::Command};
 use agentctl_core::{
     agent::AgentKind,
     diff::{RunDiff, RunDiffFile},
-    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
+    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord, WorkspaceKind},
     untracked_files::UntrackedFilesPreview,
 };
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,8 @@ use crate::run_classification::is_restorable_run;
 #[serde(rename_all = "camelCase")]
 pub struct RunView {
     pub id: String,
+    pub workspace_kind: String,
+    pub workspace_path: String,
     pub repo_path: String,
     pub repo_name: String,
     pub tag: String,
@@ -37,6 +39,8 @@ impl From<RunRecord> for RunView {
         let restorable = is_restorable_run(&run);
         Self {
             id: run.id.to_string(),
+            workspace_kind: workspace_kind_string(run.workspace_kind),
+            workspace_path: path_string(run.worktree_path.clone()),
             repo_path: path_string(run.repo_path),
             repo_name: run.repo_name,
             tag: run.tag,
@@ -60,6 +64,8 @@ impl From<RunRecord> for RunView {
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RepoNode {
+    pub workspace_kind: String,
+    pub workspace_path: String,
     pub repo_name: String,
     pub repo_path: String,
     pub runs: Vec<RunView>,
@@ -83,6 +89,7 @@ pub struct DashboardState {
     pub stale_count: usize,
     pub restorable_count: usize,
     pub active_repo_path: Option<String>,
+    pub active_folder_path: Option<String>,
     pub host_tools: Vec<HostToolStatus>,
 }
 
@@ -108,6 +115,15 @@ pub struct CreateRunPayload {
     pub agent: String,
     #[serde(default)]
     pub copy_ignored_files: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CreateFolderSessionPayload {
+    pub folder_path: String,
+    pub tag: String,
+    pub run_name: String,
+    pub agent: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -218,26 +234,30 @@ pub struct TerminalStarted {
 }
 
 pub fn repo_tree_from_runs(runs: &[RunRecord]) -> Vec<RepoNode> {
-    let mut grouped: BTreeMap<(String, String), Vec<RunView>> = BTreeMap::new();
+    let mut grouped: BTreeMap<(WorkspaceKind, String, String), Vec<RunView>> = BTreeMap::new();
     for run in runs {
+        let group_path = if run.is_worktree() {
+            run.repo_path.to_string_lossy().to_string()
+        } else {
+            run.workspace_path().to_string_lossy().to_string()
+        };
         grouped
-            .entry((
-                run.repo_name.clone(),
-                run.repo_path.to_string_lossy().to_string(),
-            ))
+            .entry((run.workspace_kind, run.repo_name.clone(), group_path))
             .or_default()
             .push(run.clone().into());
     }
 
     grouped
         .into_iter()
-        .map(|((repo_name, repo_path), mut runs)| {
+        .map(|((workspace_kind, repo_name, repo_path), mut runs)| {
             runs.sort_by(|left, right| {
                 left.run_name
                     .cmp(&right.run_name)
                     .then_with(|| left.tag.cmp(&right.tag))
             });
             RepoNode {
+                workspace_kind: workspace_kind_string(workspace_kind),
+                workspace_path: repo_path.clone(),
                 repo_name,
                 repo_path,
                 runs,
@@ -291,4 +311,8 @@ fn observed_state_string(state: ObservedState) -> String {
 
 fn detection_source_string(source: DetectionSource) -> String {
     source.as_str().to_string()
+}
+
+fn workspace_kind_string(kind: WorkspaceKind) -> String {
+    kind.as_str().to_string()
 }

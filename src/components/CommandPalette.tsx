@@ -27,7 +27,12 @@ export function CommandPalette({
   const [activeIndex, setActiveIndex] = useState(0);
   const items = useMemo(() => {
     const actions = [
-      { key: "new", title: "New run", subtitle: "Create a worktree and launch an agent", run: null },
+      {
+        key: "new",
+        title: "New run",
+        subtitle: "Launch an agent in a worktree or direct folder",
+        run: null
+      },
       { key: "refresh", title: "Refresh", subtitle: "Reload runs and status", run: null },
       { key: "cleanup", title: "Stop stale runs", subtitle: "Preserve worktrees and branches", run: null }
     ];
@@ -35,7 +40,7 @@ export function CommandPalette({
       repo.runs.map((run) => ({
         key: run.id,
         title: run.runName,
-        subtitle: `${repo.repoName} #${run.tag} ${run.agent}`,
+        subtitle: `${repo.repoName} ${run.workspaceKind} #${run.tag} ${run.agent}`,
         run
       }))
     );

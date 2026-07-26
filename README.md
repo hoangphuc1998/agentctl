@@ -1,8 +1,8 @@
 # Agent Manager
 
-Agent Manager is a Linux desktop app for managing `agentctl` Codex and Claude
-runs in git worktrees. It is the desktop counterpart to the CLI/TUI in
-`../agent-manager`.
+Agent Manager is a Linux desktop app for managing tmux-backed Codex and Claude
+sessions in Git worktrees or directly in existing folders. It is the desktop
+counterpart to the CLI/TUI in `../agent-manager`.
 
 The app uses Tauri, a copied Rust core, SQLite registry compatibility with the
 CLI, and an embedded xterm terminal attached to tmux-backed agent windows.
@@ -38,6 +38,20 @@ npm run tauri:dev
 ```bash
 ./init.sh
 ```
+
+## Direct Folder Sessions
+
+Choose `Folder` in the New Run modal to launch Codex or Claude directly in an
+existing directory. Folder sessions can have independent names, so several
+sessions can share the same directory without creating Git worktrees.
+
+Folder mode does not run Git setup, merge, diff, worktree removal, or branch
+deletion commands—even when the selected folder is a Git repository. `Stop`
+hides the session after stopping its tmux window. `End` also forgets the
+session, but always preserves the selected folder and every file in it.
+
+Direct folder sessions are available in the desktop app only. The mobile
+bridge continues to expose worktree runs.
 
 ## Worktree File Snapshots
 
@@ -77,9 +91,10 @@ https://linhmon.linhmon.1vn.app/mobile
 
 The Chrome/PWA path is preferred when Google sign-in is required because Google
 blocks OAuth inside embedded Android WebView. The PWA stores the paired device
-token in browser storage, shows recent run state, and sends instructions into
-the selected tmux-backed agent pane over the bridge WebSocket. It intentionally
-exposes only resume and terminal input controls on mobile.
+token in browser storage, shows recent worktree-run state, and sends
+instructions into the selected tmux-backed agent pane over the bridge
+WebSocket. It intentionally exposes only resume and terminal input controls on
+mobile.
 
 The native Android app remains in `android/`, but xTunnel login with Google may
 not complete inside its WebView.

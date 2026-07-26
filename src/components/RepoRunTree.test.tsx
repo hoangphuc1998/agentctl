@@ -6,11 +6,15 @@ import type { RepoNode } from "../types";
 
 const repos: RepoNode[] = [
   {
+    workspaceKind: "worktree",
+    workspacePath: "/home/me/agent-manager",
     repoName: "agent-manager",
     repoPath: "/home/me/agent-manager",
     runs: [
       {
         id: "run-1",
+        workspaceKind: "worktree",
+        workspacePath: "/home/me/agent-manager-worktrees/login-flow",
         repoPath: "/home/me/agent-manager",
         repoName: "agent-manager",
         tag: "feature",
@@ -28,6 +32,8 @@ const repos: RepoNode[] = [
       },
       {
         id: "run-2",
+        workspaceKind: "worktree",
+        workspacePath: "/home/me/agent-manager-worktrees/api-cleanup",
         repoPath: "/home/me/agent-manager",
         repoName: "agent-manager",
         tag: "review",

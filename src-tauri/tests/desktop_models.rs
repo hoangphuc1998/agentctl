@@ -5,7 +5,7 @@ use agent_manager_desktop::models::{
 use agentctl_core::{
     agent::AgentKind,
     diff::{RunDiff, RunDiffFile},
-    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord},
+    domain::{DetectionSource, Lifecycle, ObservedState, RunRecord, WorkspaceKind},
     untracked_files::UntrackedFilesPreview,
 };
 use std::path::PathBuf;
@@ -14,6 +14,7 @@ use uuid::Uuid;
 fn run(repo_name: &str, run_name: &str, tag: &str, state: ObservedState) -> RunRecord {
     RunRecord {
         id: Uuid::new_v4(),
+        workspace_kind: WorkspaceKind::Worktree,
         repo_path: PathBuf::from(format!("/repos/{repo_name}")),
         repo_name: repo_name.to_string(),
         tag: tag.to_string(),

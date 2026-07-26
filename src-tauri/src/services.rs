@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use agentctl_core::{
     agent::AgentKind,
@@ -30,20 +33,26 @@ pub fn observe_run(
     pane: &PaneSnapshot,
     codex_threads: &[CodexThreadSnapshot],
 ) -> RunObservation {
-    if run.agent == AgentKind::Codex {
-        if let Some(thread) =
-            select_thread_for_run(codex_threads, run.agent_session_id, &run.worktree_path)
-        {
-            if let Some(state) = observed_state_from_codex_status(&thread.status) {
-                return RunObservation {
-                    state,
-                    source: DetectionSource::Provider,
-                    agent_session_id: Some(thread.id),
-                };
-            }
+    let thread = (run.agent == AgentKind::Codex)
+        .then(|| select_thread_for_run(codex_threads, run.agent_session_id, &run.worktree_path))
+        .flatten();
+    observe_run_with_thread(run, pane, thread)
+}
+
+pub fn observe_run_with_thread(
+    run: &RunRecord,
+    pane: &PaneSnapshot,
+    codex_thread: Option<&CodexThreadSnapshot>,
+) -> RunObservation {
+    if let Some(thread) = codex_thread {
+        if let Some(state) = observed_state_from_codex_status(&thread.status) {
+            return RunObservation {
+                state,
+                source: DetectionSource::Provider,
+                agent_session_id: Some(thread.id),
+            };
         }
     }
-
     RunObservation {
         state: detect_observed_state(pane),
         source: detection_source_for(pane),
@@ -51,9 +60,56 @@ pub fn observe_run(
     }
 }
 
+pub fn codex_thread_assignments(
+    runs: &[RunRecord],
+    threads: &[CodexThreadSnapshot],
+) -> HashMap<Uuid, Uuid> {
+    let mut assignments = HashMap::new();
+    let mut claimed = HashSet::new();
+
+    for run in runs.iter().filter(|run| run.agent == AgentKind::Codex) {
+        let Some(session_id) = run.agent_session_id else {
+            continue;
+        };
+        if threads.iter().any(|thread| {
+            thread.id == session_id && observed_state_from_codex_status(&thread.status).is_some()
+        }) {
+            assignments.insert(run.id, session_id);
+            claimed.insert(session_id);
+        }
+    }
+
+    let mut unbound = runs
+        .iter()
+        .filter(|run| run.agent == AgentKind::Codex && run.agent_session_id.is_none())
+        .collect::<Vec<_>>();
+    unbound.sort_by(|left, right| {
+        right
+            .created_at
+            .cmp(&left.created_at)
+            .then_with(|| right.id.cmp(&left.id))
+    });
+
+    for run in unbound {
+        let candidate = threads
+            .iter()
+            .filter(|thread| thread.cwd == run.worktree_path)
+            .filter(|thread| !claimed.contains(&thread.id))
+            .filter(|thread| observed_state_from_codex_status(&thread.status).is_some())
+            .max_by_key(|thread| thread.updated_at);
+        if let Some(thread) = candidate {
+            assignments.insert(run.id, thread.id);
+            claimed.insert(thread.id);
+        }
+    }
+
+    assignments
+}
+
 pub fn build_dashboard_state(
     active_runs: Vec<RunRecord>,
     active_repo_path: Option<PathBuf>,
+    active_folder_path: Option<PathBuf>,
     host_tools: Vec<HostToolStatus>,
     selected_run_id: Option<String>,
 ) -> DashboardState {
@@ -76,6 +132,7 @@ pub fn build_dashboard_state(
         stale_count,
         restorable_count,
         active_repo_path: active_repo_path.map(|path| path.to_string_lossy().to_string()),
+        active_folder_path: active_folder_path.map(|path| path.to_string_lossy().to_string()),
         host_tools,
     }
 }

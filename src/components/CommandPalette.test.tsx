@@ -48,6 +48,8 @@ function dashboard(): DashboardState {
   return {
     repos: [
       {
+        workspaceKind: "worktree",
+        workspacePath: "/repo/agent-manager",
         repoName: "agent-manager",
         repoPath: "/repo/agent-manager",
         runs: [run("run-1", "login-flow"), run("run-2", "api-cleanup")]
@@ -59,6 +61,7 @@ function dashboard(): DashboardState {
     staleCount: 0,
     restorableCount: 0,
     activeRepoPath: "/repo/agent-manager",
+    activeFolderPath: null,
     hostTools: []
   };
 }
@@ -66,6 +69,8 @@ function dashboard(): DashboardState {
 function run(id: string, runName: string): RunView {
   return {
     id,
+    workspaceKind: "worktree",
+    workspacePath: `/repo/worktrees/${runName}`,
     repoPath: "/repo/agent-manager",
     repoName: "agent-manager",
     tag: "default",

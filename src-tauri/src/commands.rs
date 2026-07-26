@@ -1,4 +1,4 @@
-use std::{path::PathBuf, str::FromStr};
+use std::{env, path::PathBuf, str::FromStr};
 
 use agentctl_core::{
     agent::AgentKind,
@@ -391,7 +391,9 @@ pub async fn open_terminal_link(
         let Some(run) = registry.get_run(id)? else {
             return Err(DesktopError::Message(format!("run not found: {run_id}")));
         };
-        let command = terminal_link_command(&run, &target).map_err(DesktopError::Message)?;
+        let generated_images = codex_generated_images_dir();
+        let command = terminal_link_command(&run, &target, generated_images.as_deref())
+            .map_err(DesktopError::Message)?;
         let mut runner = SystemCommandRunner;
         let mut args = Vec::with_capacity(command.args.len() + 1);
         args.push(command.program);
@@ -400,6 +402,13 @@ pub async fn open_terminal_link(
         Ok(())
     })
     .await
+}
+
+fn codex_generated_images_dir() -> Option<PathBuf> {
+    env::var_os("CODEX_HOME")
+        .map(PathBuf::from)
+        .or_else(|| env::var_os("HOME").map(|home| PathBuf::from(home).join(".codex")))
+        .map(|codex_home| codex_home.join("generated_images"))
 }
 
 #[tauri::command]

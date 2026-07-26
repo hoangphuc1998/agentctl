@@ -171,7 +171,7 @@ describe("TerminalPane", () => {
     expect(mocks.terminalInput).not.toHaveBeenCalled();
   });
 
-  it("opens OSC hyperlinks only with Ctrl+primary-click", async () => {
+  it("opens explicit OSC file hyperlinks with a primary click", async () => {
     const { container } = render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
     await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
 
@@ -184,13 +184,18 @@ describe("TerminalPane", () => {
     expect(linkHandler.allowNonHttpProtocols).toBe(true);
 
     linkHandler.activate(new MouseEvent("click", { button: 0 }), "file:///repo/src/main.ts#L7:2");
+    expect(mocks.openTerminalLink).toHaveBeenCalledWith("run-1", {
+      kind: "file",
+      path: "/repo/src/main.ts",
+      line: 7,
+      column: 2
+    });
 
-    expect(mocks.openTerminalLink).not.toHaveBeenCalled();
-
+    mocks.openTerminalLink.mockClear();
     linkHandler.hover(new MouseEvent("mousemove"), "file:///repo/src/main.ts#L7:2");
     const host = container.querySelector(".terminal-host");
     expect(host).not.toBeNull();
-    fireEvent.mouseDown(host as Element, { button: 0, ctrlKey: true });
+    fireEvent.mouseDown(host as Element, { button: 0 });
 
     expect(mocks.openTerminalLink).toHaveBeenCalledWith("run-1", {
       kind: "file",
@@ -243,6 +248,39 @@ describe("TerminalPane", () => {
       kind: "file",
       path: "src/main.ts",
       line: 9
+    });
+  });
+
+  it("opens detected file URLs with a primary click", async () => {
+    const { container } = render(<TerminalPane selectedRun={runView()} onError={vi.fn()} />);
+    await waitFor(() => expect(mocks.startTerminal).toHaveBeenCalledTimes(1));
+    mocks.terminals[0].getLine.mockReturnValue({
+      translateToString: () => "Saved to: file:///home/user/.codex/generated_images/render.png"
+    });
+    const provider = mocks.terminals[0].registerLinkProvider.mock.calls[0][0] as {
+      provideLinks: (line: number, callback: (links: Array<{
+        text: string;
+        hover?: (event: MouseEvent, text: string) => void;
+      }> | undefined) => void) => void;
+    };
+    let links: Array<{
+      text: string;
+      hover?: (event: MouseEvent, text: string) => void;
+    }> | undefined;
+    provider.provideLinks(1, (provided) => {
+      links = provided;
+    });
+    const link = links?.[0];
+    expect(link).toBeDefined();
+
+    link?.hover?.(new MouseEvent("mousemove"), link.text);
+    const host = container.querySelector(".terminal-host");
+    expect(host).not.toBeNull();
+    fireEvent.mouseDown(host as Element, { button: 0 });
+
+    expect(mocks.openTerminalLink).toHaveBeenCalledWith("run-1", {
+      kind: "file",
+      path: "/home/user/.codex/generated_images/render.png"
     });
   });
 

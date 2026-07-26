@@ -3,6 +3,7 @@ import {
   createTerminalLinkProvider,
   detectTerminalLinks,
   shouldOpenTerminalLink,
+  terminalLinkActivationFromUri,
   terminalLinkTargetFromUri
 } from "./terminalLinks";
 
@@ -64,6 +65,8 @@ describe("terminalLinkTargetFromUri", () => {
       line: 21,
       column: 6
     });
+    expect(terminalLinkActivationFromUri("file:///repo/render.png")).toBe("direct");
+    expect(terminalLinkActivationFromUri("https://example.com/docs")).toBe("modifier");
   });
 
   it("rejects unsupported hyperlink protocols", () => {
@@ -104,19 +107,33 @@ describe("createTerminalLinkProvider", () => {
         path: "src/main.ts",
         line: 9
       },
-      event
+      event,
+      "modifier"
     );
   });
 });
 
 describe("shouldOpenTerminalLink", () => {
-  it("accepts Ctrl+primary-click and rejects unmodified or non-primary clicks", () => {
-    expect(shouldOpenTerminalLink(new MouseEvent("click", { button: 0, ctrlKey: true }))).toBe(
-      true
-    );
+  it("opens explicit file links directly and keeps other links behind Ctrl+primary-click", () => {
+    expect(
+      shouldOpenTerminalLink(
+        new MouseEvent("click", { button: 0 }),
+        "direct"
+      )
+    ).toBe(true);
+    expect(shouldOpenTerminalLink(new MouseEvent("click", { button: 0 }), "modifier")).toBe(false);
+    expect(
+      shouldOpenTerminalLink(
+        new MouseEvent("click", { button: 0, ctrlKey: true }),
+        "modifier"
+      )
+    ).toBe(true);
     expect(shouldOpenTerminalLink(new MouseEvent("click", { button: 0 }))).toBe(false);
-    expect(shouldOpenTerminalLink(new MouseEvent("click", { button: 1, ctrlKey: true }))).toBe(
-      false
-    );
+    expect(
+      shouldOpenTerminalLink(
+        new MouseEvent("click", { button: 1, ctrlKey: true }),
+        "modifier"
+      )
+    ).toBe(false);
   });
 });

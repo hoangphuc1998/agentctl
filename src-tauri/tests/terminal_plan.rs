@@ -69,6 +69,7 @@ fn terminal_web_link_command_allows_only_http_protocols() {
         &TerminalLinkTarget::Url {
             url: "https://example.com/docs?q=tmux".to_string(),
         },
+        None,
     )
     .expect("web link command");
 
@@ -78,7 +79,8 @@ fn terminal_web_link_command_allows_only_http_protocols() {
         &run(),
         &TerminalLinkTarget::Url {
             url: "javascript:alert(1)".to_string(),
-        }
+        },
+        None,
     )
     .is_err());
 }
@@ -99,6 +101,7 @@ fn terminal_file_link_command_opens_an_existing_worktree_file_at_location() {
             line: Some(12),
             column: Some(4),
         },
+        None,
     )
     .expect("file link command");
 
@@ -120,7 +123,8 @@ fn terminal_file_link_command_rejects_missing_and_outside_files() {
             path: "missing.rs".to_string(),
             line: None,
             column: None,
-        }
+        },
+        None,
     )
     .is_err());
     assert!(terminal_link_command(
@@ -129,7 +133,45 @@ fn terminal_file_link_command_rejects_missing_and_outside_files() {
             path: outside.path().display().to_string(),
             line: None,
             column: None,
-        }
+        },
+        None,
+    )
+    .is_err());
+}
+
+#[test]
+fn terminal_file_link_command_opens_a_codex_generated_file_with_the_default_app() {
+    let worktree = tempfile::tempdir().expect("worktree");
+    let codex_home = tempfile::tempdir().expect("codex home");
+    let outside = tempfile::NamedTempFile::new().expect("outside file");
+    let generated_images = codex_home.path().join("generated_images");
+    std::fs::create_dir(&generated_images).expect("generated images directory");
+    let image = generated_images.join("render.png");
+    std::fs::write(&image, b"png").expect("generated image");
+    let mut run = run();
+    run.worktree_path = worktree.path().to_path_buf();
+
+    let command = terminal_link_command(
+        &run,
+        &TerminalLinkTarget::File {
+            path: image.display().to_string(),
+            line: None,
+            column: None,
+        },
+        Some(&generated_images),
+    )
+    .expect("generated file link command");
+
+    assert_eq!(command.program, "xdg-open");
+    assert_eq!(command.args, vec![image.display().to_string()]);
+    assert!(terminal_link_command(
+        &run,
+        &TerminalLinkTarget::File {
+            path: outside.path().display().to_string(),
+            line: None,
+            column: None,
+        },
+        Some(&generated_images),
     )
     .is_err());
 }

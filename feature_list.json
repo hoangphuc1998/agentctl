@@ -626,6 +626,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-25 23:13 +07: Added desktop-only direct folder sessions with a Worktree/Folder New Run selector, separate SQLite persistence, recent-folder suggestions, multiple named Codex/Claude sessions per directory, tmux restart rewriting, and one-to-one Codex provider-thread assignment for shared working directories. Folder actions omit Git diff/merge, and Stop/End preserve the directory and files; Mobile Bridge lists and accepts only legacy worktree runs. Added core, migration, desktop-state, model, and React regression coverage plus README guidance. Verification passed: npm test (12 files/87 tests), npm run build, cargo test --workspace, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --all -- --check, git diff --check, and final ./init.sh."
+    },
+    {
+      "id": "feat-062",
+      "name": "Direct Codex Generated File Links",
+      "description": "Open explicit file:// links from terminal output with a primary click, including Codex-generated files stored in the configured generated_images directory.",
+      "dependencies": [
+        "feat-061"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-26 21:12 +07: Added direct primary-click activation for explicit file:// terminal links while preserving Ctrl+click for web URLs and normal file references. Canonical files under $CODEX_HOME/generated_images or $HOME/.codex/generated_images now open through xdg-open; other outside-workspace files remain rejected. RED frontend and Rust tests failed before implementation, focused tests passed with 20 frontend and 6 terminal-plan tests, npm test passed with 12 files/88 tests, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --all -- --check, git diff --check, and final ./init.sh all passed."
     }
   ]
 }

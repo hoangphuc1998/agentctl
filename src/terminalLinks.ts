@@ -4,11 +4,14 @@ export type TerminalLinkTarget =
   | { kind: "url"; url: string }
   | { kind: "file"; path: string; line?: number; column?: number };
 
+export type TerminalLinkActivation = "direct" | "modifier";
+
 export interface DetectedTerminalLink {
   text: string;
   startIndex: number;
   endIndex: number;
   target: TerminalLinkTarget;
+  activation: TerminalLinkActivation;
 }
 
 interface TerminalBufferReader {
@@ -22,8 +25,12 @@ interface TerminalBufferReader {
 }
 
 interface TerminalLinkInteraction {
-  activate(target: TerminalLinkTarget, event: MouseEvent): void;
-  hover?(target: TerminalLinkTarget): void;
+  activate(
+    target: TerminalLinkTarget,
+    event: MouseEvent,
+    activation: TerminalLinkActivation
+  ): void;
+  hover?(target: TerminalLinkTarget, activation: TerminalLinkActivation): void;
   leave?(target: TerminalLinkTarget): void;
 }
 
@@ -40,15 +47,15 @@ export function detectTerminalLinks(line: string): DetectedTerminalLink[] {
     const token = trimTerminalToken(raw);
     if (!token.text) continue;
 
-    const target = targetFromToken(token.text);
-    if (!target) continue;
+    const detected = targetFromToken(token.text);
+    if (!detected) continue;
 
     const startIndex = rawStart + token.startOffset;
     links.push({
       text: token.text,
       startIndex,
       endIndex: startIndex + token.text.length,
-      target
+      ...detected
     });
   }
 
@@ -81,6 +88,10 @@ export function terminalLinkTargetFromUri(uri: string): TerminalLinkTarget | nul
   };
 }
 
+export function terminalLinkActivationFromUri(uri: string): TerminalLinkActivation {
+  return terminalLinkTargetFromUri(uri)?.kind === "file" ? "direct" : "modifier";
+}
+
 export function createTerminalLinkProvider(
   terminal: TerminalBufferReader,
   interaction: TerminalLinkInteraction
@@ -99,8 +110,8 @@ export function createTerminalLinkProvider(
           start: { x: link.startIndex + 1, y: bufferLineNumber },
           end: { x: link.endIndex, y: bufferLineNumber }
         },
-        activate: (event) => interaction.activate(link.target, event),
-        hover: () => interaction.hover?.(link.target),
+        activate: (event) => interaction.activate(link.target, event, link.activation),
+        hover: () => interaction.hover?.(link.target, link.activation),
         leave: () => interaction.leave?.(link.target)
       }));
       callback(links.length ? links : undefined);
@@ -109,25 +120,34 @@ export function createTerminalLinkProvider(
 }
 
 export function shouldOpenTerminalLink(
-  event: Pick<MouseEvent, "button" | "ctrlKey">
+  event: Pick<MouseEvent, "button" | "ctrlKey">,
+  activation: TerminalLinkActivation = "modifier"
 ): boolean {
-  return event.button === 0 && event.ctrlKey;
+  return event.button === 0 && (activation === "direct" || event.ctrlKey);
 }
 
-function targetFromToken(token: string): TerminalLinkTarget | null {
+function targetFromToken(token: string): {
+  target: TerminalLinkTarget;
+  activation: TerminalLinkActivation;
+} | null {
   if (/^https?:\/\//i.test(token)) {
-    return terminalLinkTargetFromUri(token);
+    const target = terminalLinkTargetFromUri(token);
+    return target ? { target, activation: "modifier" } : null;
   }
   if (/^file:\/\//i.test(token)) {
-    return terminalLinkTargetFromUri(token);
+    const target = terminalLinkTargetFromUri(token);
+    return target ? { target, activation: "direct" } : null;
   }
 
   const { path, location } = fileTargetFromPath(token);
   if (!isFilePath(path)) return null;
   return {
-    kind: "file",
-    path,
-    ...location
+    target: {
+      kind: "file",
+      path,
+      ...location
+    },
+    activation: "modifier"
   };
 }
 

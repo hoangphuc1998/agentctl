@@ -8,7 +8,8 @@ use agentctl_core::{
     codex_thread::CodexThreadSnapshot,
     completion::CompletionCandidate,
     domain::{mark_seen_on_select, DetectionSource, ObservedState, RunRecord},
-    tmux::{detect_observed_state, detection_source_for, PaneSnapshot},
+    status::{observe_terminal, StatusConfidence, StatusReason},
+    tmux::PaneSnapshot,
 };
 use uuid::Uuid;
 
@@ -25,13 +26,18 @@ pub use run_classification::{is_restorable_run, is_stale_run};
 pub struct RunObservation {
     pub state: ObservedState,
     pub source: DetectionSource,
+    pub reason: StatusReason,
+    pub confidence: StatusConfidence,
     pub agent_session_id: Option<Uuid>,
 }
 
 pub fn observe_run(run: &RunRecord, pane: &PaneSnapshot) -> RunObservation {
+    let decision = observe_terminal(run.agent, pane);
     RunObservation {
-        state: detect_observed_state(pane),
-        source: detection_source_for(pane),
+        state: decision.state,
+        source: decision.source,
+        reason: decision.reason,
+        confidence: decision.confidence,
         agent_session_id: run.agent_session_id,
     }
 }

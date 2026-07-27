@@ -64,6 +64,12 @@ The desktop reads thread IDs from Codex's local state database to preserve
 exact resume behavior, including when several named sessions share a folder.
 Run status is detected from the managed tmux pane and terminal output.
 
+Status detection is provider-agnostic: tmux collects pane health, current
+command, title, output activity time, and recent visible text, then a pure
+evidence reducer selects the freshest, strongest signal. Codex and Claude have
+separate prompt/work-marker profiles, and future structured provider events can
+feed the same reducer without introducing a shared agent process.
+
 Runs created by older Agent Manager builds may remain connected to the legacy
 `agentctl-codex` tmux service until they are stopped. After those runs have
 ended, the unused legacy service can be removed with:

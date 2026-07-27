@@ -656,6 +656,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-27 18:06 +07: Replaced shared remote Codex sessions with independent `codex --cd <workspace>` CLI processes and direct `resume` commands, removed app-server startup/readiness/WebSocket status code and its direct dependency, restored tmux-based status detection, and added a read-only Codex state.sqlite adapter so persisted thread IDs still provide exact restore behavior for multiple same-folder sessions. RED launch/create/restore tests failed against `--remote` and /readyz before implementation, then passed. Focused command, app, tmux restore, Codex state, and desktop state tests passed; cargo fmt, tauri-app cargo check, git diff checks, npm test (12 files/88 tests), npm build, all 86 Rust tests, and final ./init.sh passed."
+    },
+    {
+      "id": "feat-065",
+      "name": "Provider-Agnostic Status Evidence",
+      "description": "Derive dashboard status through a pure evidence reducer with explicit reasons, freshness, and agent-specific terminal profiles while keeping every agent process standalone.",
+      "dependencies": [
+        "feat-064"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-27 18:33 +07: Extracted terminal status policy from tmux I/O into a pure evidence reducer with explicit signals, reasons, confidence, timestamps, freshness, and source precedence. Added agent-specific Codex/Claude prompt and work-marker detection, pane title/activity/dead metadata, recent-tail filtering, and a single dashboard decision path. RED coverage failed before the new status module and metadata existed, then 11 evidence tests and 2 tmux metadata tests passed. cargo test --workspace, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --all -- --check, git diff --check, npm tests/build, and final ./init.sh all passed."
     }
   ]
 }

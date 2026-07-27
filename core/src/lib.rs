@@ -7,6 +7,7 @@ pub mod completion;
 pub mod diff;
 pub mod domain;
 pub mod registry;
+pub mod status;
 pub mod tmux;
 pub mod untracked_files;
 pub mod worktree;

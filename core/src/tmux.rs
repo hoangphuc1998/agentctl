@@ -4,240 +4,42 @@ use std::{
     process::{Command, ExitStatus},
 };
 
-use crate::{
-    commands::{shell_join, TerminalColorEnvironment, TmuxCommandBuilder},
-    domain::{DetectionSource, ObservedState},
-};
+use crate::commands::{shell_join, TerminalColorEnvironment, TmuxCommandBuilder};
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PaneSnapshot {
-    pub pane_active: bool,
-    pub current_command: String,
-    pub visible_text: String,
+pub use crate::status::TerminalSnapshot as PaneSnapshot;
+
+const PANE_FIELD_SEPARATOR: char = '\u{1f}';
+
+#[derive(Debug, Eq, PartialEq)]
+struct PaneMetadata {
+    pane_dead: bool,
+    current_command: String,
+    activity_at: Option<i64>,
+    title: String,
 }
 
-pub fn detect_observed_state(snapshot: &PaneSnapshot) -> ObservedState {
-    if !snapshot.pane_active {
-        return ObservedState::Unknown;
+fn parse_pane_metadata(output: &str) -> io::Result<PaneMetadata> {
+    let fields = output
+        .trim_end_matches(['\r', '\n'])
+        .splitn(4, PANE_FIELD_SEPARATOR)
+        .collect::<Vec<_>>();
+    if fields.len() != 4 || !matches!(fields[0], "0" | "1") {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "tmux returned incomplete pane metadata",
+        ));
     }
-
-    let recent = recent_activity_text(&snapshot.visible_text);
-    let text = recent.to_ascii_lowercase();
-    if has_active_work_marker(&text) {
-        return ObservedState::Running;
-    }
-
-    if contains_any(
-        &text,
-        &[
-            "approve command",
-            "do you want to",
-            "need input",
-            "needs input",
-            "need approval",
-            "requires approval",
-            "requires input",
-            "waiting for input",
-            "waiting for user",
-            "press enter",
-            "enter to submit answer",
-            "[y/n]",
-        ],
-    ) {
-        return ObservedState::NeedsUser;
-    }
-
-    if contains_any(
-        &text,
-        &[
-            "all tasks complete",
-            "completed",
-            "ready for review",
-            "implementation complete",
-            "worked for",
-            "done",
-        ],
-    ) {
-        return ObservedState::CompletedUnchecked;
-    }
-
-    if is_agent_runtime_command(&snapshot.current_command) && has_codex_input_prompt(&recent) {
-        return ObservedState::NeedsUser;
-    }
-
-    if is_agent_runtime_command(&snapshot.current_command) {
-        ObservedState::Running
-    } else {
-        ObservedState::Unknown
-    }
-}
-
-pub fn detection_source_for(snapshot: &PaneSnapshot) -> DetectionSource {
-    if !snapshot.pane_active {
-        DetectionSource::Unknown
-    } else if detect_observed_state(snapshot) == ObservedState::Running {
-        DetectionSource::Tmux
-    } else {
-        DetectionSource::Heuristic
-    }
+    Ok(PaneMetadata {
+        pane_dead: fields[0] == "1",
+        current_command: fields[1].to_string(),
+        activity_at: fields[2].parse().ok(),
+        title: fields[3].to_string(),
+    })
 }
 
 pub fn window_list_contains(output: &str, window: &str) -> bool {
     output.lines().map(str::trim).any(|name| name == window)
 }
-
-fn contains_any(haystack: &str, needles: &[&str]) -> bool {
-    needles.iter().any(|needle| haystack.contains(needle))
-}
-
-fn has_active_work_marker(text: &str) -> bool {
-    text.lines().any(|line| {
-        let trimmed = line.trim_start();
-        let Some(status) = trimmed
-            .strip_prefix('•')
-            .or_else(|| trimmed.strip_prefix('◦'))
-            .map(str::trim_start)
-        else {
-            return false;
-        };
-
-        status.starts_with("running ")
-            || status.starts_with("working ")
-            || status.contains("esc to interrupt")
-    })
-}
-
-fn has_codex_input_prompt(text: &str) -> bool {
-    text.lines().any(|line| {
-        let trimmed = line.trim_start();
-        trimmed == "›" || trimmed.starts_with("› ")
-    })
-}
-
-fn recent_activity_text(text: &str) -> String {
-    let lines: Vec<&str> = text.lines().collect();
-    let start = lines
-        .iter()
-        .rposition(|line| is_turn_separator(line))
-        .map(|index| index + 1)
-        .unwrap_or(0);
-    lines[start..].join("\n")
-}
-
-fn is_turn_separator(line: &str) -> bool {
-    let trimmed = line.trim();
-    trimmed.chars().count() >= 20 && trimmed.chars().all(|ch| matches!(ch, '─' | '━'))
-}
-
-fn is_agent_runtime_command(command: &str) -> bool {
-    matches!(
-        command.trim(),
-        "codex" | "claude" | "node" | "nodejs" | "deno" | "bun"
-    )
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn active_work_marker_stays_running_when_recent_text_mentions_completion() {
-        let snapshot = PaneSnapshot {
-            pane_active: true,
-            current_command: "codex".to_string(),
-            visible_text: "• running tests\nImplemented the requested fix.\nAll tasks completed.\n"
-                .to_string(),
-        };
-
-        assert_eq!(detect_observed_state(&snapshot), ObservedState::Running);
-        assert_eq!(detection_source_for(&snapshot), DetectionSource::Tmux);
-    }
-
-    #[test]
-    fn current_codex_work_marker_stays_running_when_transcript_mentions_completion() {
-        let snapshot = PaneSnapshot {
-            pane_active: true,
-            current_command: "node".to_string(),
-            visible_text: concat!(
-                "Need input before declaring the implementation complete and ready for review.\n",
-                "◦ Running cargo test\n",
-                "◦ Working (3m 09s • esc to interrupt)\n",
-            )
-            .to_string(),
-        };
-
-        assert_eq!(detect_observed_state(&snapshot), ObservedState::Running);
-        assert_eq!(detection_source_for(&snapshot), DetectionSource::Tmux);
-    }
-
-    #[test]
-    fn live_agent_runtime_reports_completed_when_recent_text_is_final() {
-        let snapshot = PaneSnapshot {
-            pane_active: true,
-            current_command: "codex".to_string(),
-            visible_text: concat!(
-                "Implementation complete.\n",
-                "Ready for review.\n",
-                "─ Worked for 2m 14s ─\n",
-                "› Find and fix a bug in @filename\n",
-            )
-            .to_string(),
-        };
-
-        assert_eq!(
-            detect_observed_state(&snapshot),
-            ObservedState::CompletedUnchecked
-        );
-        assert_eq!(detection_source_for(&snapshot), DetectionSource::Heuristic);
-    }
-
-    #[test]
-    fn idle_codex_prompt_reports_needs_user_without_attention_words() {
-        let snapshot = PaneSnapshot {
-            pane_active: true,
-            current_command: "node".to_string(),
-            visible_text: concat!(
-                "The implementation has two viable approaches. Which approach should I take?\n",
-                "› Use the safer approach\n",
-                "gpt-5.6-sol high · ~/project\n",
-            )
-            .to_string(),
-        };
-
-        assert_eq!(detect_observed_state(&snapshot), ObservedState::NeedsUser);
-        assert_eq!(detection_source_for(&snapshot), DetectionSource::Heuristic);
-    }
-
-    #[test]
-    fn interruptible_background_work_with_codex_prompt_stays_running() {
-        let snapshot = PaneSnapshot {
-            pane_active: true,
-            current_command: "node".to_string(),
-            visible_text: concat!(
-                "• Waiting for background terminal (16m 42s • esc to interrupt)\n",
-                "› Use /skills to list available skills\n",
-                "gpt-5.6-sol high · ~/project\n",
-            )
-            .to_string(),
-        };
-
-        assert_eq!(detect_observed_state(&snapshot), ObservedState::Running);
-        assert_eq!(detection_source_for(&snapshot), DetectionSource::Tmux);
-    }
-
-    #[test]
-    fn visible_need_input_text_reports_needs_user() {
-        let snapshot = PaneSnapshot {
-            pane_active: true,
-            current_command: "codex".to_string(),
-            visible_text: "Need input\nReview the command before continuing.\n".to_string(),
-        };
-
-        assert_eq!(detect_observed_state(&snapshot), ObservedState::NeedsUser);
-        assert_eq!(detection_source_for(&snapshot), DetectionSource::Heuristic);
-    }
-}
-
 pub struct Tmux {
     session: String,
 }
@@ -376,30 +178,32 @@ impl Tmux {
 
     pub fn snapshot_window(&self, window: &str) -> io::Result<PaneSnapshot> {
         let target = format!("{}:{window}", self.session);
+        let metadata_format = format!(
+            "#{{pane_dead}}{PANE_FIELD_SEPARATOR}#{{pane_current_command}}{PANE_FIELD_SEPARATOR}#{{window_activity}}{PANE_FIELD_SEPARATOR}#{{pane_title}}"
+        );
         let command = Command::new("tmux")
-            .args([
-                "display-message",
-                "-p",
-                "-t",
-                &target,
-                "#{pane_current_command}",
-            ])
+            .args(["display-message", "-p", "-t", &target, &metadata_format])
             .output()?;
         if !command.status.success() {
             return Ok(PaneSnapshot {
                 pane_active: false,
                 current_command: String::new(),
+                pane_title: String::new(),
                 visible_text: String::new(),
+                activity_at: None,
             });
         }
+        let metadata = parse_pane_metadata(&String::from_utf8_lossy(&command.stdout))?;
 
         let text = Command::new("tmux")
             .args(["capture-pane", "-p", "-J", "-S", "-120", "-t", &target])
             .output()?;
         Ok(PaneSnapshot {
-            pane_active: text.status.success(),
-            current_command: String::from_utf8_lossy(&command.stdout).trim().to_string(),
+            pane_active: !metadata.pane_dead && text.status.success(),
+            current_command: metadata.current_command,
+            pane_title: metadata.title,
             visible_text: String::from_utf8_lossy(&text.stdout).to_string(),
+            activity_at: metadata.activity_at,
         })
     }
 
@@ -560,5 +364,35 @@ fn ensure_success(status: ExitStatus) -> io::Result<()> {
         Ok(())
     } else {
         Err(io::Error::other(format!("command failed with {status}")))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pane_metadata_parser_preserves_free_text_title() {
+        let output = format!(
+            "0{PANE_FIELD_SEPARATOR}bash{PANE_FIELD_SEPARATOR}1722080000{PANE_FIELD_SEPARATOR}⠹ Refactoring status handling\n"
+        );
+
+        assert_eq!(
+            parse_pane_metadata(&output).unwrap(),
+            PaneMetadata {
+                pane_dead: false,
+                current_command: "bash".to_string(),
+                activity_at: Some(1_722_080_000),
+                title: "⠹ Refactoring status handling".to_string(),
+            }
+        );
+    }
+
+    #[test]
+    fn pane_metadata_parser_rejects_incomplete_output() {
+        assert_eq!(
+            parse_pane_metadata("node").unwrap_err().kind(),
+            io::ErrorKind::InvalidData
+        );
     }
 }

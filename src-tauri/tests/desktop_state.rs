@@ -112,7 +112,9 @@ fn standalone_codex_status_uses_terminal_observation() {
     let pane = PaneSnapshot {
         pane_active: true,
         current_command: "node".to_string(),
+        pane_title: "Codex CLI".to_string(),
         visible_text: "◦ Working (12s • esc to interrupt)".to_string(),
+        activity_at: Some(chrono::Utc::now().timestamp()),
     };
     let observation = observe_run(&codex_run, &pane);
 

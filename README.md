@@ -53,6 +53,25 @@ session, but always preserves the selected folder and every file in it.
 Direct folder sessions are available in the desktop app only. The mobile
 bridge continues to expose worktree runs.
 
+## Standalone Codex Sessions
+
+Agent Manager launches every Codex run as its own `codex` CLI process. It does
+not start or connect runs to a shared `codex app-server`. This keeps each run's
+memory and MCP subprocess lifecycle isolated, so stopping a run releases its
+Codex resources without retaining them in one long-lived server.
+
+The desktop reads thread IDs from Codex's local state database to preserve
+exact resume behavior, including when several named sessions share a folder.
+Run status is detected from the managed tmux pane and terminal output.
+
+Runs created by older Agent Manager builds may remain connected to the legacy
+`agentctl-codex` tmux service until they are stopped. After those runs have
+ended, the unused legacy service can be removed with:
+
+```bash
+tmux kill-session -t agentctl-codex
+```
+
 ## Worktree File Snapshots
 
 New runs copy non-ignored untracked files into the worktree before the agent

@@ -1,7 +1,7 @@
 pub mod agent;
 pub mod app;
 pub mod branches;
-pub mod codex_status;
+pub mod codex_thread;
 pub mod commands;
 pub mod completion;
 pub mod diff;

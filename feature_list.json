@@ -646,6 +646,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-27 12:40 +07: Reproduced a folder-mode startup race where a newly created unbound Codex run claimed an older same-folder thread before its own thread appeared. Parsed the protocol's immutable createdAt field and limited unbound assignment to threads created at or after the run, ordered by creation then update time; persisted session IDs remain authoritative. The RED desktop-state regression failed before the fix and passed after it. cargo test -p agent-manager-desktop --test desktop_state passed 12 tests, cargo test -p agentctl-core --test codex_status passed 3 tests, cargo fmt --all -- --check, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, and final ./init.sh all passed."
+    },
+    {
+      "id": "feat-064",
+      "name": "Standalone Codex Sessions",
+      "description": "Launch and restore each managed Codex run as an independent CLI process without starting, connecting to, or polling a shared Codex app-server.",
+      "dependencies": [
+        "feat-063"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-27 18:06 +07: Replaced shared remote Codex sessions with independent `codex --cd <workspace>` CLI processes and direct `resume` commands, removed app-server startup/readiness/WebSocket status code and its direct dependency, restored tmux-based status detection, and added a read-only Codex state.sqlite adapter so persisted thread IDs still provide exact restore behavior for multiple same-folder sessions. RED launch/create/restore tests failed against `--remote` and /readyz before implementation, then passed. Focused command, app, tmux restore, Codex state, and desktop state tests passed; cargo fmt, tauri-app cargo check, git diff checks, npm test (12 files/88 tests), npm build, all 86 Rust tests, and final ./init.sh passed."
     }
   ]
 }

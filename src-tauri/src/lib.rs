@@ -1,3 +1,4 @@
+pub mod codex_state;
 pub mod mobile_bridge;
 pub mod models;
 pub mod run_classification;
@@ -80,8 +81,6 @@ mod startup_window {
 }
 
 #[cfg(feature = "tauri-app")]
-mod codex_status_client;
-#[cfg(feature = "tauri-app")]
 pub mod commands;
 #[cfg(feature = "tauri-app")]
 pub mod error;
@@ -123,12 +122,6 @@ fn enforce_startup_window_state(app: &tauri::App) {
 #[cfg(feature = "tauri-app")]
 fn restore_tmux_session_in_background() {
     tauri::async_runtime::spawn_blocking(|| {
-        if let Ok(cwd) = std::env::current_dir() {
-            let mut runner = agentctl_core::app::SystemCommandRunner;
-            if let Err(err) = agentctl_core::app::ensure_codex_app_server(&mut runner, &cwd) {
-                eprintln!("failed to start Codex app-server: {err}");
-            }
-        }
         tmux_restore::restore_tmux_session_best_effort("agentctl");
     });
 }

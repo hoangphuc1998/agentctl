@@ -1,12 +1,13 @@
 pub mod agent;
 pub mod app;
 pub mod branches;
-pub mod codex_status;
+pub mod codex_thread;
 pub mod commands;
 pub mod completion;
 pub mod diff;
 pub mod domain;
 pub mod registry;
+pub mod status;
 pub mod tmux;
 pub mod untracked_files;
 pub mod worktree;

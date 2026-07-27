@@ -5,10 +5,11 @@ use std::{
 
 use agentctl_core::{
     agent::AgentKind,
-    codex_status::{observed_state_from_codex_status, select_thread_for_run, CodexThreadSnapshot},
+    codex_thread::CodexThreadSnapshot,
     completion::CompletionCandidate,
     domain::{mark_seen_on_select, DetectionSource, ObservedState, RunRecord},
-    tmux::{detect_observed_state, detection_source_for, PaneSnapshot},
+    status::{observe_terminal, StatusConfidence, StatusReason},
+    tmux::PaneSnapshot,
 };
 use uuid::Uuid;
 
@@ -25,37 +26,18 @@ pub use run_classification::{is_restorable_run, is_stale_run};
 pub struct RunObservation {
     pub state: ObservedState,
     pub source: DetectionSource,
+    pub reason: StatusReason,
+    pub confidence: StatusConfidence,
     pub agent_session_id: Option<Uuid>,
 }
 
-pub fn observe_run(
-    run: &RunRecord,
-    pane: &PaneSnapshot,
-    codex_threads: &[CodexThreadSnapshot],
-) -> RunObservation {
-    let thread = (run.agent == AgentKind::Codex)
-        .then(|| select_thread_for_run(codex_threads, run.agent_session_id, &run.worktree_path))
-        .flatten();
-    observe_run_with_thread(run, pane, thread)
-}
-
-pub fn observe_run_with_thread(
-    run: &RunRecord,
-    pane: &PaneSnapshot,
-    codex_thread: Option<&CodexThreadSnapshot>,
-) -> RunObservation {
-    if let Some(thread) = codex_thread {
-        if let Some(state) = observed_state_from_codex_status(&thread.status) {
-            return RunObservation {
-                state,
-                source: DetectionSource::Provider,
-                agent_session_id: Some(thread.id),
-            };
-        }
-    }
+pub fn observe_run(run: &RunRecord, pane: &PaneSnapshot) -> RunObservation {
+    let decision = observe_terminal(run.agent, pane);
     RunObservation {
-        state: detect_observed_state(pane),
-        source: detection_source_for(pane),
+        state: decision.state,
+        source: decision.source,
+        reason: decision.reason,
+        confidence: decision.confidence,
         agent_session_id: run.agent_session_id,
     }
 }
@@ -71,12 +53,8 @@ pub fn codex_thread_assignments(
         let Some(session_id) = run.agent_session_id else {
             continue;
         };
-        if threads.iter().any(|thread| {
-            thread.id == session_id && observed_state_from_codex_status(&thread.status).is_some()
-        }) {
-            assignments.insert(run.id, session_id);
-            claimed.insert(session_id);
-        }
+        assignments.insert(run.id, session_id);
+        claimed.insert(session_id);
     }
 
     let mut unbound = runs
@@ -96,7 +74,6 @@ pub fn codex_thread_assignments(
             .filter(|thread| thread.cwd == run.worktree_path)
             .filter(|thread| thread.created_at >= run.created_at)
             .filter(|thread| !claimed.contains(&thread.id))
-            .filter(|thread| observed_state_from_codex_status(&thread.status).is_some())
             .max_by_key(|thread| (thread.created_at, thread.updated_at));
         if let Some(thread) = candidate {
             assignments.insert(run.id, thread.id);

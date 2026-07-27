@@ -1,5 +1,5 @@
 use std::{
-    env, fs, io,
+    fs, io,
     path::{Path, PathBuf},
     process::{Command, Output},
     time::Duration,
@@ -10,10 +10,8 @@ use uuid::Uuid;
 use crate::{
     agent::{AgentKind, LaunchPlan},
     commands::{
-        login_shell_command, shell_command_with_failure_diagnostics, shell_join,
-        AgentCommandBuilder, EditorCommandBuilder, GitCommandBuilder, TerminalColorEnvironment,
-        TmuxCommandBuilder, CODEX_APP_SERVER_READY_URL, CODEX_APP_SERVER_TMUX_SESSION,
-        CODEX_APP_SERVER_URL,
+        shell_command_with_failure_diagnostics, shell_join, AgentCommandBuilder,
+        EditorCommandBuilder, GitCommandBuilder, TerminalColorEnvironment, TmuxCommandBuilder,
     },
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord, WorkspaceKind},
     registry::{RegistryResult, SqliteRegistry},
@@ -201,10 +199,6 @@ where
             &tmux,
             self.config.terminal_color_environment.as_ref(),
         )?;
-        if run.agent == AgentKind::Codex {
-            ensure_codex_app_server(&mut self.runner, &run.worktree_path)?;
-        }
-
         let command = AgentCommandBuilder::new().restore(LaunchPlan {
             agent: run.agent,
             worktree_path: run.worktree_path.clone(),
@@ -417,22 +411,6 @@ where
         return Err(err.into());
     }
 
-    if request.agent == AgentKind::Codex {
-        if let Err(err) = ensure_codex_app_server(runner, &worktree_path) {
-            rollback_created_resources(
-                runner,
-                &tmux,
-                &git,
-                &request.repo_path,
-                &worktree_path,
-                &branch,
-                &tmux_window,
-                false,
-            );
-            return Err(err.into());
-        }
-    }
-
     let agent_command = AgentCommandBuilder::new().launch(LaunchPlan {
         agent: request.agent,
         worktree_path: worktree_path.clone(),
@@ -544,10 +522,6 @@ where
     };
     let tmux = TmuxCommandBuilder::new(&config.tmux_session);
     ensure_tmux_session(runner, &tmux, config.terminal_color_environment.as_ref())?;
-    if request.agent == AgentKind::Codex {
-        ensure_codex_app_server(runner, &folder_path)?;
-    }
-
     let agent_command = AgentCommandBuilder::new().launch(LaunchPlan {
         agent: request.agent,
         worktree_path: folder_path.clone(),
@@ -638,50 +612,6 @@ where
         runner.run(&tmux.new_detached_session())?;
     }
     configure_tmux_terminal_setup(runner, tmux, terminal_color_environment)
-}
-
-pub fn ensure_codex_app_server<R>(runner: &mut R, cwd: &Path) -> io::Result<()>
-where
-    R: CommandRunner,
-{
-    let tmux = TmuxCommandBuilder::new(CODEX_APP_SERVER_TMUX_SESSION);
-    let server_cwd = codex_app_server_working_directory(cwd);
-    if runner.succeeds(&tmux.has_session())? {
-        let current_path = runner.output(&tmux.pane_current_path("app-server"))?;
-        if Path::new(current_path.trim()) == server_cwd
-            && runner.succeeds(&codex_app_server_ready_command())?
-        {
-            return Ok(());
-        }
-        runner.run(&tmux.kill_session())?;
-    }
-
-    let command = login_shell_command(&[
-        "codex".to_string(),
-        "app-server".to_string(),
-        "--listen".to_string(),
-        CODEX_APP_SERVER_URL.to_string(),
-    ]);
-    runner.run(&tmux.new_service_session("app-server", path_str(&server_cwd), &command))
-}
-
-fn codex_app_server_ready_command() -> Vec<String> {
-    vec![
-        "curl".to_string(),
-        "--fail".to_string(),
-        "--silent".to_string(),
-        "--show-error".to_string(),
-        "--max-time".to_string(),
-        "1".to_string(),
-        CODEX_APP_SERVER_READY_URL.to_string(),
-    ]
-}
-
-fn codex_app_server_working_directory(fallback: &Path) -> PathBuf {
-    env::var_os("HOME")
-        .map(PathBuf::from)
-        .filter(|path| path.is_dir())
-        .unwrap_or_else(|| fallback.to_path_buf())
 }
 
 fn configure_tmux_terminal_setup<R>(
@@ -857,17 +787,13 @@ fn command_error(command: &[String], output: &Output) -> io::Error {
 mod tests {
     use std::io;
 
-    use crate::{
-        agent::AgentKind,
-        commands::{CODEX_APP_SERVER_READY_URL, CODEX_APP_SERVER_TMUX_SESSION},
-        registry::SqliteRegistry,
-    };
+    use crate::{agent::AgentKind, registry::SqliteRegistry};
 
     use super::{
         close_and_delete_run_with_registry, create_folder_session_with_registry,
-        create_run_with_registry, ensure_codex_app_server, merge_run_with_registry,
-        open_run_in_vscode_with_registry, path_str, preview_ignored_untracked_files, AppConfig,
-        CommandRunner, NewFolderSessionRequest, NewRunRequest,
+        create_run_with_registry, merge_run_with_registry, open_run_in_vscode_with_registry,
+        path_str, preview_ignored_untracked_files, AppConfig, CommandRunner,
+        NewFolderSessionRequest, NewRunRequest,
     };
 
     #[derive(Default)]
@@ -878,9 +804,6 @@ mod tests {
         list_windows_calls: usize,
         rev_parse_output: String,
         untracked_files_output: String,
-        codex_server_exists: bool,
-        codex_server_ready: bool,
-        codex_server_path: Option<String>,
     }
 
     impl CommandRunner for RecordingRunner {
@@ -894,14 +817,7 @@ mod tests {
 
         fn succeeds(&mut self, command: &[String]) -> io::Result<bool> {
             self.commands.push(command.to_vec());
-            if command_contains(command, "has-session")
-                && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION)
-            {
-                return Ok(self.codex_server_exists);
-            }
-            Ok(self.codex_server_ready
-                && command_contains(command, "curl")
-                && command_contains(command, CODEX_APP_SERVER_READY_URL))
+            Ok(false)
         }
 
         fn output(&mut self, command: &[String]) -> io::Result<String> {
@@ -927,90 +843,8 @@ mod tests {
                     }
                 }
             }
-            if command_contains(command, "display-message")
-                && command
-                    .iter()
-                    .any(|part| part.contains(CODEX_APP_SERVER_TMUX_SESSION))
-            {
-                return Ok(self.codex_server_path.clone().unwrap_or_default());
-            }
             Ok("dashboard\n".to_string())
         }
-    }
-
-    #[test]
-    fn codex_app_server_replaces_session_from_stale_appimage_directory() {
-        let mut runner = RecordingRunner {
-            codex_server_exists: true,
-            codex_server_path: Some("/tmp/.mount_Agent-old/usr\n".to_string()),
-            ..RecordingRunner::default()
-        };
-
-        ensure_codex_app_server(&mut runner, std::path::Path::new("/repo"))
-            .expect("replace stale server");
-
-        assert!(runner
-            .commands
-            .iter()
-            .any(|command| command_contains(command, "kill-session")));
-        assert!(runner.commands.iter().any(|command| {
-            command_contains(command, "new-session")
-                && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION)
-        }));
-    }
-
-    #[test]
-    fn codex_app_server_replaces_unhealthy_session_from_stable_directory() {
-        let fallback = std::path::Path::new("/repo");
-        let stable_path = super::codex_app_server_working_directory(fallback);
-        let mut runner = RecordingRunner {
-            codex_server_exists: true,
-            codex_server_ready: false,
-            codex_server_path: Some(format!("{}\n", stable_path.display())),
-            ..RecordingRunner::default()
-        };
-
-        ensure_codex_app_server(&mut runner, fallback).expect("replace unhealthy server");
-
-        assert!(runner.commands.iter().any(|command| {
-            command_contains(command, "curl")
-                && command_contains(command, CODEX_APP_SERVER_READY_URL)
-        }));
-        assert!(runner
-            .commands
-            .iter()
-            .any(|command| command_contains(command, "kill-session")));
-        assert!(runner.commands.iter().any(|command| {
-            command_contains(command, "new-session")
-                && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION)
-        }));
-    }
-
-    #[test]
-    fn codex_app_server_preserves_healthy_session_from_stable_directory() {
-        let fallback = std::path::Path::new("/repo");
-        let stable_path = super::codex_app_server_working_directory(fallback);
-        let mut runner = RecordingRunner {
-            codex_server_exists: true,
-            codex_server_ready: true,
-            codex_server_path: Some(format!("{}\n", stable_path.display())),
-            ..RecordingRunner::default()
-        };
-
-        ensure_codex_app_server(&mut runner, fallback).expect("preserve healthy server");
-
-        assert!(runner.commands.iter().any(|command| {
-            command_contains(command, "curl")
-                && command_contains(command, CODEX_APP_SERVER_READY_URL)
-        }));
-        assert!(!runner
-            .commands
-            .iter()
-            .any(|command| command_contains(command, "kill-session")));
-        assert!(!runner
-            .commands
-            .iter()
-            .any(|command| command_contains(command, "new-session")));
     }
 
     #[test]
@@ -1444,7 +1278,7 @@ mod tests {
     }
 
     #[test]
-    fn create_run_wraps_agent_launch_so_failures_keep_the_pane_open() {
+    fn create_run_launches_standalone_codex_and_keeps_failures_visible() {
         let registry = SqliteRegistry::in_memory().expect("registry");
         let mut runner = RecordingRunner {
             created_window_visible_after_list_calls: Some(1),
@@ -1475,19 +1309,17 @@ mod tests {
             .expect("tmux new-window command");
         let shell_command = new_window.last().expect("tmux shell command");
 
-        assert!(shell_command.contains("curl -fsS http://127.0.0.1:17655/readyz"));
-        assert!(shell_command.contains("codex --remote ws://127.0.0.1:17655"));
+        assert!(shell_command.contains("codex --cd"));
+        assert!(!shell_command.contains("--remote"));
+        assert!(!shell_command.contains("readyz"));
         assert!(shell_command.contains("Agent command exited with status %s."));
         assert!(shell_command.contains("\"$agent_status\""));
         assert!(shell_command.contains("exec \"${SHELL:-/bin/sh}\""));
 
-        assert!(runner.commands.iter().any(|command| {
-            command_contains(command, "new-session")
-                && command_contains(command, CODEX_APP_SERVER_TMUX_SESSION)
-                && command.last().is_some_and(|part| {
-                    part.contains("\"${SHELL:-/bin/sh}\" -lic")
-                        && part.contains("codex app-server --listen")
-                })
+        assert!(!runner.commands.iter().any(|command| {
+            command
+                .iter()
+                .any(|part| part.contains("codex app-server") || part.contains("agentctl-codex"))
         }));
     }
 

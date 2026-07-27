@@ -9,7 +9,7 @@ use agent_manager_desktop::{
 };
 use agentctl_core::{
     agent::AgentKind,
-    codex_status::{CodexThreadActiveFlag, CodexThreadSnapshot, CodexThreadStatus},
+    codex_thread::CodexThreadSnapshot,
     completion::CompletionCandidate,
     domain::{DetectionSource, Lifecycle, ObservedState, RunRecord, WorkspaceKind},
     tmux::PaneSnapshot,
@@ -105,34 +105,26 @@ fn dashboard_state_counts_attention_runs() {
 }
 
 #[test]
-fn official_codex_status_overrides_misleading_terminal_text() {
+fn standalone_codex_status_uses_terminal_observation() {
     let mut codex_run = run("copy-review", ObservedState::Running, DetectionSource::Tmux);
     let thread_id = Uuid::new_v4();
     codex_run.agent_session_id = Some(thread_id);
     let pane = PaneSnapshot {
         pane_active: true,
         current_command: "node".to_string(),
+        pane_title: "Codex CLI".to_string(),
         visible_text: "◦ Working (12s • esc to interrupt)".to_string(),
+        activity_at: Some(chrono::Utc::now().timestamp()),
     };
-    let threads = vec![CodexThreadSnapshot {
-        id: thread_id,
-        cwd: codex_run.worktree_path.clone(),
-        created_at: 40,
-        updated_at: 42,
-        status: CodexThreadStatus::Active {
-            active_flags: vec![CodexThreadActiveFlag::WaitingOnUserInput],
-        },
-    }];
+    let observation = observe_run(&codex_run, &pane);
 
-    let observation = observe_run(&codex_run, &pane, &threads);
-
-    assert_eq!(observation.state, ObservedState::NeedsUser);
-    assert_eq!(observation.source, DetectionSource::Provider);
+    assert_eq!(observation.state, ObservedState::Running);
+    assert_eq!(observation.source, DetectionSource::Tmux);
     assert_eq!(observation.agent_session_id, Some(thread_id));
 }
 
 #[test]
-fn same_folder_codex_sessions_claim_distinct_provider_threads() {
+fn same_folder_codex_sessions_claim_distinct_persisted_threads() {
     let folder = PathBuf::from("/workspace/product");
     let mut older = run("older", ObservedState::Running, DetectionSource::Tmux);
     older.workspace_kind = WorkspaceKind::Folder;
@@ -155,18 +147,12 @@ fn same_folder_codex_sessions_claim_distinct_provider_threads() {
             cwd: folder.clone(),
             created_at: 10,
             updated_at: 30,
-            status: CodexThreadStatus::Active {
-                active_flags: vec![],
-            },
         },
         CodexThreadSnapshot {
             id: newer_thread,
             cwd: folder,
             created_at: 20,
             updated_at: 40,
-            status: CodexThreadStatus::Active {
-                active_flags: vec![],
-            },
         },
     ];
 
@@ -197,9 +183,6 @@ fn new_folder_codex_session_does_not_claim_an_older_unbound_thread() {
         cwd: folder,
         created_at: 11,
         updated_at: 30,
-        status: CodexThreadStatus::Active {
-            active_flags: vec![],
-        },
     }];
 
     let assignments = codex_thread_assignments(&[older.clone(), newer.clone()], &threads);

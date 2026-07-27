@@ -636,6 +636,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-26 21:12 +07: Added direct primary-click activation for explicit file:// terminal links while preserving Ctrl+click for web URLs and normal file references. Canonical files under $CODEX_HOME/generated_images or $HOME/.codex/generated_images now open through xdg-open; other outside-workspace files remain rejected. RED frontend and Rust tests failed before implementation, focused tests passed with 20 frontend and 6 terminal-plan tests, npm test passed with 12 files/88 tests, npm run build, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --all -- --check, git diff --check, and final ./init.sh all passed."
+    },
+    {
+      "id": "feat-063",
+      "name": "Stable Folder Codex Status Assignment",
+      "description": "Prevent newly created folder-mode Codex runs from claiming older same-folder provider threads while their own thread is still starting.",
+      "dependencies": [
+        "feat-061"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-27 12:40 +07: Reproduced a folder-mode startup race where a newly created unbound Codex run claimed an older same-folder thread before its own thread appeared. Parsed the protocol's immutable createdAt field and limited unbound assignment to threads created at or after the run, ordered by creation then update time; persisted session IDs remain authoritative. The RED desktop-state regression failed before the fix and passed after it. cargo test -p agent-manager-desktop --test desktop_state passed 12 tests, cargo test -p agentctl-core --test codex_status passed 3 tests, cargo fmt --all -- --check, cargo check -p agent-manager-desktop --features tauri-app, git diff --check, and final ./init.sh all passed."
     }
   ]
 }

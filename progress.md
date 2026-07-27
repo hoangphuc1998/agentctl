@@ -2,30 +2,29 @@
 
 ## Current State
 
-**Last Updated:** 2026-07-26 21:12 +07
-**Session ID:** direct-codex-generated-file-links
-**Active Feature:** feat-062 - Direct Codex Generated File Links
+**Last Updated:** 2026-07-27 12:40 +07
+**Session ID:** stable-folder-codex-status-assignment
+**Active Feature:** feat-063 - Stable Folder Codex Status Assignment
 
 ## Status
 
 ### What is Done
 
 - [x] Passed the baseline startup workflow before implementation.
-- [x] Classified explicit `file://` terminal links for direct primary-click activation.
-- [x] Preserved Ctrl+click activation for web URLs and ordinary source-path references.
-- [x] Allowed canonical files under Codex's configured `generated_images` directory.
-- [x] Opened generated files with the desktop default application.
-- [x] Preserved containment checks for all other files and rejected missing or non-regular files.
-- [x] Added frontend interaction and Rust command-plan regression coverage.
+- [x] Reproduced the folder-mode status race with a focused RED regression.
+- [x] Parsed Codex thread `createdAt` as immutable assignment metadata.
+- [x] Prevented unbound runs from claiming same-folder threads created before the run.
+- [x] Preserved authoritative persisted session-ID assignments.
+- [x] Completed focused, feature-build, and full repository verification.
 
 ### What is In Progress
 
-- [x] Implementation, tests, documentation, verification, and continuity artifacts are complete.
+- [x] Implementation, tests, verification, and continuity artifacts are complete.
 
 ### What is Next
 
-1. Rebuild/relaunch Agent Manager to use direct generated-file links in the installed desktop app.
-2. Primary-click a Codex `file:///.../.codex/generated_images/...` output link to open it.
+1. Rebuild/relaunch Agent Manager to use the corrected folder-mode assignment policy.
+2. Run multiple Codex folder sessions in one directory and confirm each row follows its own agent status.
 
 ## Blockers / Risks
 
@@ -35,23 +34,21 @@
 
 ## Decisions Made
 
-- Only explicit file URLs open without a modifier; normal terminal clicks remain available to tmux for all other detected links.
-- Generated files are allowed only after canonicalization confirms containment under `$CODEX_HOME/generated_images` or the default `$HOME/.codex/generated_images`.
-- Generated files use `xdg-open`; worktree source references keep VS Code line/column navigation.
+- A persisted Codex session ID remains authoritative, including for restored sessions.
+- A run without a session ID can only claim a provider thread whose immutable creation time is at or after the run creation time.
+- Eligible same-folder threads are ordered by creation time, with update time only as a tie-breaker.
 
 ## Files Modified This Session
 
-- `src/terminalLinks.ts` and its tests for direct-vs-modified activation policy.
-- `src/components/TerminalPane.tsx` and its tests for primary-click file URL handling.
-- `src-tauri/src/{commands,terminal_plan}.rs` and terminal-plan tests for guarded generated-file opening.
+- `core/src/codex_status.rs` and its protocol tests for Codex thread creation time.
+- `src-tauri/src/services.rs` for guarded one-to-one provider-thread assignment.
+- `src-tauri/tests/desktop_state.rs` for the startup race regression.
 - `feature_list.json` and `progress.md` for feature state and verification continuity.
 
 ## Evidence of Completion
 
-- [x] RED frontend tests failed before implementation for direct file URL activation.
-- [x] RED Rust tests failed before implementation for the generated-files root policy.
-- [x] Focused frontend verification passed with 2 files and 20 tests.
-- [x] Focused terminal-plan verification passed with 6 tests.
-- [x] Full `npm test` passed with 12 files and 88 tests.
-- [x] `npm run build`, `cargo check -p agent-manager-desktop --features tauri-app`, `cargo fmt --all -- --check`, and `git diff --check` passed.
-- [x] Final `./init.sh` passed with 12 Vitest files/88 tests, npm build, 6 terminal-plan tests, 40 core tests, and all remaining Rust tests.
+- [x] The RED regression assigned the older thread to the newer run before implementation.
+- [x] `cargo test -p agent-manager-desktop --test desktop_state` passed 12 tests.
+- [x] `cargo test -p agentctl-core --test codex_status` passed 3 tests.
+- [x] `cargo fmt --all -- --check`, `cargo check -p agent-manager-desktop --features tauri-app`, and `git diff --check` passed.
+- [x] Final `./init.sh` passed with 12 Vitest files/88 tests, npm build, 12 desktop-state tests, 40 core tests, and all remaining Rust tests.

@@ -117,6 +117,7 @@ fn official_codex_status_overrides_misleading_terminal_text() {
     let threads = vec![CodexThreadSnapshot {
         id: thread_id,
         cwd: codex_run.worktree_path.clone(),
+        created_at: 40,
         updated_at: 42,
         status: CodexThreadStatus::Active {
             active_flags: vec![CodexThreadActiveFlag::WaitingOnUserInput],
@@ -152,6 +153,7 @@ fn same_folder_codex_sessions_claim_distinct_provider_threads() {
         CodexThreadSnapshot {
             id: older_thread,
             cwd: folder.clone(),
+            created_at: 10,
             updated_at: 30,
             status: CodexThreadStatus::Active {
                 active_flags: vec![],
@@ -160,6 +162,7 @@ fn same_folder_codex_sessions_claim_distinct_provider_threads() {
         CodexThreadSnapshot {
             id: newer_thread,
             cwd: folder,
+            created_at: 20,
             updated_at: 40,
             status: CodexThreadStatus::Active {
                 active_flags: vec![],
@@ -171,6 +174,38 @@ fn same_folder_codex_sessions_claim_distinct_provider_threads() {
 
     assert_eq!(assignments.get(&older.id), Some(&older_thread));
     assert_eq!(assignments.get(&newer.id), Some(&newer_thread));
+}
+
+#[test]
+fn new_folder_codex_session_does_not_claim_an_older_unbound_thread() {
+    let folder = PathBuf::from("/workspace/product");
+    let mut older = run("older", ObservedState::Running, DetectionSource::Tmux);
+    older.workspace_kind = WorkspaceKind::Folder;
+    older.repo_path = folder.clone();
+    older.worktree_path = folder.clone();
+    older.created_at = 10;
+
+    let mut newer = run("newer", ObservedState::Running, DetectionSource::Tmux);
+    newer.workspace_kind = WorkspaceKind::Folder;
+    newer.repo_path = folder.clone();
+    newer.worktree_path = folder.clone();
+    newer.created_at = 20;
+
+    let older_thread = Uuid::new_v4();
+    let threads = vec![CodexThreadSnapshot {
+        id: older_thread,
+        cwd: folder,
+        created_at: 11,
+        updated_at: 30,
+        status: CodexThreadStatus::Active {
+            active_flags: vec![],
+        },
+    }];
+
+    let assignments = codex_thread_assignments(&[older.clone(), newer.clone()], &threads);
+
+    assert_eq!(assignments.get(&older.id), Some(&older_thread));
+    assert_eq!(assignments.get(&newer.id), None);
 }
 
 #[test]

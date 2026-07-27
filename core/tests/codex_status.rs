@@ -22,6 +22,7 @@ fn parses_official_codex_thread_status_response() {
                     {{
                         "id": "{RUN_THREAD_ID}",
                         "cwd": "/repos/agent-manager-worktrees/feat/status",
+                        "createdAt": 40,
                         "updatedAt": 42,
                         "status": {{
                             "type": "active",
@@ -31,6 +32,7 @@ fn parses_official_codex_thread_status_response() {
                     {{
                         "id": "{OLD_THREAD_ID}",
                         "cwd": "/repos/agent-manager-worktrees/feat/status",
+                        "createdAt": 39,
                         "updatedAt": 41,
                         "status": {{ "type": "notLoaded" }}
                     }}
@@ -47,6 +49,7 @@ fn parses_official_codex_thread_status_response() {
 
     assert_eq!(threads.len(), 2);
     assert_eq!(threads[0].id, Uuid::parse_str(RUN_THREAD_ID).unwrap());
+    assert_eq!(threads[0].created_at, 40);
     assert_eq!(
         threads[0].status,
         CodexThreadStatus::Active {
@@ -87,8 +90,8 @@ fn maps_official_codex_status_without_terminal_text() {
 fn selects_loaded_thread_by_session_or_latest_worktree() {
     let response = format!(
         r#"{{"id":2,"result":{{"data":[
-            {{"id":"{OLD_THREAD_ID}","cwd":"/repos/worktree","updatedAt":41,"status":{{"type":"idle"}}}},
-            {{"id":"{RUN_THREAD_ID}","cwd":"/repos/worktree","updatedAt":42,"status":{{"type":"active","activeFlags":[]}}}}
+            {{"id":"{OLD_THREAD_ID}","cwd":"/repos/worktree","createdAt":39,"updatedAt":41,"status":{{"type":"idle"}}}},
+            {{"id":"{RUN_THREAD_ID}","cwd":"/repos/worktree","createdAt":40,"updatedAt":42,"status":{{"type":"active","activeFlags":[]}}}}
         ],"nextCursor":null,"backwardsCursor":null}}}}"#
     );
     let threads = parse_thread_list_response(&response).unwrap().unwrap();

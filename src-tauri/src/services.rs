@@ -94,9 +94,10 @@ pub fn codex_thread_assignments(
         let candidate = threads
             .iter()
             .filter(|thread| thread.cwd == run.worktree_path)
+            .filter(|thread| thread.created_at >= run.created_at)
             .filter(|thread| !claimed.contains(&thread.id))
             .filter(|thread| observed_state_from_codex_status(&thread.status).is_some())
-            .max_by_key(|thread| thread.updated_at);
+            .max_by_key(|thread| (thread.created_at, thread.updated_at));
         if let Some(thread) = candidate {
             assignments.insert(run.id, thread.id);
             claimed.insert(thread.id);

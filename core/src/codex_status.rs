@@ -30,6 +30,8 @@ pub enum CodexThreadStatus {
 pub struct CodexThreadSnapshot {
     pub id: Uuid,
     pub cwd: PathBuf,
+    #[serde(rename = "createdAt")]
+    pub created_at: i64,
     #[serde(rename = "updatedAt")]
     pub updated_at: i64,
     pub status: CodexThreadStatus,

@@ -26,6 +26,7 @@ pub enum StatusConfidence {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StatusSignal {
+    BlockingApproval,
     ActiveWork,
     ExplicitInput,
     Completion,
@@ -37,6 +38,7 @@ pub enum StatusSignal {
 impl StatusSignal {
     fn precedence(self) -> u8 {
         match self {
+            Self::BlockingApproval => 60,
             Self::ActiveWork => 50,
             Self::ExplicitInput => 40,
             Self::Completion => 30,
@@ -49,7 +51,9 @@ impl StatusSignal {
     fn observed_state(self) -> ObservedState {
         match self {
             Self::ActiveWork | Self::AgentRuntime => ObservedState::Running,
-            Self::ExplicitInput | Self::AgentPrompt => ObservedState::NeedsUser,
+            Self::BlockingApproval | Self::ExplicitInput | Self::AgentPrompt => {
+                ObservedState::NeedsUser
+            }
             Self::Completion => ObservedState::CompletedUnchecked,
             Self::PaneUnavailable => ObservedState::Unknown,
         }
@@ -120,7 +124,18 @@ pub fn collect_terminal_evidence(
     let recent = recent_activity_text(&pane.visible_text);
     let text = recent.to_ascii_lowercase();
     let activity_at = pane.activity_at.unwrap_or(now);
-    let mut evidence = Vec::with_capacity(4);
+    let mut evidence = Vec::with_capacity(5);
+
+    if has_blocking_approval_prompt(agent, &text) {
+        evidence.push(StatusEvidence {
+            signal: StatusSignal::BlockingApproval,
+            source: DetectionSource::Heuristic,
+            reason: StatusReason::ExplicitInputRequest,
+            confidence: StatusConfidence::High,
+            observed_at: activity_at,
+            valid_for_seconds: None,
+        });
+    }
 
     if has_active_work_marker(agent, &text, &pane.pane_title) {
         evidence.push(StatusEvidence {
@@ -250,6 +265,26 @@ fn has_active_work_marker(agent: AgentKind, text: &str, title: &str) -> bool {
 fn contains_braille_spinner(text: &str) -> bool {
     text.chars()
         .any(|character| ('\u{2800}'..='\u{28ff}').contains(&character))
+}
+
+fn has_blocking_approval_prompt(agent: AgentKind, text: &str) -> bool {
+    if agent != AgentKind::Codex {
+        return false;
+    }
+
+    let has_question = text.lines().any(|line| {
+        let trimmed = line.trim();
+        trimmed.starts_with("would you like to ") && trimmed.ends_with('?')
+    });
+    let has_numbered_affirmative_choice = text.lines().any(|line| {
+        line.trim_start()
+            .strip_prefix('›')
+            .unwrap_or(line.trim_start())
+            .trim_start()
+            .starts_with("1. yes")
+    });
+
+    has_question && has_numbered_affirmative_choice
 }
 
 fn has_completion_marker(text: &str) -> bool {

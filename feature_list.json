@@ -696,6 +696,17 @@
       ],
       "status": "completed",
       "evidence": "2026-07-28 17:47 +07: Live feat/ad capture showed `✻ Churned for 3m 52s` followed by prompt chrome and a `❯` prompt separated with a non-breaking space; the reducer discarded text before the border and missed the Unicode-spaced prompt, so the runtime signal incorrectly won. Added RED exact-footer and Unicode-prompt tests, made Claude inspect the bounded terminal tail across prompt borders, recognized starred duration footers as completion, and accepted Unicode prompt whitespace. A live-spinner regression preserves Running precedence. All 16 status-evidence tests, cargo test --workspace, cargo check with tauri-app, cargo fmt, and git diff checks passed; final ./init.sh is recorded in progress.md."
+    },
+    {
+      "id": "feat-069",
+      "name": "Codex Tmux Restart Process Matching",
+      "description": "Restore rewritten Codex resume commands after computer restart even though their NVM-compatible login-shell wrapper does not begin with the codex executable.",
+      "dependencies": [
+        "feat-064",
+        "feat-066"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-28 22:27 +07: Live post-restart diagnosis found every Codex pane restored as an idle zsh while Claude panes resumed. The rewrite hook produced login-shell commands containing Codex, but tmux-resurrect's exact `codex` process matcher rejected commands beginning with the wrapper. Added a RED generated-config regression and changed the managed process list to a quoted `~codex --cd` contains matcher while retaining Claude's exact matcher. The installed tmux-resurrect matcher accepted the generated command; all 15 restore tests, 88 Vitest tests, npm build, cargo test --workspace, tauri-app cargo check, formatting, JSON/diff checks, and final ./init.sh passed."
     }
   ]
 }

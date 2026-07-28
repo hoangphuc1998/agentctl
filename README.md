@@ -87,10 +87,11 @@ tmux kill-session -t agentctl-codex
 
 When tmux restart restore is enabled, Agent Manager rewrites saved managed panes
 to resume their recorded Codex or Claude session before tmux-resurrect rebuilds
-them. Snapshot discovery follows tmux-resurrect's Linux convention: an existing
-legacy `~/.tmux/resurrect` directory takes precedence; otherwise snapshots are
-loaded from `$XDG_DATA_HOME/tmux/resurrect`, defaulting to
-`~/.local/share/tmux/resurrect`.
+them. Codex's NVM-compatible login-shell resume wrapper is explicitly included
+in tmux-resurrect's process matching. Snapshot discovery follows
+tmux-resurrect's Linux convention: an existing legacy `~/.tmux/resurrect`
+directory takes precedence; otherwise snapshots are loaded from
+`$XDG_DATA_HOME/tmux/resurrect`, defaulting to `~/.local/share/tmux/resurrect`.
 
 ## Worktree File Snapshots
 

@@ -122,12 +122,19 @@ fn tmux_config_upsert_adds_guarded_plugin_restore_block() {
     assert!(config.contains("set -g @plugin 'tmux-plugins/tmux-continuum'"));
     assert!(config.contains("set -g @continuum-restore 'on'"));
     assert!(config.contains("set -g @continuum-boot 'on'"));
-    assert!(config.contains("set -g @resurrect-processes 'codex claude'"));
+    assert!(config.contains("set -g @resurrect-processes"));
     assert!(config.contains(
         "set -g @resurrect-hook-pre-restore-pane-processes \"'/opt/Agent Manager/agent-manager' __tmux-resurrect-rewrite\""
     ));
     assert!(config.contains("run '~/.tmux/plugins/tpm/tpm'"));
     assert!(config.contains("# <<< Agent Manager tmux restore <<<"));
+}
+
+#[test]
+fn tmux_config_matches_codex_inside_the_login_shell_restore_command() {
+    let config = upsert_agent_manager_tmux_config("", "/usr/bin/agent-manager");
+
+    assert!(config.contains("set -g @resurrect-processes '\"~codex --cd\" claude'"));
 }
 
 #[test]

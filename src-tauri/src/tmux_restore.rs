@@ -354,7 +354,8 @@ set -g @plugin 'tmux-plugins/tmux-resurrect'\n\
 set -g @plugin 'tmux-plugins/tmux-continuum'\n\
 set -g @continuum-restore 'on'\n\
 set -g @continuum-boot 'on'\n\
-set -g @resurrect-processes 'codex claude'\n\
+# Codex resume commands use a login-shell wrapper, so match its CLI invocation inside the command.\n\
+set -g @resurrect-processes '\"~codex --cd\" claude'\n\
 set -g @resurrect-hook-pre-restore-pane-processes {}\n\
 run '~/.tmux/plugins/tpm/tpm'\n\
 {CONFIG_BLOCK_END}\n",

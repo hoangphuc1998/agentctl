@@ -686,6 +686,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-28 14:44 +07: Added a RED status-evidence regression from the reported screenshot proving a fresh Running marker suppressed Codex's numbered command approval. Added a high-confidence BlockingApproval signal requiring a Codex `Would you like to ...?` question plus `1. Yes` choice, with precedence above active work. A negative prose case and the existing interruptible-background-work/composer case preserve Running behavior. All 13 status-evidence tests, cargo test --workspace, cargo check with tauri-app, cargo fmt, and git diff checks passed; final ./init.sh is recorded in progress.md."
+    },
+    {
+      "id": "feat-068",
+      "name": "Claude Final Response Attention",
+      "description": "Recognize Claude's final duration footer and Unicode-spaced prompt so completed runs emit Review status and idle prompts emit Input instead of remaining Running.",
+      "dependencies": [
+        "feat-065"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-28 17:47 +07: Live feat/ad capture showed `✻ Churned for 3m 52s` followed by prompt chrome and a `❯` prompt separated with a non-breaking space; the reducer discarded text before the border and missed the Unicode-spaced prompt, so the runtime signal incorrectly won. Added RED exact-footer and Unicode-prompt tests, made Claude inspect the bounded terminal tail across prompt borders, recognized starred duration footers as completion, and accepted Unicode prompt whitespace. A live-spinner regression preserves Running precedence. All 16 status-evidence tests, cargo test --workspace, cargo check with tauri-app, cargo fmt, and git diff checks passed; final ./init.sh is recorded in progress.md."
     }
   ]
 }

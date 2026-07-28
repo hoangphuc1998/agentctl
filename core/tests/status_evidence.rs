@@ -46,6 +46,72 @@ fn claude_prompt_is_agent_specific_user_attention_evidence() {
 }
 
 #[test]
+fn claude_final_footer_before_prompt_chrome_reports_completion() {
+    let pane = snapshot(
+        "claude",
+        "✳ Configure ad banner test for internal users",
+        concat!(
+            "● Committed as 5879e45. Dev mode now prepends both ad layouts.\n",
+            "\n",
+            "✻ Churned for 3m 52s\n",
+            "\n",
+            "────────────────────────────────────────────────────────────\n",
+            "❯\u{a0}Push it\n",
+            "────────────────────────────────────────────────────────────\n",
+            "  ⏵⏵ auto mode on (shift+tab to cycle) · ← for agents\n",
+        ),
+        100,
+    );
+
+    let decision = observe_terminal_at(AgentKind::Claude, &pane, 100);
+
+    assert_eq!(decision.state, ObservedState::CompletedUnchecked);
+    assert_eq!(decision.source, DetectionSource::Heuristic);
+    assert_eq!(decision.reason, StatusReason::CompletionMarker);
+}
+
+#[test]
+fn claude_unicode_spaced_prompt_inside_chrome_reports_user_attention() {
+    let pane = snapshot(
+        "claude",
+        "Claude Code",
+        concat!(
+            "I need your decision before continuing.\n",
+            "────────────────────────────────────────────────────────────\n",
+            "❯\u{a0}Choose the rollout strategy\n",
+            "────────────────────────────────────────────────────────────\n",
+            "  ⏵⏵ auto mode on (shift+tab to cycle) · ← for agents\n",
+        ),
+        100,
+    );
+
+    let decision = observe_terminal_at(AgentKind::Claude, &pane, 100);
+
+    assert_eq!(decision.state, ObservedState::NeedsUser);
+    assert_eq!(decision.reason, StatusReason::AgentPrompt);
+}
+
+#[test]
+fn claude_live_spinner_outranks_prior_final_footer() {
+    let pane = snapshot(
+        "bash",
+        "⠹ Running follow-up verification",
+        concat!(
+            "✻ Churned for 3m 52s\n",
+            "────────────────────────────────────────────────────────────\n",
+            "❯\u{a0}Push it\n",
+            "────────────────────────────────────────────────────────────\n",
+        ),
+        100,
+    );
+
+    let decision = observe_terminal_at(AgentKind::Claude, &pane, 100);
+
+    assert_eq!(decision.state, ObservedState::Running);
+    assert_eq!(decision.reason, StatusReason::ActiveWorkMarker);
+}
+
+#[test]
 fn stale_work_marker_falls_back_to_the_live_runtime_process() {
     let pane = snapshot(
         "node",

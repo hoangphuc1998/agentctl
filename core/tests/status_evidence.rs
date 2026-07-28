@@ -110,6 +110,55 @@ fn active_work_outranks_completion_and_input_words_in_the_same_snapshot() {
 }
 
 #[test]
+fn codex_blocking_command_approval_outranks_fresh_running_marker() {
+    let pane = snapshot(
+        "node",
+        "Codex CLI",
+        concat!(
+            "• Running curl -sS --max-time 5 http://127.0.0.1:3028/storyboard\n",
+            "\n",
+            "Would you like to run the following command?\n",
+            "\n",
+            "Environment: local\n",
+            "\n",
+            "Reason: Allow a final local read-only refresh check?\n",
+            "\n",
+            "$ curl -sS --max-time 5 http://127.0.0.1:3028/storyboard\n",
+            "\n",
+            "› 1. Yes, proceed (y)\n",
+            "  2. Yes, and don't ask again for commands that start with `curl -sS` (p)\n",
+            "  3. No, and tell Codex what to do differently (esc)\n",
+        ),
+        100,
+    );
+
+    let decision = observe_terminal_at(AgentKind::Codex, &pane, 100);
+
+    assert_eq!(decision.state, ObservedState::NeedsUser);
+    assert_eq!(decision.source, DetectionSource::Heuristic);
+    assert_eq!(decision.reason, StatusReason::ExplicitInputRequest);
+    assert_eq!(decision.confidence, StatusConfidence::High);
+}
+
+#[test]
+fn approval_question_without_numbered_choices_does_not_override_active_work() {
+    let pane = snapshot(
+        "node",
+        "Codex CLI",
+        concat!(
+            "• Working (3s • esc to interrupt)\n",
+            "Document whether you would like to run the following command automatically.\n",
+        ),
+        100,
+    );
+
+    let decision = observe_terminal_at(AgentKind::Codex, &pane, 100);
+
+    assert_eq!(decision.state, ObservedState::Running);
+    assert_eq!(decision.reason, StatusReason::ActiveWorkMarker);
+}
+
+#[test]
 fn final_completion_marker_outranks_the_idle_codex_prompt() {
     let pane = snapshot(
         "codex",

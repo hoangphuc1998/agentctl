@@ -2,22 +2,22 @@
 
 ## Current State
 
-**Last Updated:** 2026-07-28 10:09 +07
-**Session ID:** xdg-tmux-restart-persistence
-**Active Feature:** feat-066 - XDG Tmux Restart Persistence
+**Last Updated:** 2026-07-28 14:44 +07
+**Session ID:** immediate-codex-approval-attention
+**Active Feature:** feat-067 - Immediate Codex Approval Attention
 
 ## Status
 
 ### What is Done
 
-- [x] Reproduced the restart failure against the live user state.
-- [x] Confirmed six active sessions remain durable in the SQLite registry.
-- [x] Confirmed tmux-resurrect saved the pre-restart snapshot under the XDG data directory.
-- [x] Identified Agent Manager's incorrect hard-coded legacy snapshot directory.
-- [x] Matched tmux-resurrect's legacy-first, XDG-fallback path selection.
-- [x] Added regression coverage for both XDG and legacy snapshot layouts.
-- [x] Kept save, status, rewrite-hook, and startup restore callers behind one resolved path object.
-- [x] Documented Linux restart snapshot discovery.
+- [x] Diagnosed the reported Codex command approval against the pure evidence reducer.
+- [x] Confirmed a fresh Running marker outranked the later numbered approval prompt.
+- [x] Added a RED regression using the screenshot's command-approval structure.
+- [x] Added high-confidence blocking-approval evidence above active work.
+- [x] Required both a Codex approval question and numbered affirmative choice.
+- [x] Preserved active-work precedence over the ordinary Codex composer.
+- [x] Added a negative prose case to avoid matching question-like output alone.
+- [x] Documented the approval/composer status policy.
 - [x] Completed focused, workspace, feature-build, formatting, and diff verification.
 
 ### What is In Progress
@@ -26,38 +26,36 @@
 
 ### What is Next
 
-1. Rebuild and relaunch Agent Manager so its tmux pre-restore hook uses XDG snapshots.
-2. On the next computer restart, tmux-resurrect will rewrite managed saved panes to exact
-   Codex/Claude resume commands instead of restoring empty shells.
+1. Rebuild and relaunch Agent Manager to use immediate blocking-approval detection.
+2. Verify the next Codex command approval receives an Input badge and attention notification
+   on the next three-second dashboard refresh.
 
 ## Blockers / Risks
 
 - [x] No code blockers.
-- [ ] The current computer boot already restored the previous snapshot before this fix was built,
-  so panes restored as shells during this boot still need a manual Resume or a fresh snapshot.
+- [ ] Status detection remains terminal-UI based; future Codex wording changes may require another
+  agent-specific profile update.
 - [ ] `npm install` reports 6 existing audit findings (3 moderate, 2 high, 1 critical);
   dependency remediation remains outside this feature.
 
 ## Decisions Made
 
-- Mirror tmux-resurrect's own default directory policy instead of inventing an app-specific path.
-- Preserve compatibility with users who already have the legacy `~/.tmux/resurrect` directory.
-- Centralize the decision in `TmuxRestorePaths` so status, save, rewrite, and restore cannot drift.
-- Keep tmux-resurrect as the lifecycle owner; only correct Agent Manager's snapshot lookup.
+- Model blocking approval as its own evidence signal because it has different precedence from a
+  generic agent composer prompt.
+- Require the approval question and numbered affirmative option together to avoid prose matches.
+- Keep ordinary composer prompts below fresh interruptible work so background tasks remain Running.
+- Keep all behavior in the pure status reducer; tmux collection and frontend display are unchanged.
 
 ## Files Modified This Session
 
-- `src-tauri/src/tmux_restore.rs` for tmux-resurrect-compatible snapshot path resolution.
-- `src-tauri/tests/tmux_restore.rs` for XDG and legacy path regression coverage.
+- `core/src/status.rs` for blocking-approval evidence detection and precedence.
+- `core/tests/status_evidence.rs` for screenshot, negative prose, and preserved composer coverage.
 - `README.md`, `feature_list.json`, and `progress.md` for behavior and continuity.
 
 ## Evidence of Completion
 
-- [x] Live state showed active registry rows and a valid
-  `~/.local/share/tmux/resurrect/last`, while the app checked absent
-  `~/.tmux/resurrect/last`.
-- [x] RED focused test failed because XDG-aware path construction did not exist.
-- [x] 14 tmux restore integration tests passed, including the new XDG and legacy cases.
+- [x] RED screenshot regression returned `Running` instead of `NeedsUser`.
+- [x] All 13 status-evidence tests passed after implementation.
 - [x] `cargo test --workspace` passed.
 - [x] `cargo check -p agent-manager-desktop --features tauri-app` passed.
 - [x] `cargo fmt --all -- --check` and `git diff --check` passed.

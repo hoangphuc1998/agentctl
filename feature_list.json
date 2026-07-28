@@ -676,6 +676,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-28 10:09 +07: Live diagnosis found six active registry sessions and a valid ~/.local/share/tmux/resurrect snapshot while Agent Manager incorrectly checked absent ~/.tmux/resurrect. Added RED XDG/legacy path tests, then matched tmux-resurrect's legacy-first XDG fallback in TmuxRestorePaths. All 14 restore tests, cargo test --workspace, cargo check with tauri-app, cargo fmt, and git diff checks passed; final ./init.sh is recorded in progress.md."
+    },
+    {
+      "id": "feat-067",
+      "name": "Immediate Codex Approval Attention",
+      "description": "Classify Codex's blocking numbered command-approval menu as needing user input immediately, even when a fresh Running marker remains visible above it.",
+      "dependencies": [
+        "feat-065"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-28 14:44 +07: Added a RED status-evidence regression from the reported screenshot proving a fresh Running marker suppressed Codex's numbered command approval. Added a high-confidence BlockingApproval signal requiring a Codex `Would you like to ...?` question plus `1. Yes` choice, with precedence above active work. A negative prose case and the existing interruptible-background-work/composer case preserve Running behavior. All 13 status-evidence tests, cargo test --workspace, cargo check with tauri-app, cargo fmt, and git diff checks passed; final ./init.sh is recorded in progress.md."
     }
   ]
 }

@@ -666,6 +666,16 @@
       ],
       "status": "completed",
       "evidence": "2026-07-27 18:33 +07: Extracted terminal status policy from tmux I/O into a pure evidence reducer with explicit signals, reasons, confidence, timestamps, freshness, and source precedence. Added agent-specific Codex/Claude prompt and work-marker detection, pane title/activity/dead metadata, recent-tail filtering, and a single dashboard decision path. RED coverage failed before the new status module and metadata existed, then 11 evidence tests and 2 tmux metadata tests passed. cargo test --workspace, cargo check -p agent-manager-desktop --features tauri-app, cargo fmt --all -- --check, git diff --check, npm tests/build, and final ./init.sh all passed."
+    },
+    {
+      "id": "feat-066",
+      "name": "XDG Tmux Restart Persistence",
+      "description": "Resolve tmux-resurrect snapshots from the plugin's XDG data directory so saved Agent Manager panes resume their Codex and Claude processes after computer restart.",
+      "dependencies": [
+        "feat-065"
+      ],
+      "status": "completed",
+      "evidence": "2026-07-28 10:09 +07: Live diagnosis found six active registry sessions and a valid ~/.local/share/tmux/resurrect snapshot while Agent Manager incorrectly checked absent ~/.tmux/resurrect. Added RED XDG/legacy path tests, then matched tmux-resurrect's legacy-first XDG fallback in TmuxRestorePaths. All 14 restore tests, cargo test --workspace, cargo check with tauri-app, cargo fmt, and git diff checks passed; final ./init.sh is recorded in progress.md."
     }
   ]
 }

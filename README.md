@@ -78,6 +78,15 @@ ended, the unused legacy service can be removed with:
 tmux kill-session -t agentctl-codex
 ```
 
+## Restart Persistence
+
+When tmux restart restore is enabled, Agent Manager rewrites saved managed panes
+to resume their recorded Codex or Claude session before tmux-resurrect rebuilds
+them. Snapshot discovery follows tmux-resurrect's Linux convention: an existing
+legacy `~/.tmux/resurrect` directory takes precedence; otherwise snapshots are
+loaded from `$XDG_DATA_HOME/tmux/resurrect`, defaulting to
+`~/.local/share/tmux/resurrect`.
+
 ## Worktree File Snapshots
 
 New runs copy non-ignored untracked files into the worktree before the agent

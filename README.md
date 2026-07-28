@@ -71,7 +71,9 @@ separate prompt/work-marker profiles, and future structured provider events can
 feed the same reducer without introducing a shared agent process. A numbered
 Codex approval menu is treated as blocking input even when a preceding Running
 marker is still fresh; the ordinary Codex composer remains subordinate to real
-interruptible work.
+interruptible work. Claude's starred duration footer marks a completed response,
+and prompts separated by Unicode whitespace still request input; a live Claude
+spinner remains authoritative over both.
 
 Runs created by older Agent Manager builds may remain connected to the legacy
 `agentctl-codex` tmux service until they are stopped. After those runs have

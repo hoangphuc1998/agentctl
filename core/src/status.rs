@@ -121,7 +121,11 @@ pub fn collect_terminal_evidence(
         }];
     }
 
-    let recent = recent_activity_text(&pane.visible_text);
+    let recent = if agent == AgentKind::Claude {
+        terminal_tail_text(&pane.visible_text)
+    } else {
+        recent_activity_text(&pane.visible_text)
+    };
     let text = recent.to_ascii_lowercase();
     let activity_at = pane.activity_at.unwrap_or(now);
     let mut evidence = Vec::with_capacity(5);
@@ -175,7 +179,7 @@ pub fn collect_terminal_evidence(
         });
     }
 
-    if has_completion_marker(&text) {
+    if has_completion_marker(agent, &text) {
         evidence.push(StatusEvidence {
             signal: StatusSignal::Completion,
             source: DetectionSource::Heuristic,
@@ -287,23 +291,35 @@ fn has_blocking_approval_prompt(agent: AgentKind, text: &str) -> bool {
     has_question && has_numbered_affirmative_choice
 }
 
-fn has_completion_marker(text: &str) -> bool {
+fn has_completion_marker(agent: AgentKind, text: &str) -> bool {
     text.lines().any(|line| {
         let line = line.trim();
-        contains_any(
-            line,
-            &[
-                "all tasks complete",
-                "all tasks completed",
-                "implementation complete",
-                "ready for review",
-                "worked for",
-            ],
-        ) || matches!(line, "complete" | "completed" | "done")
+        (agent == AgentKind::Claude && is_claude_completion_footer(line))
+            || contains_any(
+                line,
+                &[
+                    "all tasks complete",
+                    "all tasks completed",
+                    "implementation complete",
+                    "ready for review",
+                    "worked for",
+                ],
+            )
+            || matches!(line, "complete" | "completed" | "done")
             || line.starts_with("✓ complete")
             || line.starts_with("✓ done")
             || line.starts_with("status: complete")
     })
+}
+
+fn is_claude_completion_footer(line: &str) -> bool {
+    let Some(summary) = line.strip_prefix('✻').map(str::trim_start) else {
+        return false;
+    };
+    let Some((verb, duration)) = summary.split_once(" for ") else {
+        return false;
+    };
+    !verb.is_empty() && duration.chars().any(|character| character.is_ascii_digit())
 }
 
 fn has_agent_input_prompt(agent: AgentKind, text: &str) -> bool {
@@ -313,7 +329,9 @@ fn has_agent_input_prompt(agent: AgentKind, text: &str) -> bool {
     };
     text.lines().any(|line| {
         let trimmed = line.trim_start();
-        trimmed == prompt.to_string() || trimmed.starts_with(&format!("{prompt} "))
+        trimmed.strip_prefix(prompt).is_some_and(|remainder| {
+            remainder.is_empty() || remainder.chars().next().is_some_and(char::is_whitespace)
+        })
     })
 }
 
@@ -324,9 +342,16 @@ fn recent_activity_text(text: &str) -> String {
         .rposition(|line| is_turn_separator(line))
         .map(|index| index + 1)
         .unwrap_or(0);
-    let recent = &lines[start..];
-    let tail_start = recent.len().saturating_sub(RECENT_TERMINAL_LINES);
-    recent[tail_start..].join("\n")
+    terminal_tail_lines(&lines[start..])
+}
+
+fn terminal_tail_text(text: &str) -> String {
+    terminal_tail_lines(&text.lines().collect::<Vec<_>>())
+}
+
+fn terminal_tail_lines(lines: &[&str]) -> String {
+    let tail_start = lines.len().saturating_sub(RECENT_TERMINAL_LINES);
+    lines[tail_start..].join("\n")
 }
 
 fn is_turn_separator(line: &str) -> bool {

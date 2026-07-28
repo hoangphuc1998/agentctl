@@ -235,6 +235,32 @@ fn tmux_restore_status_reports_missing_plugin_setup() {
 }
 
 #[test]
+fn tmux_restore_paths_use_xdg_data_when_legacy_snapshot_directory_is_absent() {
+    let temp = tempfile::tempdir().unwrap();
+    let data_home = temp.path().join("xdg-data");
+
+    let paths = TmuxRestorePaths::for_home_with_data_home(temp.path(), &data_home);
+
+    assert_eq!(paths.resurrect_save_dir(), data_home.join("tmux/resurrect"));
+    assert_eq!(
+        paths.last_resurrect_file(),
+        data_home.join("tmux/resurrect/last")
+    );
+}
+
+#[test]
+fn tmux_restore_paths_keep_existing_legacy_snapshot_directory() {
+    let temp = tempfile::tempdir().unwrap();
+    let legacy_dir = temp.path().join(".tmux/resurrect");
+    fs::create_dir_all(&legacy_dir).unwrap();
+
+    let paths =
+        TmuxRestorePaths::for_home_with_data_home(temp.path(), temp.path().join("xdg-data"));
+
+    assert_eq!(paths.resurrect_save_dir(), legacy_dir);
+}
+
+#[test]
 fn tmux_restore_status_reports_configured_plugin_setup() {
     let temp = tempfile::tempdir().unwrap();
     let paths = TmuxRestorePaths::for_home(temp.path());

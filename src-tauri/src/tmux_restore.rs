@@ -37,7 +37,16 @@ pub struct TmuxRestorePaths {
 impl TmuxRestorePaths {
     pub fn for_home(home: impl AsRef<Path>) -> Self {
         let home = home.as_ref();
-        Self::for_home_with_config(home, home.join(".tmux.conf"))
+        Self::for_home_with_config_and_data_home(
+            home,
+            home.join(".tmux.conf"),
+            home.join(".local/share"),
+        )
+    }
+
+    pub fn for_home_with_data_home(home: impl AsRef<Path>, data_home: impl AsRef<Path>) -> Self {
+        let home = home.as_ref();
+        Self::for_home_with_config_and_data_home(home, home.join(".tmux.conf"), data_home.as_ref())
     }
 
     pub fn from_environment() -> Self {
@@ -45,14 +54,26 @@ impl TmuxRestorePaths {
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
         let config_path = preferred_tmux_config_path(&home);
-        Self::for_home_with_config(home, config_path)
+        let data_home = env::var_os("XDG_DATA_HOME")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| home.join(".local/share"));
+        Self::for_home_with_config_and_data_home(home, config_path, data_home)
     }
 
-    fn for_home_with_config(home: impl AsRef<Path>, config_path: PathBuf) -> Self {
+    fn for_home_with_config_and_data_home(
+        home: impl AsRef<Path>,
+        config_path: PathBuf,
+        data_home: impl AsRef<Path>,
+    ) -> Self {
         let home = home.as_ref();
         let tmux_dir = home.join(".tmux");
         let plugins_dir = tmux_dir.join("plugins");
-        let resurrect_save_dir = tmux_dir.join("resurrect");
+        let legacy_resurrect_save_dir = tmux_dir.join("resurrect");
+        let resurrect_save_dir = if legacy_resurrect_save_dir.is_dir() {
+            legacy_resurrect_save_dir
+        } else {
+            data_home.as_ref().join("tmux/resurrect")
+        };
         Self {
             config_path,
             tpm_dir: plugins_dir.join("tpm"),
